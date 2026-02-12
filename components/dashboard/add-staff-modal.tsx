@@ -87,19 +87,19 @@ export function AddStaffModal({ isOpen, onClose }: AddStaffModalProps) {
             <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
                 <div className="space-y-2">
                     <label className="text-xs font-bold uppercase tracking-wider text-zinc-500 ml-1">Full Name</label>
-                    <Input {...register("name")} placeholder="Prof. Jane Cooper" className="bg-white/5 border-white/10 h-14 rounded-2xl" />
+                    <Input {...register("name")} placeholder="Prof. Jane Cooper" className="h-11 rounded-xl border-gray-200 bg-white" />
                     {errors.name && <p className="text-[10px] text-red-400 ml-1">{errors.name.message}</p>}
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
                         <label className="text-xs font-bold uppercase tracking-wider text-zinc-500 ml-1">Email Address</label>
-                        <Input {...register("email")} placeholder="jane@school.edu" className="bg-white/5 border-white/10 h-14 rounded-2xl" />
+                        <Input {...register("email")} placeholder="jane@school.edu" className="h-11 rounded-xl border-gray-200 bg-white" />
                         {errors.email && <p className="text-[10px] text-red-400 ml-1">{errors.email.message}</p>}
                     </div>
                     <div className="space-y-2">
                         <label className="text-xs font-bold uppercase tracking-wider text-zinc-500 ml-1">Phone Number</label>
-                        <Input {...register("phone")} placeholder="+91 88888 88888" className="bg-white/5 border-white/10 h-14 rounded-2xl" />
+                        <Input {...register("phone")} placeholder="+91 88888 88888" className="h-11 rounded-xl border-gray-200 bg-white" />
                         {errors.phone && <p className="text-[10px] text-red-400 ml-1">{errors.phone.message}</p>}
                     </div>
                 </div>
@@ -117,7 +117,7 @@ export function AddStaffModal({ isOpen, onClose }: AddStaffModalProps) {
                     />
                     <div className="space-y-2">
                         <label className="text-xs font-bold uppercase tracking-wider text-zinc-500 ml-1">Base Salary (Monthly)</label>
-                        <Input {...register("baseSalary")} type="number" placeholder="₹ 0.00" className="bg-white/5 border-white/10 h-14 rounded-2xl" />
+                        <Input {...register("baseSalary")} type="number" placeholder="₹ 0.00" className="h-11 rounded-xl border-gray-200 bg-white" />
                         {errors.baseSalary && <p className="text-[10px] text-red-400 ml-1">{errors.baseSalary.message}</p>}
                     </div>
                 </div>
@@ -125,7 +125,7 @@ export function AddStaffModal({ isOpen, onClose }: AddStaffModalProps) {
                 {selectedRole === UserRole.TEACHER && (
                     <div className="space-y-2 animate-in fade-in slide-in-from-top-2 duration-300">
                         <label className="text-xs font-bold uppercase tracking-wider text-zinc-500 ml-1">Primary Subject / Specialization</label>
-                        <Input {...register("subject")} placeholder="Mathematics, Physics, etc." className="bg-white/5 border-white/10 h-14 rounded-2xl" />
+                        <Input {...register("subject")} placeholder="Mathematics, Physics, etc." className="h-11 rounded-xl border-gray-200 bg-white" />
                     </div>
                 )}
 
@@ -134,7 +134,7 @@ export function AddStaffModal({ isOpen, onClose }: AddStaffModalProps) {
                         type="button"
                         variant="ghost"
                         onClick={onClose}
-                        className="h-14 flex-1 border border-white/10 rounded-2xl font-bold"
+                        className="h-11 flex-1 rounded-xl border border-gray-200 font-medium hover:bg-gray-50"
                     >
                         Cancel
                     </Button>

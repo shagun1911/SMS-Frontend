@@ -11,14 +11,16 @@ import {
     GraduationCap,
     Banknote,
     Bus,
-    CalendarDays,
     FileText,
     Settings,
     ShieldCheck,
     Building2,
     CreditCard,
     Layers,
-    History
+    History,
+    BookOpen,
+    IdCard,
+    CalendarDays
 } from "lucide-react";
 
 interface SidebarProps extends React.HTMLAttributes<HTMLDivElement> { }
@@ -79,6 +81,12 @@ export function Sidebar({ className }: SidebarProps) {
             roles: [UserRole.SCHOOL_ADMIN, UserRole.TEACHER, UserRole.ACCOUNTANT],
         },
         {
+            label: "Classes",
+            icon: BookOpen,
+            href: "/classes",
+            roles: [UserRole.SCHOOL_ADMIN, UserRole.TEACHER],
+        },
+        {
             label: "Staff",
             icon: Users,
             href: "/staff",
@@ -103,9 +111,15 @@ export function Sidebar({ className }: SidebarProps) {
             roles: [UserRole.SCHOOL_ADMIN, UserRole.TEACHER],
         },
         {
-            label: "Attendance",
+            label: "Admit Cards",
+            icon: IdCard,
+            href: "/admit-cards",
+            roles: [UserRole.SCHOOL_ADMIN, UserRole.TEACHER],
+        },
+        {
+            label: "Timetable",
             icon: CalendarDays,
-            href: "/attendance",
+            href: "/timetable",
             roles: [UserRole.SCHOOL_ADMIN, UserRole.TEACHER],
         },
     ];
@@ -129,33 +143,36 @@ export function Sidebar({ className }: SidebarProps) {
     const filteredRoutes = allRoutes.filter((route) => route.roles.includes(role));
 
     return (
-        <div className={cn("pb-12 h-screen border-r bg-card", className)}>
-            <div className="space-y-4 py-4">
-                <div className="px-3 py-2">
-                    <h2 className="mb-2 px-4 text-lg font-bold tracking-tight text-primary flex items-center gap-2">
-                        <div className="bg-primary/10 p-2 rounded-lg">
-                            <ShieldCheck className="h-5 w-5 text-primary" />
+        <div className={cn("pb-12 h-screen border-r border-slate-200 bg-slate-50/80 w-64 shrink-0", className)}>
+            <div className="flex h-full flex-col py-5">
+                <div className="px-4 mb-6">
+                    <div className="flex items-center gap-3 rounded-xl bg-white border border-slate-200 px-4 py-3 shadow-sm">
+                        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-600 text-white shadow-md">
+                            <ShieldCheck className="h-5 w-5" />
                         </div>
-                        SSMS
-                    </h2>
-                    <div className="space-y-1 mt-6">
-                        {filteredRoutes.map((route) => (
+                        <span className="text-base font-bold tracking-tight text-slate-900">SSMS</span>
+                    </div>
+                </div>
+                <nav className="flex-1 space-y-0.5 px-3">
+                    {filteredRoutes.map((route) => {
+                        const isActive = pathname === route.href || pathname?.startsWith(route.href + "/");
+                        return (
                             <Link
                                 key={route.href}
                                 href={route.href}
                                 className={cn(
-                                    "flex items-center rounded-md px-3 py-2 text-sm font-medium hover:bg-accent hover:text-accent-foreground transition-colors",
-                                    pathname === route.href || pathname?.startsWith(route.href + "/")
-                                        ? "bg-accent text-accent-foreground"
-                                        : "text-muted-foreground"
+                                    "flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-200",
+                                    isActive
+                                        ? "bg-indigo-600 text-white shadow-md shadow-indigo-500/25"
+                                        : "text-slate-600 hover:bg-white hover:text-slate-900 hover:shadow-sm border border-transparent hover:border-slate-200"
                                 )}
                             >
-                                <route.icon className="mr-2 h-4 w-4" />
+                                <route.icon className={cn("h-5 w-5 shrink-0", isActive ? "text-white" : "text-slate-500")} />
                                 {route.label}
                             </Link>
-                        ))}
-                    </div>
-                </div>
+                        );
+                    })}
+                </nav>
             </div>
         </div>
     );

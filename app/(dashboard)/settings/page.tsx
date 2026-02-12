@@ -1,20 +1,19 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
-    Settings as SettingsIcon,
     Building2,
     Bell,
-    Shield,
     Globe,
-    Database,
-    Smartphone,
     Mail,
-    ChevronRight,
     Save,
     Image as ImageIcon,
-    Camera
+    Camera,
+    Loader2,
+    Smartphone
 } from "lucide-react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -22,104 +21,255 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import api from "@/lib/api";
+
+function formatAddress(addr: { street?: string; city?: string; state?: string; pincode?: string; country?: string } | undefined) {
+    if (!addr) return "";
+    const parts = [addr.street, addr.city, addr.state, addr.pincode, addr.country].filter(Boolean);
+    return parts.join(", ");
+}
+
+function parseAddress(full: string) {
+    const parts = full.split(",").map((p) => p.trim());
+    return {
+        street: parts[0] ?? "",
+        city: parts[1] ?? "",
+        state: parts[2] ?? "",
+        pincode: parts[3] ?? "",
+        country: parts[4] ?? "",
+    };
+}
 
 export default function SettingsPage() {
+    const queryClient = useQueryClient();
+    const [identityForm, setIdentityForm] = useState({
+        schoolName: "",
+        schoolCode: "",
+        email: "",
+        phone: "",
+        addressFull: "",
+    });
+
+    const { data: school, isLoading } = useQuery({
+        queryKey: ["school-me"],
+        queryFn: async () => {
+            const res = await api.get("/schools/me");
+            return res.data.data;
+        },
+    });
+
+    useEffect(() => {
+        if (school) {
+            setIdentityForm({
+                schoolName: school.schoolName ?? "",
+                schoolCode: school.schoolCode ?? "",
+                email: school.email ?? "",
+                phone: school.phone ?? "",
+                addressFull: formatAddress(school.address),
+            });
+        }
+    }, [school]);
+
+    const updateSchool = useMutation({
+        mutationFn: async (payload: Record<string, unknown>) => {
+            const res = await api.patch("/schools/me", payload);
+            return res.data.data;
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ["school-me"] });
+            toast.success("School identity updated.");
+        },
+        onError: (err: { response?: { data?: { message?: string } } }) => {
+            toast.error(err.response?.data?.message ?? "Failed to update.");
+        },
+    });
+
+    const handleSaveIdentity = () => {
+        const address = parseAddress(identityForm.addressFull);
+        updateSchool.mutate({
+            schoolName: identityForm.schoolName,
+            schoolCode: identityForm.schoolCode,
+            email: identityForm.email,
+            phone: identityForm.phone,
+            address,
+        });
+    };
+
+    const handleLogoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        const formData = new FormData();
+        formData.append("image", file);
+        try {
+            const { data } = await api.post("/upload/image", formData, {
+                headers: { "Content-Type": "multipart/form-data" },
+            });
+            const url = data?.data?.url ?? data?.url;
+            if (url) {
+                await api.patch("/schools/me", { logo: url });
+                queryClient.invalidateQueries({ queryKey: ["school-me"] });
+                toast.success("Logo updated.");
+            }
+        } catch {
+            toast.error("Logo upload failed.");
+        }
+        e.target.value = "";
+    };
+
+    if (isLoading) {
+        return (
+            <div className="flex h-64 items-center justify-center">
+                <Loader2 className="h-8 w-8 animate-spin text-indigo-500" />
+            </div>
+        );
+    }
+
     return (
         <div className="flex-1 space-y-6">
             <div>
-                <h2 className="text-3xl font-bold tracking-tight bg-gradient-to-r from-zinc-200 to-zinc-500 bg-clip-text text-transparent">
+                <h2 className="text-2xl font-bold tracking-tight text-gray-900">
                     System Configuration
                 </h2>
-                <p className="text-muted-foreground mt-1">
+                <p className="mt-1 text-sm text-gray-500">
                     Manage school identity, regional settings, and security preferences.
                 </p>
             </div>
 
             <Tabs defaultValue="profile" className="space-y-6">
-                <TabsList className="bg-white/5 border border-white/5 h-12 rounded-xl p-1 gap-1">
-                    <TabsTrigger value="profile" className="data-[state=active]:bg-white/10 data-[state=active]:text-white rounded-lg px-6 font-bold text-[10px] uppercase tracking-widest">School Profile</TabsTrigger>
-                    <TabsTrigger value="academic" className="data-[state=active]:bg-white/10 data-[state=active]:text-white rounded-lg px-6 font-bold text-[10px] uppercase tracking-widest">Academic</TabsTrigger>
-                    <TabsTrigger value="notifications" className="data-[state=active]:bg-white/10 data-[state=active]:text-white rounded-lg px-6 font-bold text-[10px] uppercase tracking-widest">Alerts</TabsTrigger>
-                    <TabsTrigger value="security" className="data-[state=active]:bg-white/10 data-[state=active]:text-white rounded-lg px-6 font-bold text-[10px] uppercase tracking-widest">Security</TabsTrigger>
+                <TabsList className="h-11 rounded-xl border border-gray-200 bg-white p-1 gap-1 shadow-sm">
+                    <TabsTrigger
+                        value="profile"
+                        className="data-[state=active]:bg-indigo-100 data-[state=active]:text-indigo-700 rounded-lg px-5 text-xs font-medium"
+                    >
+                        School Profile
+                    </TabsTrigger>
+                    <TabsTrigger
+                        value="notifications"
+                        className="data-[state=active]:bg-indigo-100 data-[state=active]:text-indigo-700 rounded-lg px-5 text-xs font-medium"
+                    >
+                        Alerts
+                    </TabsTrigger>
                 </TabsList>
 
                 <TabsContent value="profile" className="m-0 space-y-6">
                     <div className="grid gap-6 md:grid-cols-3">
-                        <Card className="md:col-span-2 border-white/5 bg-neutral-900/50 backdrop-blur-xl rounded-[2rem] overflow-hidden">
-                            <CardHeader className="p-8 border-b border-white/5 bg-white/[0.01]">
-                                <CardTitle className="text-xl font-bold uppercase tracking-tight">General Identity</CardTitle>
-                                <CardDescription>Basic information visible on reports and invoices.</CardDescription>
+                        <Card className="md:col-span-2 overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
+                            <CardHeader className="border-b border-gray-100 bg-gray-50/50 p-6">
+                                <CardTitle className="text-lg font-semibold text-gray-900">General Identity</CardTitle>
+                                <CardDescription className="text-gray-500">Basic information visible on reports and invoices.</CardDescription>
                             </CardHeader>
-                            <CardContent className="p-8 space-y-6">
+                            <CardContent className="p-6 space-y-6">
                                 <div className="grid gap-6 md:grid-cols-2">
                                     <div className="space-y-2">
-                                        <Label className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">School Name</Label>
-                                        <Input defaultValue="ABC International Public School" className="bg-white/[0.02] border-white/10 h-11" />
+                                        <Label className="text-xs font-medium text-gray-700">School Name</Label>
+                                        <Input
+                                            value={identityForm.schoolName}
+                                            onChange={(e) => setIdentityForm((f) => ({ ...f, schoolName: e.target.value }))}
+                                            className="h-10 border-gray-200 bg-white"
+                                        />
                                     </div>
                                     <div className="space-y-2">
-                                        <Label className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">School Code / UDISE</Label>
-                                        <Input defaultValue="ABC302911" className="bg-white/[0.02] border-white/10 h-11" />
+                                        <Label className="text-xs font-medium text-gray-700">School Code / UDISE</Label>
+                                        <Input
+                                            value={identityForm.schoolCode}
+                                            onChange={(e) => setIdentityForm((f) => ({ ...f, schoolCode: e.target.value }))}
+                                            className="h-10 border-gray-200 bg-white"
+                                        />
                                     </div>
                                     <div className="space-y-2">
-                                        <Label className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Official Email</Label>
-                                        <Input defaultValue="contact@abcschool.com" className="bg-white/[0.02] border-white/10 h-11" />
+                                        <Label className="text-xs font-medium text-gray-700">Official Email</Label>
+                                        <Input
+                                            type="email"
+                                            value={identityForm.email}
+                                            onChange={(e) => setIdentityForm((f) => ({ ...f, email: e.target.value }))}
+                                            className="h-10 border-gray-200 bg-white"
+                                        />
                                     </div>
                                     <div className="space-y-2">
-                                        <Label className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Phone Number</Label>
-                                        <Input defaultValue="+91 98765 43210" className="bg-white/[0.02] border-white/10 h-11" />
+                                        <Label className="text-xs font-medium text-gray-700">Phone Number</Label>
+                                        <Input
+                                            value={identityForm.phone}
+                                            onChange={(e) => setIdentityForm((f) => ({ ...f, phone: e.target.value }))}
+                                            className="h-10 border-gray-200 bg-white"
+                                        />
                                     </div>
                                 </div>
                                 <div className="space-y-2">
-                                    <Label className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Full Address</Label>
-                                    <Input defaultValue="Sec-14, Vidyut Nagar, Jaipur, Rajasthan 302021" className="bg-white/[0.02] border-white/10 h-11" />
+                                    <Label className="text-xs font-medium text-gray-700">Full Address (Street, City, State, Pincode, Country)</Label>
+                                    <Input
+                                        value={identityForm.addressFull}
+                                        onChange={(e) => setIdentityForm((f) => ({ ...f, addressFull: e.target.value }))}
+                                        placeholder="e.g. Sec-14, Jaipur, Rajasthan, 302021, India"
+                                        className="h-10 border-gray-200 bg-white"
+                                    />
                                 </div>
-                                <div className="pt-4 flex justify-end">
-                                    <Button className="bg-zinc-100 text-black hover:bg-white font-bold gap-2 rounded-xl h-11 px-8">
-                                        <Save className="h-4 w-4" /> Save Identity
+                                <div className="pt-2 flex justify-end">
+                                    <Button
+                                        onClick={handleSaveIdentity}
+                                        disabled={updateSchool.isPending}
+                                        className="bg-indigo-600 hover:bg-indigo-500 gap-2 rounded-xl h-10 px-6"
+                                    >
+                                        {updateSchool.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                                        Save Identity
                                     </Button>
                                 </div>
                             </CardContent>
                         </Card>
 
                         <div className="space-y-6">
-                            <Card className="border-white/5 bg-neutral-900/50 backdrop-blur-xl rounded-[2rem] overflow-hidden">
-                                <CardHeader className="p-8 border-b border-white/5 bg-white/[0.01]">
-                                    <CardTitle className="text-lg font-bold uppercase tracking-tight">Branding</CardTitle>
+                            <Card className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
+                                <CardHeader className="border-b border-gray-100 p-6">
+                                    <CardTitle className="text-base font-semibold text-gray-900">Branding</CardTitle>
                                 </CardHeader>
-                                <CardContent className="p-8 flex flex-col items-center">
-                                    <div className="relative group">
-                                        <Avatar className="h-32 w-32 border-2 border-white/10 ring-4 ring-white/5">
-                                            <AvatarImage src="" />
-                                            <AvatarFallback className="bg-zinc-800 text-zinc-500">
-                                                <Building2 className="h-12 w-12" />
+                                <CardContent className="p-6 flex flex-col items-center">
+                                    <label className="relative group cursor-pointer">
+                                        <Avatar className="h-28 w-28 border-2 border-gray-200 ring-2 ring-gray-100">
+                                            <AvatarImage src={school?.logo} alt="School logo" />
+                                            <AvatarFallback className="bg-indigo-100 text-indigo-600">
+                                                <Building2 className="h-10 w-10" />
                                             </AvatarFallback>
                                         </Avatar>
-                                        <div className="absolute inset-0 bg-black/60 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer">
+                                        <div className="absolute inset-0 rounded-full bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
                                             <Camera className="h-6 w-6 text-white" />
                                         </div>
-                                    </div>
-                                    <p className="mt-6 text-[10px] font-bold text-zinc-500 uppercase tracking-widest text-center leading-relaxed">
-                                        Max size: 2MB<br />Recommended: 512x512 PNG
+                                        <input
+                                            type="file"
+                                            accept="image/*"
+                                            className="sr-only"
+                                            onChange={handleLogoChange}
+                                        />
+                                    </label>
+                                    <p className="mt-4 text-xs text-gray-500 text-center">
+                                        Max size: 2MB. Recommended: 512×512 PNG
                                     </p>
-                                    <Button variant="outline" className="mt-6 w-full border-white/10 rounded-xl gap-2 font-bold text-[10px] uppercase tracking-widest">
-                                        <ImageIcon className="h-3.5 w-3.5" /> Replace Logo
-                                    </Button>
+                                    <Label htmlFor="logo-upload" className="mt-4">
+                                        <span className="inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-4 py-2 text-xs font-medium text-gray-700 hover:bg-gray-50 cursor-pointer">
+                                            <ImageIcon className="h-3.5 w-3.5" /> Replace Logo
+                                        </span>
+                                        <input
+                                            id="logo-upload"
+                                            type="file"
+                                            accept="image/*"
+                                            className="sr-only"
+                                            onChange={handleLogoChange}
+                                        />
+                                    </Label>
                                 </CardContent>
                             </Card>
 
-                            <Card className="border-white/5 bg-neutral-900/50 backdrop-blur-xl rounded-[2rem] overflow-hidden">
-                                <div className="p-8 space-y-4">
+                            <Card className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
+                                <div className="p-6 space-y-4">
                                     <div className="flex items-center justify-between">
                                         <div className="space-y-0.5">
-                                            <Label className="text-xs font-bold text-white uppercase tracking-tight">Auto-Tax Invoice</Label>
-                                            <p className="text-[10px] text-zinc-500 font-medium">Generate GST bills automatically</p>
+                                            <Label className="text-xs font-semibold text-gray-900">Auto-Tax Invoice</Label>
+                                            <p className="text-xs text-gray-500">Generate GST bills automatically</p>
                                         </div>
                                         <Switch />
                                     </div>
                                     <div className="flex items-center justify-between">
                                         <div className="space-y-0.5">
-                                            <Label className="text-xs font-bold text-white uppercase tracking-tight">Public Profile</Label>
-                                            <p className="text-[10px] text-zinc-500 font-medium">Visible on school directory</p>
+                                            <Label className="text-xs font-semibold text-gray-900">Public Profile</Label>
+                                            <p className="text-xs text-gray-500">Visible on school directory</p>
                                         </div>
                                         <Switch defaultChecked />
                                     </div>
@@ -130,25 +280,29 @@ export default function SettingsPage() {
                 </TabsContent>
 
                 <TabsContent value="notifications" className="m-0">
-                    <Card className="border-white/5 bg-neutral-900/50 backdrop-blur-xl rounded-[2rem] overflow-hidden max-w-2xl">
-                        <CardHeader className="p-8 border-b border-white/5">
-                            <CardTitle className="text-xl font-bold uppercase tracking-tight">Notification Channels</CardTitle>
+                    <Card className="max-w-2xl overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
+                        <CardHeader className="border-b border-gray-100 p-6">
+                            <CardTitle className="text-lg font-semibold text-gray-900">Notification Channels</CardTitle>
+                            <CardDescription className="text-gray-500">Configure how you receive alerts.</CardDescription>
                         </CardHeader>
                         <CardContent className="p-0">
                             {[
                                 { title: "SMS Alerts", desc: "Send fee reminders via SMS gateway", icon: Smartphone, enabled: true },
                                 { title: "Email Broadcasts", desc: "Weekly academic performance reports", icon: Mail, enabled: true },
                                 { title: "System Push", desc: "Internal dashboard notification alerts", icon: Bell, enabled: false },
-                                { title: "Webhook Integration", desc: "Export data to external ERP systems", icon: Globe, enabled: false }
+                                { title: "Webhook Integration", desc: "Export data to external ERP systems", icon: Globe, enabled: false },
                             ].map((item, i) => (
-                                <div key={i} className="flex items-center justify-between p-8 border-b border-white/5 last:border-0 hover:bg-white/[0.01] transition-colors">
-                                    <div className="flex items-center gap-6">
-                                        <div className="bg-zinc-800 p-3 rounded-2xl">
-                                            <item.icon className="h-5 w-5 text-zinc-400" />
+                                <div
+                                    key={i}
+                                    className="flex items-center justify-between border-b border-gray-100 p-6 last:border-0 hover:bg-gray-50/50 transition-colors"
+                                >
+                                    <div className="flex items-center gap-4">
+                                        <div className="rounded-xl border border-gray-200 bg-gray-50 p-3">
+                                            <item.icon className="h-5 w-5 text-gray-600" />
                                         </div>
                                         <div>
-                                            <p className="text-sm font-bold text-white uppercase tracking-tight">{item.title}</p>
-                                            <p className="text-[10px] text-zinc-500 font-medium mt-0.5">{item.desc}</p>
+                                            <p className="text-sm font-medium text-gray-900">{item.title}</p>
+                                            <p className="text-xs text-gray-500 mt-0.5">{item.desc}</p>
                                         </div>
                                     </div>
                                     <Switch defaultChecked={item.enabled} />

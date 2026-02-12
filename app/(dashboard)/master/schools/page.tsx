@@ -55,7 +55,7 @@ export default function ManageSchoolsPage() {
     if (isLoading) {
         return (
             <div className="flex h-[80vh] w-full items-center justify-center">
-                <Loader2 className="h-10 w-10 animate-spin text-blue-500" />
+                <Loader2 className="h-10 w-10 animate-spin text-indigo-500" />
             </div>
         );
     }
@@ -64,86 +64,80 @@ export default function ManageSchoolsPage() {
         <div className="flex-1 space-y-6">
             <div className="flex items-center justify-between">
                 <div>
-                    <h2 className="text-3xl font-bold tracking-tight bg-gradient-to-r from-blue-400 to-cyan-400 bg-clip-text text-transparent">
+                    <h2 className="text-2xl font-bold tracking-tight text-gray-900">
                         Global Institution Registry
                     </h2>
-                    <p className="text-muted-foreground mt-1">
+                    <p className="mt-1 text-sm text-gray-500">
                         Authoritative control over all registered schools and their operational status.
                     </p>
                 </div>
-                <Button className="bg-blue-600 hover:bg-blue-500 gap-2">
+                <Button className="bg-indigo-600 hover:bg-indigo-500 gap-2">
                     <Plus className="h-4 w-4" /> Register New School
                 </Button>
             </div>
 
             <div className="flex items-center gap-4">
                 <div className="relative flex-1 max-w-sm">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-500" />
+                    <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
                     <Input
                         placeholder="Search institutions..."
-                        className="pl-10 bg-white/[0.02] border-white/10"
+                        className="pl-10 border-gray-200 bg-white"
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
                     />
                 </div>
                 <div className="flex items-center gap-2">
-                    <span className="text-xs font-bold text-zinc-500 uppercase tracking-widest">Global Status:</span>
+                    <span className="text-xs font-medium text-gray-500">Status:</span>
                     <div className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
-                    <span className="text-xs font-bold text-emerald-500 uppercase tracking-widest">Normal Operations</span>
+                    <span className="text-xs font-medium text-emerald-600">Normal</span>
                 </div>
             </div>
 
             <div className="grid gap-6">
                 {schools.length === 0 ? (
-                    <div className="p-12 text-center text-zinc-500 bg-white/[0.01] border border-white/5 rounded-3xl">
+                    <div className="rounded-2xl border border-gray-200 bg-white p-12 text-center text-gray-500 shadow-sm">
                         No schools registered in the ecosystem yet.
                     </div>
                 ) : (
                     schools.map((school: any) => (
-                        <Card key={school._id} className="border-white/5 bg-neutral-900/50 backdrop-blur-xl overflow-hidden group hover:border-blue-500/50 transition-all">
-                            <div className="p-6 flex items-center justify-between">
-                                <div className="flex items-center gap-6">
-                                    <div className="h-14 w-14 rounded-2xl bg-blue-600/10 flex items-center justify-center border border-blue-500/20">
-                                        <Building2 className="h-7 w-7 text-blue-400" />
+                        <Card key={school._id} className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm transition-shadow hover:shadow-md">
+                            <div className="flex items-center justify-between p-6">
+                                <div className="flex items-center gap-4">
+                                    <div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-indigo-200 bg-indigo-50">
+                                        <Building2 className="h-7 w-7 text-indigo-600" />
                                     </div>
                                     <div>
-                                        <h3 className="text-lg font-bold text-white group-hover:text-blue-400 transition-colors">
+                                        <h3 className="text-lg font-semibold text-gray-900">
                                             {school.schoolName}
                                         </h3>
-                                        <div className="flex items-center gap-4 mt-1">
-                                            <span className="text-xs text-zinc-500 flex items-center gap-1">
-                                                🌍 {school.address.city}, {school.address.state}
-                                            </span>
-                                            <span className="text-xs font-bold bg-zinc-800 px-2 py-0.5 rounded text-zinc-400 uppercase tracking-wider">
-                                                {school.subscriptionPlan} Plan
-                                            </span>
+                                        <div className="mt-1 flex items-center gap-3 text-xs text-gray-500">
+                                            <span>{school.address?.city}, {school.address?.state}</span>
+                                            <span className="rounded bg-gray-100 px-2 py-0.5 font-medium text-gray-600">{school.subscriptionPlan}</span>
                                         </div>
                                     </div>
                                 </div>
-
-                                <div className="flex items-center gap-12">
+                                <div className="flex items-center gap-8">
                                     <div className="text-right">
-                                        <p className="text-xs text-zinc-500 uppercase tracking-widest font-bold">Students</p>
-                                        <p className="text-lg font-mono font-bold text-white">{school.studentLimit}</p>
+                                        <p className="text-xs font-medium text-gray-500">Limit</p>
+                                        <p className="font-mono font-semibold text-gray-900">{school.studentLimit ?? "—"}</p>
                                     </div>
-
-                                    <div className="flex items-center gap-3">
+                                    <div className="flex items-center gap-2">
                                         <Button
                                             onClick={() => updateSchoolMutation.mutate({ id: school._id, data: { isActive: !school.isActive } })}
-                                            className={school.isActive ? "bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20" : "bg-red-500/10 text-red-400 hover:bg-red-500/20"}
+                                            size="sm"
+                                            className={school.isActive ? "bg-emerald-100 text-emerald-700 hover:bg-emerald-200" : "bg-red-100 text-red-700 hover:bg-red-200"}
                                         >
-                                            {school.isActive ? <CheckCircle2 className="h-4 w-4 mr-2" /> : <XCircle className="h-4 w-4 mr-2" />}
+                                            {school.isActive ? <CheckCircle2 className="mr-1.5 h-4 w-4" /> : <XCircle className="mr-1.5 h-4 w-4" />}
                                             {school.isActive ? "Active" : "Suspended"}
                                         </Button>
-
-                                        <Button variant="ghost" size="icon" className="text-zinc-500 hover:text-white">
+                                        <Button variant="ghost" size="icon" className="text-gray-500 hover:bg-gray-100">
                                             <MoreVertical className="h-5 w-5" />
                                         </Button>
                                     </div>
                                 </div>
                             </div>
-                            <div className={`h-1 w-full ${school.isActive ? 'bg-emerald-500/20' : 'bg-red-500/20'}`}>
-                                <div className={`h-full ${school.isActive ? 'bg-emerald-500' : 'bg-red-500'} w-[100%] transition-all duration-1000`} />
+                            <div className={`h-1 w-full ${school.isActive ? "bg-emerald-100" : "bg-red-100"}`}>
+                                <div className={`h-full w-full ${school.isActive ? "bg-emerald-500" : "bg-red-500"}`} />
                             </div>
                         </Card>
                     ))

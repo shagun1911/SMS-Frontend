@@ -29,24 +29,28 @@ export function RecentActivity({
     }
 
     return (
-        <div className={cn("space-y-8", className)}>
+        <div className={cn("space-y-6", className)}>
             {activities.map((activity) => (
-                <div key={activity.id} className="flex items-center">
+                <div key={activity.id} className="flex items-center gap-4">
                     <div className={cn(
-                        "h-9 w-9 rounded-full flex items-center justify-center text-xs font-bold ring-1 ring-white/10",
-                        activity.type === 'system' ? 'bg-blue-500/10 text-blue-400' :
-                            activity.type === 'infra' ? 'bg-emerald-500/10 text-emerald-400' :
-                                'bg-zinc-800 text-zinc-400'
+                        "h-9 w-9 shrink-0 rounded-full flex items-center justify-center text-xs font-bold ring-1 ring-gray-200",
+                        activity.type === 'system' ? 'bg-indigo-100 text-indigo-600' :
+                            activity.type === 'infra' ? 'bg-emerald-100 text-emerald-600' :
+                                'bg-gray-100 text-gray-600'
                     )}>
                         {activity.event.charAt(0)}
                     </div>
-                    <div className="ml-4 space-y-1">
-                        <p className="text-sm font-medium leading-none text-white">{activity.event}</p>
-                        <p className="text-sm text-zinc-500">
+                    <div className="min-w-0 flex-1 space-y-0.5">
+                        <p className="text-sm font-medium leading-none text-gray-900 truncate">{activity.event}</p>
+                        <p className="text-sm text-gray-500 truncate">
                             {activity.description}
                         </p>
                     </div>
-                    <div className="ml-auto text-xs font-medium text-zinc-600">{activity.time}</div>
+                    <div className="shrink-0 text-xs text-gray-400">
+                        {typeof activity.time === 'string' && activity.time.length > 10
+                            ? new Date(activity.time).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })
+                            : activity.time}
+                    </div>
                 </div>
             ))}
         </div>

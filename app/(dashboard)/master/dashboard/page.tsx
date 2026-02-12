@@ -55,11 +55,11 @@ export default function MasterDashboardPage() {
         <div className="flex-1 space-y-6">
             <div className="flex items-center justify-between">
                 <div>
-                    <h2 className="text-3xl font-bold tracking-tight bg-gradient-to-r from-blue-400 to-emerald-400 bg-clip-text text-transparent">
+                    <h2 className="text-3xl font-bold tracking-tight text-gray-900">
                         Master Console
                     </h2>
-                    <p className="text-muted-foreground mt-1">
-                        Global overview of the SSMS Ecosystem
+                    <p className="text-gray-500 mt-1">
+                        Global overview of the SSMS ecosystem
                     </p>
                 </div>
                 <div className="flex items-center gap-3">
@@ -100,10 +100,10 @@ export default function MasterDashboardPage() {
             </div>
 
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
-                <Card className="col-span-4 border-white/5 bg-neutral-900/50 backdrop-blur-xl">
+                <Card className="col-span-4 border border-gray-200 bg-white shadow-sm">
                     <CardHeader>
-                        <CardTitle className="flex items-center gap-2">
-                            <LayoutDashboard className="h-5 w-5 text-blue-400" />
+                        <CardTitle className="flex items-center gap-2 text-gray-900">
+                            <LayoutDashboard className="h-5 w-5 text-indigo-600" />
                             Global Registration Growth
                         </CardTitle>
                     </CardHeader>
@@ -111,11 +111,11 @@ export default function MasterDashboardPage() {
                         <OverviewChart data={stats?.monthlyTrends} />
                     </CardContent>
                 </Card>
-                <Card className="col-span-3 border-white/5 bg-neutral-900/50 backdrop-blur-xl">
+                <Card className="col-span-3 border border-gray-200 bg-white shadow-sm">
                     <CardHeader>
-                        <CardTitle className="flex items-center gap-2">
-                            <Activity className="h-5 w-5 text-emerald-400" />
-                            Recent Infrastructure Events
+                        <CardTitle className="flex items-center gap-2 text-gray-900">
+                            <Activity className="h-5 w-5 text-indigo-600" />
+                            Recent infrastructure events
                         </CardTitle>
                     </CardHeader>
                     <CardContent>

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { useRouter } from "next/navigation";
 import {
     Search,
     Filter,
@@ -25,22 +26,119 @@ import { Badge } from "@/components/ui/badge";
 import api from "@/lib/api";
 
 import { AddStaffModal } from "@/components/dashboard/add-staff-modal";
-import { SalaryActionModal } from "@/components/dashboard/salary-action-modal";
+
+  interface StaffMember {
+    _id: string;
+    name: string;
+    email: string;
+    phone: string;
+    role: string;
+    baseSalary?: number;
+    photo?: string;
+    createdAt: string;
+}
+
+interface StaffCardProps {
+    member: StaffMember;
+    onOpenProfile: (member: StaffMember) => void;
+}
+
+function StaffCard({ member, onOpenProfile }: StaffCardProps) {
+    const { data: salaryHistory } = useQuery({
+        queryKey: ["staff-last-salary", member._id],
+        queryFn: async () => {
+            const res = await api.get(`/salaries/staff/${member._id}/history`);
+            return res.data.data || [];
+        },
+        staleTime: 1000 * 60 * 5,
+    });
+
+    const lastPayment = Array.isArray(salaryHistory) && salaryHistory.length > 0
+        ? salaryHistory.find((record: any) => record.status === "paid") || salaryHistory[0]
+        : null;
+
+    const lastPaidLabel = lastPayment
+        ? `${lastPayment.month} ${lastPayment.year}`
+        : "No payments yet";
+
+    const lastPaidAmount = lastPayment ? `₹${lastPayment.netSalary}` : "—";
+
+    return (
+        <Card className="border border-gray-200 bg-white overflow-hidden rounded-2xl shadow-sm hover:shadow-md transition-shadow">
+            <CardContent className="p-6">
+                <div className="flex items-start justify-between">
+                    <div className="flex items-center gap-4">
+                        <Avatar className="h-14 w-14 border border-gray-200">
+                            <AvatarImage src={member.photo} />
+                            <AvatarFallback className="bg-indigo-100 text-indigo-600 font-semibold">
+                                {member.name.charAt(0)}
+                            </AvatarFallback>
+                        </Avatar>
+                        <div>
+                            <h3 className="font-semibold text-lg text-gray-900">{member.name}</h3>
+                            <Badge variant="secondary" className="mt-1 text-xs">
+                                {member.role.replace('_', ' ')}
+                            </Badge>
+                        </div>
+                    </div>
+                    <Button variant="ghost" size="icon" className="text-gray-400 hover:text-gray-600 rounded-lg">
+                        <MoreVertical className="h-4 w-4" />
+                    </Button>
+                </div>
+
+                <div className="mt-6 grid grid-cols-2 gap-3">
+                    <div className="flex items-center gap-2.5 p-3 rounded-xl bg-gray-50 border border-gray-100">
+                        <div className="bg-emerald-100 p-1.5 rounded-lg">
+                            <IndianRupee className="h-3.5 w-3.5 text-emerald-600" />
+                        </div>
+                        <div>
+                            <p className="text-[10px] font-medium text-gray-500 uppercase tracking-wider">Baseline</p>
+                            <p className="text-sm font-semibold text-gray-900">₹{member.baseSalary || 0}</p>
+                        </div>
+                    </div>
+                    <div className="flex items-center gap-2.5 p-3 rounded-xl bg-gray-50 border border-gray-100">
+                        <div className="bg-indigo-100 p-1.5 rounded-lg">
+                            <History className="h-3.5 w-3.5 text-indigo-600" />
+                        </div>
+                        <div>
+                            <p className="text-[10px] font-medium text-gray-500 uppercase tracking-wider">Last Payment</p>
+                            <p className="text-xs font-semibold text-gray-900">{lastPaidLabel}</p>
+                            <p className="text-xs font-medium text-emerald-600">{lastPaidAmount}</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div className="mt-6 space-y-2">
+                    <div className="flex items-center gap-3 text-xs text-gray-500">
+                        <Mail className="h-3.5 w-3.5" />
+                        {member.email}
+                    </div>
+                    <div className="flex items-center gap-3 text-xs text-gray-500">
+                        <Phone className="h-3.5 w-3.5" />
+                        {member.phone}
+                    </div>
+                </div>
+
+                <div className="mt-6 pt-4 border-t border-gray-100 flex items-center gap-3">
+                    <Button
+                        onClick={() => onOpenProfile(member)}
+                        className="h-10 flex-1 bg-indigo-600 hover:bg-indigo-500 text-white font-medium text-xs rounded-xl"
+                    >
+                        Manage Payroll
+                    </Button>
+                    <Button variant="outline" size="sm" className="h-10 px-4 text-xs text-gray-600 rounded-xl border-gray-200">
+                        Docs
+                    </Button>
+                </div>
+            </CardContent>
+        </Card>
+    );
+}
 
 export default function StaffPage() {
     const [searchTerm, setSearchTerm] = useState("");
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
-    const [salaryModalState, setSalaryModalState] = useState<{
-        isOpen: boolean;
-        staffId: string;
-        staffName: string;
-        baseSalary: number;
-    }>({
-        isOpen: false,
-        staffId: "",
-        staffName: "",
-        baseSalary: 0
-    });
+    const router = useRouter();
 
     const { data: staffData, isLoading } = useQuery({
         queryKey: ["staff-list"],
@@ -50,7 +148,7 @@ export default function StaffPage() {
         }
     });
 
-    const staff = staffData || [];
+    const staff: StaffMember[] = staffData || [];
 
     const filteredStaff = staff.filter((member: any) =>
         member.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -62,16 +160,16 @@ export default function StaffPage() {
         <div className="flex-1 space-y-6">
             <div className="flex items-center justify-between">
                 <div>
-                    <h2 className="text-3xl font-bold tracking-tight bg-gradient-to-r from-blue-400 to-indigo-400 bg-clip-text text-transparent">
+                    <h2 className="text-3xl font-bold tracking-tight text-gray-900">
                         Staff Directory
                     </h2>
-                    <p className="text-muted-foreground mt-1 text-sm font-medium">
+                    <p className="text-gray-500 mt-1 text-sm">
                         Personnel management and automated monthly payroll processing.
                     </p>
                 </div>
                 <Button
                     onClick={() => setIsAddModalOpen(true)}
-                    className="bg-blue-600 hover:bg-blue-500 gap-2 font-bold shadow-lg shadow-blue-500/20 rounded-xl h-12"
+                    className="bg-indigo-600 hover:bg-indigo-500 gap-2 font-semibold shadow-sm rounded-xl h-12"
                 >
                     <UserPlus className="h-4 w-4" /> Register New Personnel
                 </Button>
@@ -79,15 +177,15 @@ export default function StaffPage() {
 
             <div className="flex items-center gap-4">
                 <div className="relative flex-1 max-w-sm">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-500" />
+                    <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
                     <Input
                         placeholder="Search personnel records..."
-                        className="pl-10 bg-white/[0.02] border-white/10 h-12 rounded-xl focus:ring-blue-500/20"
+                        className="pl-10 bg-white border-gray-200 h-12 rounded-xl focus:ring-indigo-500/20"
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
                     />
                 </div>
-                <Button variant="outline" className="gap-2 border-white/10 h-12 rounded-xl bg-white/[0.02]">
+                <Button variant="outline" className="gap-2 border-gray-200 h-12 rounded-xl bg-white">
                     <Filter className="h-4 w-4" /> Filter Categories
                 </Button>
             </div>
@@ -97,86 +195,17 @@ export default function StaffPage() {
                     <Loader2 className="h-8 w-8 animate-spin text-blue-500" />
                 </div>
             ) : filteredStaff.length === 0 ? (
-                <div className="p-12 text-center text-zinc-500 bg-white/[0.01] border border-white/5 rounded-[2rem]">
+                <div className="p-12 text-center text-gray-500 bg-white border border-gray-200 rounded-2xl">
                     No staff members found matching your search.
                 </div>
             ) : (
                 <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-                    {filteredStaff.map((member: any) => (
-                        <Card key={member._id} className="border-white/5 bg-neutral-900/50 backdrop-blur-xl overflow-hidden group hover:border-blue-500/30 transition-all rounded-[2rem]">
-                            <CardContent className="p-6">
-                                <div className="flex items-start justify-between">
-                                    <div className="flex items-center gap-4">
-                                        <Avatar className="h-14 w-14 border border-white/10 ring-4 ring-blue-500/5">
-                                            <AvatarImage src={member.photo} />
-                                            <AvatarFallback className="bg-blue-500/10 text-blue-400 font-bold">
-                                                {member.name.charAt(0)}
-                                            </AvatarFallback>
-                                        </Avatar>
-                                        <div>
-                                            <h3 className="font-bold text-lg text-white group-hover:text-blue-400 transition-colors uppercase tracking-tight">{member.name}</h3>
-                                            <Badge variant="outline" className="mt-1 text-[9px] font-bold uppercase tracking-[0.15em] border-blue-500/20 text-blue-400 bg-blue-500/5">
-                                                {member.role.replace('_', ' ')}
-                                            </Badge>
-                                        </div>
-                                    </div>
-                                    <Button variant="ghost" size="icon" className="text-zinc-500 hover:text-white rounded-xl">
-                                        <MoreVertical className="h-4 w-4" />
-                                    </Button>
-                                </div>
-
-                                <div className="mt-6 grid grid-cols-2 gap-3">
-                                    <div className="flex items-center gap-2.5 p-3 rounded-2xl bg-white/[0.02] border border-white/5">
-                                        <div className="bg-emerald-500/10 p-1.5 rounded-lg">
-                                            <IndianRupee className="h-3.5 w-3.5 text-emerald-500" />
-                                        </div>
-                                        <div>
-                                            <p className="text-[10px] text-zinc-500 font-bold uppercase tracking-widest">Baseline</p>
-                                            <p className="text-xs font-bold text-white">₹{member.baseSalary || 0}</p>
-                                        </div>
-                                    </div>
-                                    <div className="flex items-center gap-2.5 p-3 rounded-2xl bg-white/[0.02] border border-white/5">
-                                        <div className="bg-purple-500/10 p-1.5 rounded-lg">
-                                            <History className="h-3.5 w-3.5 text-purple-400" />
-                                        </div>
-                                        <div>
-                                            <p className="text-[10px] text-zinc-500 font-bold uppercase tracking-widest">Joined</p>
-                                            <p className="text-xs font-bold text-white">
-                                                {new Date(member.createdAt).toLocaleDateString('en-IN', { month: 'short', year: 'numeric' })}
-                                            </p>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <div className="mt-6 space-y-3">
-                                    <div className="flex items-center gap-3 text-xs text-zinc-400 font-medium">
-                                        <Mail className="h-3.5 w-3.5 text-zinc-600" />
-                                        {member.email}
-                                    </div>
-                                    <div className="flex items-center gap-3 text-xs text-zinc-400 font-medium">
-                                        <Phone className="h-3.5 w-3.5 text-zinc-600" />
-                                        {member.phone}
-                                    </div>
-                                </div>
-
-                                <div className="mt-6 pt-4 border-t border-white/5 flex items-center gap-3">
-                                    <Button
-                                        onClick={() => setSalaryModalState({
-                                            isOpen: true,
-                                            staffId: member._id,
-                                            staffName: member.name,
-                                            baseSalary: member.baseSalary || 0
-                                        })}
-                                        className="h-10 flex-1 bg-white/5 hover:bg-blue-600 hover:text-white border border-white/10 text-blue-400 font-bold text-[10px] uppercase tracking-widest rounded-xl transition-all"
-                                    >
-                                        Manage Payroll
-                                    </Button>
-                                    <Button variant="ghost" className="h-10 px-4 text-[10px] text-zinc-500 font-bold hover:bg-white/5 uppercase tracking-widest rounded-xl">
-                                        Docs
-                                    </Button>
-                                </div>
-                            </CardContent>
-                        </Card>
+                    {filteredStaff.map((member: StaffMember) => (
+                        <StaffCard
+                            key={member._id}
+                            member={member}
+                            onOpenProfile={(selected) => router.push(`/staff/${selected._id}`)}
+                        />
                     ))}
                 </div>
             )}
@@ -185,16 +214,6 @@ export default function StaffPage() {
                 isOpen={isAddModalOpen}
                 onClose={() => setIsAddModalOpen(false)}
             />
-
-            {salaryModalState.isOpen && (
-                <SalaryActionModal
-                    isOpen={salaryModalState.isOpen}
-                    onClose={() => setSalaryModalState(prev => ({ ...prev, isOpen: false }))}
-                    staffId={salaryModalState.staffId}
-                    staffName={salaryModalState.staffName}
-                    baseSalary={salaryModalState.baseSalary}
-                />
-            )}
         </div>
     );
 }

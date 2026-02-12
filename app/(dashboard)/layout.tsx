@@ -9,7 +9,7 @@ export default function DashboardLayout({
 }) {
     return (
         <AuthGuard>
-            <div className="flex h-screen overflow-hidden bg-background">
+            <div className="flex h-screen overflow-hidden bg-gray-50">
                 {/* Sidebar */}
                 <div className="hidden w-64 shrink-0 border-r md:block">
                     <Sidebar className="h-full" />

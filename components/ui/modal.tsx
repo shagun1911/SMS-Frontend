@@ -46,10 +46,12 @@ export function Modal({
             />
 
             {/* Modal Content */}
-            <div className={cn(
-                "relative w-full max-w-lg bg-card border border-border rounded-[2rem] shadow-2xl p-8 animate-in zoom-in-95 duration-300",
-                className
-            )}>
+            <div
+                className={cn(
+                    "relative w-full max-w-lg bg-card border border-border rounded-[2rem] shadow-2xl p-8 animate-in zoom-in-95 duration-300 max-h-[90vh] flex flex-col",
+                    className
+                )}
+            >
                 <button
                     onClick={onClose}
                     className="absolute right-6 top-6 text-muted-foreground hover:text-foreground transition-colors"
@@ -57,14 +59,16 @@ export function Modal({
                     <X className="h-5 w-5" />
                 </button>
 
-                <div className="mb-8">
-                    <h2 className="text-2xl font-bold text-foreground mb-2">{title}</h2>
+                <div className="mb-6">
+                    <h2 className="text-2xl font-bold text-foreground mb-1">{title}</h2>
                     {description && (
                         <p className="text-muted-foreground text-sm">{description}</p>
                     )}
                 </div>
 
-                {children}
+                <div className="overflow-y-auto pr-1 -mr-1">
+                    {children}
+                </div>
             </div>
         </div>
     );

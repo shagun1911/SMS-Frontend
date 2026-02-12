@@ -21,29 +21,29 @@ export function OverviewChart({ data }: { data?: ChartData[] }) {
             <BarChart data={data}>
                 <XAxis
                     dataKey="name"
-                    stroke="#888888"
+                    stroke="#6b7280"
                     fontSize={12}
                     tickLine={false}
                     axisLine={false}
                 />
                 <YAxis
-                    stroke="#888888"
+                    stroke="#6b7280"
                     fontSize={12}
                     tickLine={false}
                     axisLine={false}
                     tickFormatter={(value) => `₹${value / 1000}k`}
                 />
                 <Tooltip
-                    cursor={{ fill: 'white', opacity: 0.05 }}
+                    cursor={{ fill: 'rgba(99, 102, 241, 0.08)' }}
                     content={({ active, payload }) => {
                         if (active && payload && payload.length) {
                             return (
-                                <div className="rounded-xl border border-white/10 bg-black/80 backdrop-blur-md p-3 shadow-2xl">
+                                <div className="rounded-xl border border-gray-200 bg-white p-3 shadow-lg">
                                     <div className="flex flex-col gap-1">
-                                        <span className="text-[10px] uppercase tracking-wider text-zinc-500 font-bold">
+                                        <span className="text-xs font-medium text-gray-500">
                                             Collection
                                         </span>
-                                        <span className="text-sm font-bold text-white">
+                                        <span className="text-sm font-bold text-gray-900">
                                             {formatCurrency(payload[0].value as number)}
                                         </span>
                                     </div>
@@ -56,13 +56,12 @@ export function OverviewChart({ data }: { data?: ChartData[] }) {
                 <Bar
                     dataKey="total"
                     fill="url(#barGradient)"
-                    radius={[10, 10, 0, 0]}
-                    className="fill-purple-500"
+                    radius={[8, 8, 0, 0]}
                 />
                 <defs>
                     <linearGradient id="barGradient" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor="#A855F7" />
-                        <stop offset="100%" stopColor="#7C3AED" />
+                        <stop offset="0%" stopColor="#6366f1" />
+                        <stop offset="100%" stopColor="#4f46e5" />
                     </linearGradient>
                 </defs>
             </BarChart>

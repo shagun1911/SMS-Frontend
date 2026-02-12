@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useForm, SubmitHandler } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import api from "@/lib/api";
 import { Modal } from "@/components/ui/modal";
@@ -52,6 +52,20 @@ export function AddStudentModal({ isOpen, onClose }: AddStudentModalProps) {
     const queryClient = useQueryClient();
     const [photoPreview, setPhotoPreview] = useState<string | null>(null);
     const [isUploading, setIsUploading] = useState(false);
+    const [selectedClass, setSelectedClass] = useState("");
+
+    const { data: classes } = useQuery({
+        queryKey: ["classes-list"],
+        queryFn: async () => {
+            const res = await api.get("/classes");
+            return res.data.data ?? [];
+        },
+        enabled: isOpen,
+    });
+
+    const selectedClassData = Array.isArray(classes)
+        ? classes.find((c: any) => c.className === selectedClass)
+        : null;
 
     const {
         register,
@@ -145,7 +159,7 @@ export function AddStudentModal({ isOpen, onClose }: AddStudentModalProps) {
                         className="relative group cursor-pointer"
                         onClick={() => document.getElementById("photo-upload")?.click()}
                     >
-                        <Avatar className="h-24 w-24 border-2 border-dashed border-white/10 group-hover:border-purple-500/50 transition-all overflow-hidden bg-zinc-900">
+                        <Avatar className="h-24 w-24 border-2 border-dashed border-gray-200 overflow-hidden bg-gray-50 transition-colors group-hover:border-indigo-300">
                             {photoPreview ? (
                                 <AvatarImage src={photoPreview} className="object-cover" />
                             ) : (
@@ -186,12 +200,12 @@ export function AddStudentModal({ isOpen, onClose }: AddStudentModalProps) {
                     <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-2">
                             <label className="text-[10px] font-bold uppercase tracking-widest text-zinc-500 ml-1">First Name</label>
-                            <Input {...register("firstName")} placeholder="John" className="bg-white/5 border-white/10 h-12 rounded-xl" />
+                            <Input {...register("firstName")} placeholder="John" className="h-10 rounded-xl border-gray-200 bg-white" />
                             {errors.firstName && <p className="text-[10px] text-red-400 ml-1">{errors.firstName.message}</p>}
                         </div>
                         <div className="space-y-2">
                             <label className="text-[10px] font-bold uppercase tracking-widest text-zinc-500 ml-1">Last Name</label>
-                            <Input {...register("lastName")} placeholder="Doe" className="bg-white/5 border-white/10 h-12 rounded-xl" />
+                            <Input {...register("lastName")} placeholder="Doe" className="h-10 rounded-xl border-gray-200 bg-white" />
                             {errors.lastName && <p className="text-[10px] text-red-400 ml-1">{errors.lastName.message}</p>}
                         </div>
                     </div>
@@ -199,12 +213,12 @@ export function AddStudentModal({ isOpen, onClose }: AddStudentModalProps) {
                     <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-2">
                             <label className="text-[10px] font-bold uppercase tracking-widest text-zinc-500 ml-1">Father's Name</label>
-                            <Input {...register("fatherName")} placeholder="Mr. Smith Doe" className="bg-white/5 border-white/10 h-12 rounded-xl" />
+                            <Input {...register("fatherName")} placeholder="Mr. Smith Doe" className="h-10 rounded-xl border-gray-200 bg-white" />
                             {errors.fatherName && <p className="text-[10px] text-red-400 ml-1">{errors.fatherName.message}</p>}
                         </div>
                         <div className="space-y-2">
                             <label className="text-[10px] font-bold uppercase tracking-widest text-zinc-500 ml-1">Mother's Name</label>
-                            <Input {...register("motherName")} placeholder="Mrs. Jane Doe" className="bg-white/5 border-white/10 h-12 rounded-xl" />
+                            <Input {...register("motherName")} placeholder="Mrs. Jane Doe" className="h-10 rounded-xl border-gray-200 bg-white" />
                             {errors.motherName && <p className="text-[10px] text-red-400 ml-1">{errors.motherName.message}</p>}
                         </div>
                     </div>
@@ -212,7 +226,7 @@ export function AddStudentModal({ isOpen, onClose }: AddStudentModalProps) {
                     <div className="grid grid-cols-3 gap-4">
                         <div className="space-y-2">
                             <label className="text-[10px] font-bold uppercase tracking-widest text-zinc-500 ml-1">Birth Date</label>
-                            <Input {...register("dateOfBirth")} type="date" className="bg-white/5 border-white/10 h-12 rounded-xl" />
+                            <Input {...register("dateOfBirth")} type="date" className="h-10 rounded-xl border-gray-200 bg-white" />
                             {errors.dateOfBirth && <p className="text-[10px] text-red-400 ml-1">{errors.dateOfBirth.message}</p>}
                         </div>
                         <Select
@@ -226,7 +240,7 @@ export function AddStudentModal({ isOpen, onClose }: AddStudentModalProps) {
                         />
                         <div className="space-y-2">
                             <label className="text-[10px] font-bold uppercase tracking-widest text-zinc-500 ml-1">Contact No</label>
-                            <Input {...register("phone")} placeholder="+91 00000 00000" className="bg-white/5 border-white/10 h-12 rounded-xl" />
+                            <Input {...register("phone")} placeholder="+91 00000 00000" className="h-10 rounded-xl border-gray-200 bg-white" />
                             {errors.phone && <p className="text-[10px] text-red-400 ml-1">{errors.phone.message}</p>}
                         </div>
                     </div>
@@ -239,28 +253,42 @@ export function AddStudentModal({ isOpen, onClose }: AddStudentModalProps) {
                         <h3 className="text-xs font-bold uppercase tracking-[0.2em] text-zinc-500">Academic Scope</h3>
                     </div>
                     <div className="grid grid-cols-2 gap-4">
-                        <Select
-                            label="Target Class"
-                            options={[
-                                { label: "Select Class", value: "" },
-                                { label: "Nursery", value: "Nursery" },
-                                { label: "KG", value: "KG" },
-                                ...Array.from({ length: 12 }, (_, i) => ({ label: `${i + 1}th Standard`, value: `${i + 1}th` }))
-                            ]}
-                            {...register("class")}
-                            error={errors.class?.message}
-                        />
-                        <Select
-                            label="Assigned Section"
-                            options={[
-                                { label: "Section A", value: "A" },
-                                { label: "Section B", value: "B" },
-                                { label: "Section C", value: "C" },
-                                { label: "Section D", value: "D" },
-                            ]}
-                            {...register("section")}
-                            error={errors.section?.message}
-                        />
+                        <div className="space-y-2">
+                            <label className="text-[10px] font-bold uppercase tracking-widest text-zinc-500 ml-1">Target Class</label>
+                            <select 
+                                className="h-10 w-full rounded-xl border-gray-200 bg-white px-3 text-sm"
+                                {...register("class")}
+                                onChange={(e) => {
+                                    setSelectedClass(e.target.value);
+                                    setValue("class", e.target.value);
+                                    setValue("section", "");
+                                }}
+                            >
+                                <option value="">Select Class</option>
+                                {Array.isArray(classes) && classes.map((cls: any) => (
+                                    <option key={cls._id} value={cls.className}>
+                                        Class {cls.className}
+                                    </option>
+                                ))}
+                            </select>
+                            {errors.class && <p className="text-[10px] text-red-400 ml-1">{errors.class.message}</p>}
+                        </div>
+                        <div className="space-y-2">
+                            <label className="text-[10px] font-bold uppercase tracking-widest text-zinc-500 ml-1">Assigned Section</label>
+                            <select 
+                                className="h-10 w-full rounded-xl border-gray-200 bg-white px-3 text-sm"
+                                {...register("section")}
+                                disabled={!selectedClass}
+                            >
+                                <option value="">Select Section</option>
+                                {selectedClassData?.sections?.map((sec: string) => (
+                                    <option key={sec} value={sec}>
+                                        Section {sec}
+                                    </option>
+                                ))}
+                            </select>
+                            {errors.section && <p className="text-[10px] text-red-400 ml-1">{errors.section.message}</p>}
+                        </div>
                     </div>
                 </div>
 
@@ -273,7 +301,7 @@ export function AddStudentModal({ isOpen, onClose }: AddStudentModalProps) {
                     <div className="grid grid-cols-2 gap-4">
                         <div
                             onClick={() => setValue("tcSubmitted", !isTcChecked)}
-                            className={`flex items-center justify-between p-4 rounded-2xl border cursor-pointer transition-all ${isTcChecked ? 'bg-emerald-500/5 border-emerald-500/50' : 'bg-white/5 border-white/10 border-dashed hover:border-white/20'}`}
+                            className={`flex items-center justify-between p-4 rounded-2xl border cursor-pointer transition-all ${isTcChecked ? 'bg-emerald-50 border-emerald-200' : 'border border-dashed border-gray-200 bg-gray-50 hover:border-gray-300'}`}
                         >
                             <div className="flex items-center gap-3">
                                 <FileCheck className={`h-5 w-5 ${isTcChecked ? 'text-emerald-400' : 'text-zinc-500'}`} />
@@ -284,7 +312,7 @@ export function AddStudentModal({ isOpen, onClose }: AddStudentModalProps) {
 
                         <div
                             onClick={() => setValue("migrationSubmitted", !isMigrationChecked)}
-                            className={`flex items-center justify-between p-4 rounded-2xl border cursor-pointer transition-all ${isMigrationChecked ? 'bg-emerald-500/5 border-emerald-500/50' : 'bg-white/5 border-white/10 border-dashed hover:border-white/20'}`}
+                            className={`flex items-center justify-between p-4 rounded-2xl border cursor-pointer transition-all ${isMigrationChecked ? 'bg-emerald-50 border-emerald-200' : 'border border-dashed border-gray-200 bg-gray-50 hover:border-gray-300'}`}
                         >
                             <div className="flex items-center gap-3">
                                 <FileCheck className={`h-5 w-5 ${isMigrationChecked ? 'text-emerald-400' : 'text-zinc-500'}`} />
@@ -302,18 +330,18 @@ export function AddStudentModal({ isOpen, onClose }: AddStudentModalProps) {
                         <h3 className="text-xs font-bold uppercase tracking-[0.2em] text-zinc-500">Address Details</h3>
                     </div>
                     <div className="space-y-2">
-                        <Input {...register("address.street")} placeholder="Building, Lane or Landmark" className="bg-white/5 border-white/10 h-12 rounded-xl" />
+                        <Input {...register("address.street")} placeholder="Building, Lane or Landmark" className="h-10 rounded-xl border-gray-200 bg-white" />
                         {errors.address?.street && <p className="text-[10px] text-red-400 ml-1">{errors.address.street.message}</p>}
                     </div>
                     <div className="grid grid-cols-3 gap-4">
                         <div className="space-y-1">
-                            <Input {...register("address.city")} placeholder="City" className="bg-white/5 border-white/10 h-12 rounded-xl" />
+                            <Input {...register("address.city")} placeholder="City" className="h-10 rounded-xl border-gray-200 bg-white" />
                         </div>
                         <div className="space-y-1">
-                            <Input {...register("address.state")} placeholder="State" className="bg-white/5 border-white/10 h-12 rounded-xl" />
+                            <Input {...register("address.state")} placeholder="State" className="h-10 rounded-xl border-gray-200 bg-white" />
                         </div>
                         <div className="space-y-1">
-                            <Input {...register("address.pincode")} placeholder="Zip Code" className="bg-white/5 border-white/10 h-12 rounded-xl" />
+                            <Input {...register("address.pincode")} placeholder="Zip Code" className="h-10 rounded-xl border-gray-200 bg-white" />
                         </div>
                     </div>
                 </div>
@@ -323,7 +351,7 @@ export function AddStudentModal({ isOpen, onClose }: AddStudentModalProps) {
                         type="button"
                         variant="ghost"
                         onClick={onClose}
-                        className="h-14 flex-1 border border-white/10 rounded-2xl font-bold hover:bg-white/5"
+                        className="h-11 flex-1 rounded-xl border border-gray-200 font-medium hover:bg-gray-50"
                     >
                         Discard
                     </Button>
