@@ -122,6 +122,12 @@ export function Sidebar({ className }: SidebarProps) {
             href: "/timetable",
             roles: [UserRole.SCHOOL_ADMIN, UserRole.TEACHER],
         },
+        {
+            label: "Sessions",
+            icon: CalendarDays,
+            href: "/sessions",
+            roles: [UserRole.SCHOOL_ADMIN],
+        },
     ];
 
     const settingsRoutes = [

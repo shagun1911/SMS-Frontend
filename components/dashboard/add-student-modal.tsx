@@ -26,7 +26,7 @@ const studentSchema = z.object({
     fatherName: z.string().min(2, "Father name required"),
     motherName: z.string().min(2, "Mother name required"),
     dateOfBirth: z.string().min(1, "DOB required"),
-    gender: z.enum(["male", "female", "other"]),
+    gender: z.enum(["Male", "Female", "Other"]),
     class: z.string().min(1, "Class required"),
     section: z.string().min(1, "Section required"),
     phone: z.string().min(10, "Valid phone needed"),
@@ -78,7 +78,7 @@ export function AddStudentModal({ isOpen, onClose }: AddStudentModalProps) {
         // @ts-ignore - Temporary fix for resolver type mismatch during dev
         resolver: zodResolver(studentSchema),
         defaultValues: {
-            gender: "male",
+            gender: "Male",
             tcSubmitted: false,
             migrationSubmitted: false,
             address: {
@@ -232,9 +232,9 @@ export function AddStudentModal({ isOpen, onClose }: AddStudentModalProps) {
                         <Select
                             label="Gender"
                             options={[
-                                { label: "Male", value: "male" },
-                                { label: "Female", value: "female" },
-                                { label: "Other", value: "other" },
+                                { label: "Male", value: "Male" },
+                                { label: "Female", value: "Female" },
+                                { label: "Other", value: "Other" },
                             ]}
                             {...register("gender")}
                         />

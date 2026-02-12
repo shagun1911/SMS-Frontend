@@ -52,21 +52,29 @@ export default function StudentsPage() {
 
     const importMutation = useMutation({
         mutationFn: async (rows: Record<string, string>[]) => {
-            const mapped = rows.map((r) => ({
-                firstName: r.firstname || r.first_name,
-                lastName: r.lastname || r.last_name,
-                fatherName: r.fathername || r.father_name,
-                motherName: r.mothername || r.mother_name,
-                class: r.class || "I",
-                section: r.section || "A",
-                phone: r.phone || r.fatherphone,
-                gender: r.gender || "Male",
-                address: r.address || r.street,
-                city: r.city,
-                state: r.state,
-                pincode: r.pincode,
-                dateOfBirth: r.dob || r.dateofbirth || new Date().toISOString().slice(0, 10),
-            }));
+            const mapped = rows.map((r) => {
+                // Capitalize gender value to match backend enum (Male, Female, Other)
+                const gender = r.gender || "Male";
+                const capitalizedGender = gender.charAt(0).toUpperCase() + gender.slice(1).toLowerCase();
+                
+                return {
+                    firstName: r.firstname || r.first_name,
+                    lastName: r.lastname || r.last_name,
+                    fatherName: r.fathername || r.father_name,
+                    motherName: r.mothername || r.mother_name,
+                    class: r.class || "I",
+                    section: r.section || "A",
+                    phone: r.phone || r.fatherphone,
+                    gender: capitalizedGender,
+                    address: {
+                        street: r.address || r.street || "",
+                        city: r.city || "",
+                        state: r.state || "",
+                        pincode: r.pincode || "",
+                    },
+                    dateOfBirth: r.dob || r.dateofbirth || new Date().toISOString().slice(0, 10),
+                };
+            });
             const res = await api.post("/students/import", mapped);
             return res.data;
         },

@@ -72,9 +72,14 @@ export function CollectFeeModal({ open, onOpenChange }: CollectFeeModalProps) {
             toast.error("Please fill all required fields");
             return;
         }
+        // Generate current month in format: "January 2026"
+        const now = new Date();
+        const month = now.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+        
         const payload = {
             studentId: selectedStudent._id,
             amount: Number(amount),
+            month: month,
             feeTitle: feeTitle || "Fee",
             mode: paymentMode === "bank_transfer" ? "online" : paymentMode,
             transactionId: transactionId || undefined,
