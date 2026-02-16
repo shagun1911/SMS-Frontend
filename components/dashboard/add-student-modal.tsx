@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useForm, SubmitHandler } from "react-hook-form";
+import { useForm, SubmitHandler, Resolver } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -75,8 +75,7 @@ export function AddStudentModal({ isOpen, onClose }: AddStudentModalProps) {
         watch,
         formState: { errors },
     } = useForm<StudentValues>({
-        // @ts-ignore - Temporary fix for resolver type mismatch during dev
-        resolver: zodResolver(studentSchema),
+        resolver: zodResolver(studentSchema) as Resolver<StudentValues>,
         defaultValues: {
             gender: "Male",
             tcSubmitted: false,
