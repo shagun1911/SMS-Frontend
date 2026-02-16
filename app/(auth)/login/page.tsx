@@ -4,7 +4,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useState } from "react";
+import { useState, Suspense } from "react";
 import { toast } from "sonner";
 import api from "@/lib/api";
 import { useAuthStore } from "@/store/authStore";
@@ -27,7 +27,7 @@ const loginSchema = z.object({
 
 type LoginValues = z.infer<typeof loginSchema>;
 
-export default function LoginPage() {
+function LoginContent() {
     const router = useRouter();
     const searchParams = useSearchParams();
     const portal = searchParams.get("portal") || "school";
@@ -200,5 +200,24 @@ export default function LoginPage() {
                 </p>
             </div>
         </div>
+    );
+}
+
+function LoginFallback() {
+    return (
+        <div className="relative min-h-screen w-full overflow-hidden bg-[#0A0A0A] text-white flex items-center justify-center px-4">
+            <div className="relative z-10 flex flex-col items-center gap-4">
+                <Loader2 className="h-10 w-10 animate-spin text-purple-400" />
+                <p className="text-sm text-zinc-500">Loading...</p>
+            </div>
+        </div>
+    );
+}
+
+export default function LoginPage() {
+    return (
+        <Suspense fallback={<LoginFallback />}>
+            <LoginContent />
+        </Suspense>
     );
 }
