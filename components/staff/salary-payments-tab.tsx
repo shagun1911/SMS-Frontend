@@ -98,7 +98,7 @@ export default function SalaryPaymentsTab({ staffId, compact }: SalaryPaymentsTa
                   <td className="py-2 text-right">
                     {r.status !== "paid" && (
                       <Button
-                        size="xs"
+                        size="sm"
                         className="h-7 rounded-lg bg-blue-600 text-[11px] font-medium"
                         onClick={async () => {
                           await api.post(`/salaries/${r._id}/pay`, {
