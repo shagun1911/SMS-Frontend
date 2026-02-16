@@ -2,7 +2,7 @@
 
 import { useParams, useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import api from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -31,14 +31,15 @@ export default function StaffProfilePage() {
       return res.data.data;
     },
     enabled: !!staffId,
-    onSuccess: (data) => {
-      if (data) {
-        setName(data.name ?? "");
-        setEmail(data.email ?? "");
-        setPhone(data.phone ?? "");
-      }
-    },
   });
+
+  useEffect(() => {
+    if (staff) {
+      setName(staff.name ?? "");
+      setEmail(staff.email ?? "");
+      setPhone(staff.phone ?? "");
+    }
+  }, [staff]);
 
   const updateMutation = useMutation({
     mutationFn: async (payload: { name?: string; email?: string; phone?: string }) => {
