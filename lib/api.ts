@@ -1,8 +1,11 @@
 import axios from 'axios';
 import { useAuthStore } from '../store/authStore';
 
+const rawUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
+const baseURL = rawUrl.replace(/\/api\/v1\/?$/, '') + '/api/v1';
+
 const api = axios.create({
-    baseURL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api/v1',
+    baseURL,
     headers: {
         'Content-Type': 'application/json',
     },
@@ -37,7 +40,7 @@ api.interceptors.response.use(
 
                 // Refresh token call
                 const { data } = await axios.post(
-                    `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api/v1'}/auth/refresh-token`,
+                    `${baseURL}/auth/refresh-token`,
                     { refreshToken }
                 );
 
