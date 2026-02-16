@@ -27,8 +27,6 @@ export default function OtherPaymentsTab({ staffId }: OtherPaymentsTabProps) {
   const [title, setTitle] = useState("");
   const [amount, setAmount] = useState<number | "">("");
   const [type, setType] = useState<"bonus" | "adjustment">("bonus");
-  const [notes, setNotes] = useState("");
-  const [dateValue, setDateValue] = useState(() => new Date().toISOString().slice(0, 10));
 
   const mutation = useMutation({
     mutationFn: async () => {
@@ -37,8 +35,7 @@ export default function OtherPaymentsTab({ staffId }: OtherPaymentsTabProps) {
         title,
         amount: Number(amount),
         type,
-        date: new Date(dateValue).toISOString(),
-        notes: notes || undefined,
+        date: new Date().toISOString(),
       });
     },
     onSuccess: () => {
@@ -47,8 +44,6 @@ export default function OtherPaymentsTab({ staffId }: OtherPaymentsTabProps) {
       setTitle("");
       setAmount("");
       setType("bonus");
-      setNotes("");
-      setDateValue(new Date().toISOString().slice(0, 10));
     },
   });
 
@@ -63,11 +58,11 @@ export default function OtherPaymentsTab({ staffId }: OtherPaymentsTabProps) {
   const payments = data || [];
 
   return (
-    <Card className="border border-gray-200 bg-white p-6 space-y-4 shadow-sm">
+    <Card className="border border-white/5 bg-neutral-900/70 p-6 space-y-4">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-sm font-semibold text-gray-900">Other payments</h2>
-          <p className="mt-1 text-xs text-gray-500">
+          <h2 className="text-sm font-semibold text-white">Other payments</h2>
+          <p className="mt-1 text-xs text-zinc-400">
             One-time bonuses or adjustments that sit outside the base structure.
           </p>
         </div>
@@ -84,45 +79,36 @@ export default function OtherPaymentsTab({ staffId }: OtherPaymentsTabProps) {
       </div>
 
       {isAdding && (
-        <div className="rounded-xl border border-gray-200 bg-gray-50 p-4 space-y-3">
+        <div className="rounded-xl border border-white/10 bg-neutral-900/80 p-4 space-y-3">
           <div className="grid gap-3 md:grid-cols-3">
             <div className="space-y-1">
-              <Label className="text-xs text-gray-500">Title</Label>
+              <Label className="text-xs text-zinc-400">Title</Label>
               <Input
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
-                className="h-9 text-xs bg-white border-gray-200"
+                className="h-9 text-xs bg-neutral-900 border-white/10"
                 placeholder="Diwali bonus"
               />
             </div>
             <div className="space-y-1">
-              <Label className="text-xs text-gray-500">Amount</Label>
+              <Label className="text-xs text-zinc-400">Amount</Label>
               <Input
                 type="number"
                 value={amount}
                 onChange={(e) => setAmount(e.target.value === "" ? "" : Number(e.target.value))}
-                className="h-9 text-xs bg-white border-gray-200"
+                className="h-9 text-xs bg-neutral-900 border-white/10"
               />
             </div>
             <div className="space-y-1">
-              <Label className="text-xs text-gray-500">Date</Label>
-              <Input
-                type="date"
-                value={dateValue}
-                onChange={(e) => setDateValue(e.target.value)}
-                className="h-9 text-xs bg-white border-gray-200"
-              />
-            </div>
-            <div className="space-y-1">
-              <Label className="text-xs text-gray-500">Type</Label>
+              <Label className="text-xs text-zinc-400">Type</Label>
               <div className="flex gap-2">
                 <button
                   type="button"
                   onClick={() => setType("bonus")}
                   className={`flex-1 rounded-lg border px-3 py-1.5 text-[11px] ${
                     type === "bonus"
-                      ? "border-emerald-500 bg-emerald-50 text-emerald-700"
-                      : "border-gray-200 text-gray-500"
+                      ? "border-emerald-500 bg-emerald-500/10 text-emerald-300"
+                      : "border-white/10 text-zinc-400"
                   }`}
                 >
                   Bonus
@@ -132,22 +118,13 @@ export default function OtherPaymentsTab({ staffId }: OtherPaymentsTabProps) {
                   onClick={() => setType("adjustment")}
                   className={`flex-1 rounded-lg border px-3 py-1.5 text-[11px] ${
                     type === "adjustment"
-                      ? "border-rose-500 bg-rose-50 text-rose-700"
-                      : "border-gray-200 text-gray-500"
+                      ? "border-rose-500 bg-rose-500/10 text-rose-300"
+                      : "border-white/10 text-zinc-400"
                   }`}
                 >
                   Adjustment
                 </button>
               </div>
-            </div>
-            <div className="space-y-1 md:col-span-2">
-              <Label className="text-xs text-gray-500">Notes (optional)</Label>
-              <Input
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
-                className="h-9 text-xs bg-white border-gray-200"
-                placeholder="Optional notes"
-              />
             </div>
           </div>
           <div className="flex justify-end gap-2">
@@ -160,7 +137,6 @@ export default function OtherPaymentsTab({ staffId }: OtherPaymentsTabProps) {
                 setTitle("");
                 setAmount("");
                 setType("bonus");
-                setNotes("");
               }}
               disabled={mutation.isPending}
             >
@@ -181,29 +157,28 @@ export default function OtherPaymentsTab({ staffId }: OtherPaymentsTabProps) {
 
       <div className="overflow-x-auto">
         {payments.length === 0 ? (
-          <p className="text-xs text-gray-500">No other payments recorded.</p>
+          <p className="text-xs text-zinc-500">No other payments recorded.</p>
         ) : (
-          <table className="min-w-full text-xs text-left text-gray-600">
-            <thead className="border-b border-gray-200 text-[11px] font-medium uppercase tracking-wide text-gray-500">
+          <table className="min-w-full text-xs text-left text-zinc-300">
+            <thead className="border-b border-white/5 text-[11px] uppercase tracking-wide text-zinc-500">
               <tr>
                 <th className="pb-2 pr-4">Title</th>
                 <th className="pb-2 pr-4">Amount</th>
                 <th className="pb-2 pr-4">Type</th>
                 <th className="pb-2 pr-4">Date</th>
-                <th className="pb-2 pr-4">Notes</th>
               </tr>
             </thead>
             <tbody>
               {payments.map((p: any) => (
-                <tr key={p._id} className="border-b border-gray-100 last:border-0 hover:bg-gray-50/50">
+                <tr key={p._id} className="border-b border-white/5 last:border-0">
                   <td className="py-2 pr-4 text-xs">{p.title}</td>
                   <td className="py-2 pr-4 text-xs font-semibold text-emerald-400">
                     ₹{p.amount}
                   </td>
-                  <td className="py-2 pr-4 text-xs capitalize text-gray-600">
+                  <td className="py-2 pr-4 text-xs capitalize text-zinc-300">
                     {p.type}
                   </td>
-                  <td className="py-2 pr-4 text-xs text-gray-500">
+                  <td className="py-2 pr-4 text-xs text-zinc-400">
                     {p.date
                       ? new Date(p.date).toLocaleDateString("en-IN", {
                           day: "2-digit",
@@ -211,9 +186,6 @@ export default function OtherPaymentsTab({ staffId }: OtherPaymentsTabProps) {
                           year: "numeric",
                         })
                       : "-"}
-                  </td>
-                  <td className="py-2 pr-4 text-xs text-gray-500 max-w-[120px] truncate" title={p.notes}>
-                    {p.notes || "-"}
                   </td>
                 </tr>
               ))}

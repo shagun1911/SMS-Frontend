@@ -76,8 +76,12 @@ export default function LoginPage() {
             router.push(redirectTo);
 
         } catch (error: any) {
-            toast.error("Login failed", {
-                description: error.response?.data?.message || "Invalid credentials",
+            const msg = error.response?.data?.message || "Invalid credentials";
+            const isPortal = msg.includes("Portal") || msg.includes("Master Admin") || msg.includes("Control Center");
+            toast.error(isPortal ? "Wrong login page" : "Login failed", {
+                description: isPortal
+                    ? "Use the correct link: School users → School Login; Master Admins → Master Admin."
+                    : msg,
             });
         } finally {
             setIsLoading(false);

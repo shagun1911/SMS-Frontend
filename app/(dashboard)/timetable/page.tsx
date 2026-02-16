@@ -1,129 +1,272 @@
 "use client";
 
-import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useEffect, useMemo, useState } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
-import { CalendarDays, Loader2, Plus } from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { CalendarDays, Loader2, Download, Printer, Eye, Save, Settings } from "lucide-react";
 import api from "@/lib/api";
+import { toast } from "sonner";
 
-const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+function parseTime(s: string): number {
+    const [h, m] = (s || "08:00").split(":").map(Number);
+    return (h || 0) * 60 + (m || 0);
+}
+function formatTime(mins: number): string {
+    const h = Math.floor(mins / 60);
+    const m = mins % 60;
+    return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+}
 
 export default function TimetablePage() {
-    const [selectedClass, setSelectedClass] = useState("");
-    const [selectedSection, setSelectedSection] = useState("");
+    const queryClient = useQueryClient();
+    const [pdfAction, setPdfAction] = useState<"preview" | "download" | "print" | null>(null);
 
-    const { data: classes } = useQuery({
-        queryKey: ["classes-list"],
+    const { data: gridData, isLoading } = useQuery({
+        queryKey: ["timetable-grid"],
         queryFn: async () => {
-            const res = await api.get("/classes");
-            return res.data.data ?? [];
+            const res = await api.get("/timetable/grid");
+            return res.data.data ?? res.data;
         },
     });
 
-    const { data: timetables, isLoading } = useQuery({
-        queryKey: ["timetable", selectedClass, selectedSection],
+    const { data: teachers = [] } = useQuery({
+        queryKey: ["users-teachers"],
         queryFn: async () => {
-            const params = new URLSearchParams();
-            if (selectedClass) params.set("className", selectedClass);
-            if (selectedSection) params.set("section", selectedSection);
-            const res = await api.get(`/timetable?${params}`);
-            return res.data.data ?? [];
+            const res = await api.get("/users");
+            const list = res.data.data ?? res.data ?? [];
+            return Array.isArray(list) ? list.filter((u: any) => u.role === "teacher") : [];
         },
     });
 
-    const byDay = (timetables ?? []).reduce((acc: Record<number, any>, t: any) => {
-        acc[t.dayOfWeek] = t;
-        return acc;
-    }, {});
+    const settings = gridData?.settings;
+    const periodCount = settings?.periodCount ?? 7;
+    const lunchAfterPeriod = settings?.lunchAfterPeriod ?? 4;
+    const firstPeriodStart = settings?.firstPeriodStart || "08:00";
+    const periodDuration = settings?.periodDurationMinutes ?? 40;
+    const lunchBreakDuration = settings?.lunchBreakDuration ?? 40;
+    const subjects: string[] = Array.isArray(settings?.subjects) ? settings.subjects : ["English", "Math", "Science", "Hindi", "SST", "Computer", "Art"];
+
+    const periodColumns = useMemo(() => {
+        const out: { label: string; time: string; isLunch: boolean }[] = [];
+        let mins = parseTime(firstPeriodStart);
+        for (let i = 1; i <= periodCount; i++) {
+            if (i === lunchAfterPeriod + 1) {
+                out.push({ label: "LUNCH", time: `${formatTime(mins)} (${lunchBreakDuration} min)`, isLunch: true });
+                mins += lunchBreakDuration;
+            }
+            const start = formatTime(mins);
+            mins += periodDuration;
+            const end = formatTime(mins);
+            out.push({ label: `P${i}`, time: `${start} – ${end}`, isLunch: false });
+        }
+        if (lunchAfterPeriod === 0) {
+            const start = firstPeriodStart;
+            out.unshift({ label: "LUNCH", time: `${start} (${lunchBreakDuration} min)`, isLunch: true });
+        }
+        return out;
+    }, [periodCount, lunchAfterPeriod, firstPeriodStart, periodDuration, lunchBreakDuration]);
+
+    const rows = gridData?.rows ?? [];
+    const totalCols = periodCount + 1;
+
+    const [grid, setGrid] = useState<Record<string, { subject: string; teacherId: string }>>({});
+
+    useEffect(() => {
+        if (!gridData?.rows?.length) return;
+        const next: Record<string, { subject: string; teacherId: string }> = {};
+        gridData.rows.forEach((row: any, ri: number) => {
+            (row.cells || []).forEach((cell: any, ci: number) => {
+                next[`${ri}-${ci}`] = {
+                    subject: cell.subject || "",
+                    teacherId: cell.teacherId?._id || cell.teacherId || "",
+                };
+            });
+        });
+        setGrid(next);
+    }, [gridData]);
+
+    const saveGridMutation = useMutation({
+        mutationFn: async () => {
+            const payload = rows.map((row: any, ri: number) => ({
+                className: row.className,
+                cells: Array.from({ length: totalCols }, (_, ci) => {
+                    const key = `${ri}-${ci}`;
+                    const g = grid[key] || {};
+                    return { subject: g.subject || undefined, teacherId: g.teacherId || undefined };
+                }),
+            }));
+            await api.post("/timetable/grid", { rows: payload });
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ["timetable-grid"] });
+            toast.success("Timetable saved.");
+        },
+        onError: (e: any) => toast.error(e.response?.data?.message ?? "Failed to save"),
+    });
+
+    const handlePdf = async (action: "preview" | "download" | "print") => {
+        setPdfAction(action);
+        try {
+            const res = await api.get(
+                `/timetable/print${action === "preview" ? "?preview=1" : ""}`,
+                { responseType: "blob" }
+            );
+            const blob = res.data as Blob;
+            const url = URL.createObjectURL(blob);
+            if (action === "preview") {
+                window.open(url, "_blank");
+                setTimeout(() => URL.revokeObjectURL(url), 30000);
+            } else if (action === "download") {
+                const a = document.createElement("a");
+                a.href = url;
+                a.download = "timetable.pdf";
+                a.click();
+                URL.revokeObjectURL(url);
+            } else {
+                const w = window.open(url, "_blank");
+                if (w) setTimeout(() => { w.print(); URL.revokeObjectURL(url); }, 800);
+                else URL.revokeObjectURL(url);
+            }
+        } catch (e) {
+            console.error(e);
+            toast.error("Failed to load PDF");
+        } finally {
+            setPdfAction(null);
+        }
+    };
+
+    const updateCell = (rowIdx: number, colIdx: number, field: "subject" | "teacherId", value: string) => {
+        const key = `${rowIdx}-${colIdx}`;
+        setGrid((prev) => ({ ...prev, [key]: { ...(prev[key] || {}), [field]: value } }));
+    };
+
+    if (isLoading) {
+        return (
+            <div className="flex h-64 items-center justify-center">
+                <Loader2 className="h-8 w-8 animate-spin text-indigo-500" />
+            </div>
+        );
+    }
 
     return (
-        <div className="flex-1 space-y-6">
+        <div className="space-y-6">
             <div className="flex flex-wrap items-center justify-between gap-4">
                 <div>
                     <h2 className="text-2xl font-bold tracking-tight text-gray-900">Timetable</h2>
                     <p className="mt-1 text-sm text-gray-500">
-                        View and manage class timetables with periods, breaks, and lunch.
+                        One schedule for all classes, Monday–Saturday. Vertical = classes, horizontal = periods.
                     </p>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                    <Link href="/timetable/settings">
+                        <Button variant="outline" size="sm">
+                            <Settings className="mr-1 h-4 w-4" /> Settings
+                        </Button>
+                    </Link>
+                    <Button
+                        size="sm"
+                        className="bg-indigo-600 hover:bg-indigo-500"
+                        onClick={() => saveGridMutation.mutate()}
+                        disabled={saveGridMutation.isPending}
+                    >
+                        {saveGridMutation.isPending ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <Save className="mr-1 h-4 w-4" />}
+                        Save Timetable
+                    </Button>
+                    <Button variant="outline" size="sm" onClick={() => handlePdf("preview")} disabled={!!pdfAction}>
+                        {pdfAction === "preview" ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <Eye className="mr-1 h-4 w-4" />}
+                        Preview
+                    </Button>
+                    <Button variant="outline" size="sm" onClick={() => handlePdf("download")} disabled={!!pdfAction}>
+                        {pdfAction === "download" ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <Download className="mr-1 h-4 w-4" />}
+                        Download PDF
+                    </Button>
+                    <Button variant="outline" size="sm" onClick={() => handlePdf("print")} disabled={!!pdfAction}>
+                        {pdfAction === "print" ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <Printer className="mr-1 h-4 w-4" />}
+                        Print
+                    </Button>
                 </div>
             </div>
 
-            <Card className="border border-gray-200 bg-white p-6 shadow-sm">
-                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                    <div>
-                        <label className="mb-1 block text-xs font-medium text-gray-500">Class</label>
-                        <select
-                            value={selectedClass}
-                            onChange={(e) => setSelectedClass(e.target.value)}
-                            className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm"
-                        >
-                            <option value="">All</option>
-                            {[...new Set((classes ?? []).map((c: any) => c.className))].map((cn: string) => (
-                                <option key={cn} value={cn}>{cn}</option>
-                            ))}
-                        </select>
-                    </div>
-                    <div>
-                        <label className="mb-1 block text-xs font-medium text-gray-500">Section</label>
-                        <select
-                            value={selectedSection}
-                            onChange={(e) => setSelectedSection(e.target.value)}
-                            className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm"
-                        >
-                            <option value="">All</option>
-                            {["A", "B", "C", "D"].map((s) => (
-                                <option key={s} value={s}>{s}</option>
-                            ))}
-                        </select>
-                    </div>
-                </div>
-            </Card>
-
-            {isLoading ? (
-                <div className="flex h-64 items-center justify-center">
-                    <Loader2 className="h-8 w-8 animate-spin text-indigo-500" />
-                </div>
-            ) : (
-                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                    {DAYS.slice(1, 6).map((dayName, dayIndex) => {
-                        const dayNum = dayIndex + 1;
-                        const tt = byDay[dayNum];
-                        return (
-                            <Card key={dayNum} className="border border-gray-200 bg-white overflow-hidden shadow-sm">
-                                <div className="border-b border-gray-100 bg-indigo-50/50 px-4 py-3 font-semibold text-gray-900">
-                                    {dayName}
-                                </div>
-                                <div className="p-4">
-                                    {tt?.slots?.length > 0 ? (
-                                        <ul className="space-y-2">
-                                            {tt.slots.map((slot: any, i: number) => (
-                                                <li key={i} className="flex items-center justify-between rounded-lg border border-gray-100 bg-gray-50/50 px-3 py-2 text-sm">
-                                                    <span className="font-medium text-gray-700">
-                                                        {slot.startTime} - {slot.endTime}
-                                                    </span>
-                                                    <span className={slot.type === "lunch" || slot.type === "break" ? "text-amber-600" : "text-gray-600"}>
-                                                        {slot.type === "lunch" ? "Lunch" : slot.type === "break" ? "Break" : slot.subject || slot.title || "Period"}
-                                                    </span>
-                                                    {slot.teacherId?.name && (
-                                                        <span className="text-xs text-gray-500">{slot.teacherId.name}</span>
-                                                    )}
-                                                </li>
-                                            ))}
-                                        </ul>
-                                    ) : (
-                                        <p className="py-6 text-center text-sm text-gray-500">No slots defined</p>
-                                    )}
-                                </div>
-                            </Card>
-                        );
-                    })}
-                </div>
-            )}
-
-            <Card className="border border-amber-200 bg-amber-50/50 p-4">
-                <p className="text-sm text-amber-800">
-                    <strong>Tip:</strong> To add or edit timetables, use the API or ask your admin to configure periods, lunch break, and teacher assignments per class and day.
-                </p>
+            <Card className="border border-gray-200 bg-white">
+                <CardHeader className="pb-2">
+                    <CardTitle className="flex items-center gap-2 text-lg">
+                        <CalendarDays className="h-5 w-5 text-indigo-600" /> Schedule (Mon–Sat same)
+                    </CardTitle>
+                    <p className="text-sm text-gray-500">
+                        First period: {firstPeriodStart} · Period: {periodDuration} min · Lunch: {lunchBreakDuration} min
+                    </p>
+                </CardHeader>
+                <CardContent className="p-4 overflow-x-auto">
+                    {rows.length === 0 ? (
+                        <p className="py-8 text-center text-gray-500">No classes found. Add classes in Classes first, then save settings in Timetable Settings.</p>
+                    ) : (
+                        <table className="w-full border-collapse text-sm min-w-[800px]">
+                            <thead>
+                                <tr className="bg-gray-100">
+                                    <th className="border border-gray-200 p-2 text-left font-semibold w-24 sticky left-0 bg-gray-100 z-10">Class</th>
+                                    {periodColumns.map((p) => (
+                                        <th
+                                            key={p.label}
+                                            className={`border border-gray-200 p-2 text-center font-semibold min-w-[100px] ${p.isLunch ? "bg-amber-100" : ""}`}
+                                        >
+                                            <div>{p.label}</div>
+                                            <div className="text-xs font-normal text-gray-500">{p.time}</div>
+                                        </th>
+                                    ))}
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {rows.map((row: any, rowIdx: number) => (
+                                    <tr key={row.className} className="hover:bg-gray-50/50">
+                                        <td className="border border-gray-200 p-2 font-medium sticky left-0 bg-white z-10">{row.className}</td>
+                                        {periodColumns.map((p, colIdx) => {
+                                            if (p.isLunch) {
+                                                return (
+                                                    <td key={p.label} className="border border-gray-200 p-1 bg-amber-50 text-center text-amber-800 text-xs">
+                                                        LUNCH
+                                                    </td>
+                                                );
+                                            }
+                                            const key = `${rowIdx}-${colIdx}`;
+                                            const val = grid[key] ?? { subject: row.cells?.[colIdx]?.subject ?? "", teacherId: row.cells?.[colIdx]?.teacherId?._id ?? row.cells?.[colIdx]?.teacherId ?? "" };
+                                            return (
+                                                <td key={p.label} className="border border-gray-200 p-1 align-top">
+                                                    <div className="space-y-1">
+                                                        <input
+                                                            type="text"
+                                                            list={`subjects-${colIdx}`}
+                                                            value={val.subject}
+                                                            onChange={(e) => updateCell(rowIdx, colIdx, "subject", e.target.value)}
+                                                            placeholder="Subject"
+                                                            className="w-full rounded border border-gray-200 px-2 py-1 text-xs"
+                                                        />
+                                                        <datalist id={`subjects-${colIdx}`}>
+                                                            {subjects.map((s) => (
+                                                                <option key={s} value={s} />
+                                                            ))}
+                                                        </datalist>
+                                                        <select
+                                                            value={val.teacherId}
+                                                            onChange={(e) => updateCell(rowIdx, colIdx, "teacherId", e.target.value)}
+                                                            className="w-full rounded border border-gray-200 px-2 py-1 text-xs bg-white"
+                                                        >
+                                                            <option value="">– Teacher –</option>
+                                                            {(teachers as any[]).map((t: any) => (
+                                                                <option key={t._id} value={t._id}>{t.name}</option>
+                                                            ))}
+                                                        </select>
+                                                    </div>
+                                                </td>
+                                            );
+                                        })}
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    )}
+                </CardContent>
             </Card>
         </div>
     );

@@ -13,6 +13,7 @@ import { StatCard } from "@/components/dashboard/stat-card";
 import { OverviewChart } from "@/components/dashboard/overview-chart";
 import { GenderRatioChart } from "@/components/dashboard/gender-ratio-chart";
 import { RecentActivity } from "@/components/dashboard/recent-activity";
+import { AiChatPanel } from "@/components/ai/ai-chat-panel";
 import {
     School,
     Users,
@@ -45,6 +46,14 @@ export default function SchoolDashboardPage() {
         }
     });
 
+    const { data: feeStats } = useQuery({
+        queryKey: ["fees-stats"],
+        queryFn: async () => {
+            const res = await api.get("/fees/stats");
+            return res.data.data;
+        }
+    });
+
     if (isLoading) {
         return (
             <div className="flex h-[80vh] w-full items-center justify-center">
@@ -54,7 +63,13 @@ export default function SchoolDashboardPage() {
     }
 
     return (
-        <div className="flex-1 space-y-6">
+        <div className="flex flex-1 flex-col gap-6 lg:flex-row">
+            {/* Left: Dashboard content */}
+            <div className="min-w-0 flex-1 space-y-6">
+            {/* AI Assistant at top on mobile/tablet */}
+            <div className="lg:hidden">
+                <AiChatPanel />
+            </div>
             <div className="flex items-center justify-between">
                 <div>
                     <h2 className="text-3xl font-bold tracking-tight text-gray-900">
@@ -73,6 +88,32 @@ export default function SchoolDashboardPage() {
                     </Button>
                 </div>
             </div>
+
+            {/* Plan limit warnings */}
+            {(stats?.studentLimitWarning === "warning" || stats?.studentLimitWarning === "exceeded" || stats?.teacherLimitWarning === "warning" || stats?.teacherLimitWarning === "exceeded") && (
+                <div className="space-y-2">
+                    {stats?.studentLimitWarning === "exceeded" && (
+                        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
+                            🚫 Student limit exceeded ({stats?.usage?.totalStudents}/{stats?.planLimits?.maxStudents}). Upgrade your plan to add more students.
+                        </div>
+                    )}
+                    {stats?.studentLimitWarning === "warning" && stats?.studentLimitWarning !== "exceeded" && (
+                        <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+                            ⚠️ You are using {stats?.usage?.totalStudents} of {stats?.planLimits?.maxStudents} student slots. Consider upgrading your plan.
+                        </div>
+                    )}
+                    {stats?.teacherLimitWarning === "exceeded" && (
+                        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
+                            🚫 Teacher limit exceeded ({stats?.usage?.totalTeachers}/{stats?.planLimits?.maxTeachers}). Upgrade your plan to add more teachers.
+                        </div>
+                    )}
+                    {stats?.teacherLimitWarning === "warning" && stats?.teacherLimitWarning !== "exceeded" && (
+                        <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+                            ⚠️ You are using {stats?.usage?.totalTeachers} of {stats?.planLimits?.maxTeachers} teacher slots. Consider upgrading your plan.
+                        </div>
+                    )}
+                </div>
+            )}
 
             {/* Quick Actions - Surprise 1 */}
             <Card className="border border-indigo-100 bg-gradient-to-r from-indigo-50/80 to-white shadow-sm">
@@ -114,15 +155,15 @@ export default function SchoolDashboardPage() {
                     icon={Users}
                 />
                 <StatCard
-                    title="Monthly Collection"
-                    value={`₹${((stats?.monthlyCollection ?? 0) / 100000).toFixed(1)}L`}
-                    description="Current month fees"
+                    title="Total Collected"
+                    value={feeStats?.totalCollected != null ? `₹${(feeStats.totalCollected / 100000).toFixed(1)}L` : `₹${((stats?.monthlyCollection ?? 0) / 100000).toFixed(1)}L`}
+                    description="Fee collection"
                     icon={IndianRupee}
                 />
                 <StatCard
                     title="Pending Fees"
-                    value={`₹${((stats?.pendingFees ?? 0) / 100000).toFixed(1)}L`}
-                    description={`${stats?.pendingFeesCount || 0} students pending`}
+                    value={feeStats?.outstanding != null ? `₹${(feeStats.outstanding / 100000).toFixed(1)}L` : `₹${((stats?.pendingFees ?? 0) / 100000).toFixed(1)}L`}
+                    description={`${feeStats?.defaulterCount ?? stats?.pendingFeesCount ?? 0} defaulters`}
                     icon={Wallet}
                 />
             </div>
@@ -136,7 +177,13 @@ export default function SchoolDashboardPage() {
                         </CardTitle>
                     </CardHeader>
                     <CardContent className="pl-2">
-                        <OverviewChart data={stats?.monthlyTrends} />
+                        <OverviewChart
+                            data={
+                                feeStats?.monthlyCollection?.length
+                                    ? feeStats.monthlyCollection.map((m: { month: string; amount: number }) => ({ name: m.month, total: m.amount }))
+                                    : stats?.monthlyTrends
+                            }
+                        />
                     </CardContent>
                 </Card>
                 <Card className="col-span-3 border border-gray-200 bg-white shadow-sm">
@@ -176,9 +223,9 @@ export default function SchoolDashboardPage() {
                     </CardHeader>
                     <CardContent>
                         <p className="text-3xl font-bold text-emerald-600">
-                            {stats?.collectionRate || 0}%
+                            {feeStats?.collectionRate ?? stats?.collectionRate ?? 0}%
                         </p>
-                        <Progress value={stats?.collectionRate || 0} className="mt-3 h-2 bg-emerald-100" />
+                        <Progress value={feeStats?.collectionRate ?? stats?.collectionRate ?? 0} className="mt-3 h-2 bg-emerald-100" />
                         <p className="mt-2 text-xs text-gray-600">
                             Current month target
                         </p>
@@ -232,14 +279,14 @@ export default function SchoolDashboardPage() {
             </div>
 
             {/* Pending fees reminder - Surprise 4 */}
-            {(stats?.pendingFeesCount ?? 0) > 0 && (
+            {((feeStats?.defaulterCount ?? stats?.pendingFeesCount) ?? 0) > 0 && (
                 <Card className="border border-rose-100 bg-rose-50/50 shadow-sm">
                     <CardContent className="flex items-center justify-between py-4">
                         <div className="flex items-center gap-3">
                             <Wallet className="h-10 w-10 text-rose-600" />
                             <div>
-                                <p className="font-semibold text-gray-900">{stats.pendingFeesCount} students with pending fees</p>
-                                <p className="text-sm text-gray-500">Outstanding: ₹{((stats.pendingFees ?? 0) / 1000).toFixed(1)}K</p>
+                                <p className="font-semibold text-gray-900">{feeStats?.defaulterCount ?? stats?.pendingFeesCount} students with pending fees</p>
+                                <p className="text-sm text-gray-500">Outstanding: ₹{((feeStats?.outstanding ?? stats?.pendingFees ?? 0) / 1000).toFixed(1)}K</p>
                             </div>
                         </div>
                         <Button asChild className="rounded-xl bg-rose-600 hover:bg-rose-500">
@@ -248,6 +295,14 @@ export default function SchoolDashboardPage() {
                     </CardContent>
                 </Card>
             )}
+            </div>
+
+            {/* Right: AI Assistant – prominent preview panel (desktop) */}
+            <aside className="hidden w-[380px] shrink-0 lg:block">
+                <div className="sticky top-4">
+                    <AiChatPanel />
+                </div>
+            </aside>
         </div>
     );
 }

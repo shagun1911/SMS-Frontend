@@ -1,12 +1,10 @@
 "use client";
 
-import { useState } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import api from "@/lib/api";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Loader2, CheckCircle2 } from "lucide-react";
-import { PaySalaryModal } from "./pay-salary-modal";
 
 interface SalaryPaymentsTabProps {
   staffId: string;
@@ -14,9 +12,6 @@ interface SalaryPaymentsTabProps {
 }
 
 export default function SalaryPaymentsTab({ staffId, compact }: SalaryPaymentsTabProps) {
-  const queryClient = useQueryClient();
-  const [payModalRecord, setPayModalRecord] = useState<any | null>(null);
-
   const { data, isLoading } = useQuery({
     queryKey: ["salary-history", staffId],
     queryFn: async () => {
@@ -24,10 +19,6 @@ export default function SalaryPaymentsTab({ staffId, compact }: SalaryPaymentsTa
       return res.data.data || [];
     },
   });
-
-  const handlePaySuccess = () => {
-    queryClient.invalidateQueries({ queryKey: ["salary-history", staffId] });
-  };
 
   if (isLoading) {
     return (
@@ -41,7 +32,7 @@ export default function SalaryPaymentsTab({ staffId, compact }: SalaryPaymentsTa
 
   if (records.length === 0) {
     return (
-      <Card className="border border-gray-200 bg-white p-6 text-sm text-gray-500 shadow-sm">
+      <Card className="border border-white/5 bg-neutral-900/70 p-6 text-xs text-zinc-400">
         No salary records yet for this staff member.
       </Card>
     );
@@ -50,12 +41,12 @@ export default function SalaryPaymentsTab({ staffId, compact }: SalaryPaymentsTa
   const visibleRecords = compact ? records.slice(0, 3) : records;
 
   return (
-    <Card className="border border-gray-200 bg-white p-6 space-y-4 shadow-sm">
+    <Card className="border border-white/5 bg-neutral-900/70 p-6 space-y-4">
       {!compact && (
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="text-sm font-semibold text-gray-900">Payment history</h2>
-            <p className="mt-1 text-xs text-gray-500">
+            <h2 className="text-sm font-semibold text-white">Payment history</h2>
+            <p className="mt-1 text-xs text-zinc-400">
               Monthly salary records generated for this staff member.
             </p>
           </div>
@@ -63,8 +54,8 @@ export default function SalaryPaymentsTab({ staffId, compact }: SalaryPaymentsTa
       )}
 
       <div className="overflow-x-auto">
-        <table className="min-w-full text-xs text-left text-gray-600">
-          <thead className="border-b border-gray-200 text-[11px] font-medium uppercase tracking-wide text-gray-500">
+        <table className="min-w-full text-xs text-left text-zinc-300">
+          <thead className="border-b border-white/5 text-[11px] uppercase tracking-wide text-zinc-500">
             <tr>
               <th className="pb-2 pr-4">Month</th>
               <th className="pb-2 pr-4">Net Amount</th>
@@ -75,7 +66,7 @@ export default function SalaryPaymentsTab({ staffId, compact }: SalaryPaymentsTa
           </thead>
           <tbody>
             {visibleRecords.map((r: any) => (
-              <tr key={r._id} className="border-b border-gray-100 last:border-0 hover:bg-gray-50/50">
+              <tr key={r._id} className="border-b border-white/5 last:border-0">
                 <td className="py-2 pr-4 text-xs">
                   {r.month} {r.year}
                 </td>
@@ -94,7 +85,7 @@ export default function SalaryPaymentsTab({ staffId, compact }: SalaryPaymentsTa
                     {r.status.toUpperCase()}
                   </span>
                 </td>
-                                                <td className="py-2 pr-4 text-xs text-gray-500">
+                <td className="py-2 pr-4 text-xs text-zinc-400">
                   {r.paymentDate
                     ? new Date(r.paymentDate).toLocaleDateString("en-IN", {
                         day: "2-digit",
@@ -108,10 +99,16 @@ export default function SalaryPaymentsTab({ staffId, compact }: SalaryPaymentsTa
                     {r.status !== "paid" && (
                       <Button
                         size="xs"
-                        className="h-7 rounded-lg bg-indigo-600 text-[11px] font-medium hover:bg-indigo-500"
-                        onClick={() => setPayModalRecord(r)}
+                        className="h-7 rounded-lg bg-blue-600 text-[11px] font-medium"
+                        onClick={async () => {
+                          await api.post(`/salaries/${r._id}/pay`, {
+                            amount: r.netSalary,
+                            mode: "cash",
+                          });
+                          window.location.reload();
+                        }}
                       >
-                        Pay
+                        Mark as Paid
                       </Button>
                     )}
                   </td>
@@ -121,13 +118,6 @@ export default function SalaryPaymentsTab({ staffId, compact }: SalaryPaymentsTa
           </tbody>
         </table>
       </div>
-
-      <PaySalaryModal
-        isOpen={!!payModalRecord}
-        onClose={() => setPayModalRecord(null)}
-        record={payModalRecord}
-        onSuccess={handlePaySuccess}
-      />
     </Card>
   );
 }

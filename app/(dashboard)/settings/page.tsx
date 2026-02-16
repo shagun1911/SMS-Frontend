@@ -11,7 +11,9 @@ import {
     Image as ImageIcon,
     Camera,
     Loader2,
-    Smartphone
+    Smartphone,
+    Stamp,
+    PenLine
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -253,6 +255,80 @@ export default function SettingsPage() {
                                             className="sr-only"
                                             onChange={handleLogoChange}
                                         />
+                                    </Label>
+                                </CardContent>
+                            </Card>
+
+                            <Card className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
+                                <CardHeader className="border-b border-gray-100 p-6">
+                                    <CardTitle className="text-base font-semibold text-gray-900 flex items-center gap-2">
+                                        <Stamp className="h-4 w-4" /> School Stamp
+                                    </CardTitle>
+                                    <CardDescription className="text-xs text-gray-500">Used on fee structure, receipts and admit cards</CardDescription>
+                                </CardHeader>
+                                <CardContent className="p-6 flex flex-col items-center">
+                                    {school?.stamp ? (
+                                        <img src={school.stamp} alt="School stamp" className="h-20 w-auto object-contain border border-gray-200 rounded-lg" />
+                                    ) : (
+                                        <div className="h-20 w-32 rounded-lg border-2 border-dashed border-gray-200 flex items-center justify-center text-xs text-gray-400">No stamp</div>
+                                    )}
+                                    <Label className="mt-4">
+                                        <span className="inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-4 py-2 text-xs font-medium text-gray-700 hover:bg-gray-50 cursor-pointer">
+                                            <ImageIcon className="h-3.5 w-3.5" /> {school?.stamp ? "Replace Stamp" : "Upload Stamp"}
+                                        </span>
+                                        <input type="file" accept="image/*" className="sr-only" onChange={async (e) => {
+                                            const file = e.target.files?.[0];
+                                            if (!file) return;
+                                            const formData = new FormData();
+                                            formData.append("image", file);
+                                            try {
+                                                const { data } = await api.post("/upload/image", formData, { headers: { "Content-Type": "multipart/form-data" } });
+                                                const url = data?.data?.url ?? data?.url;
+                                                if (url) {
+                                                    await api.patch("/schools/me", { stamp: url });
+                                                    queryClient.invalidateQueries({ queryKey: ["school-me"] });
+                                                    toast.success("Stamp updated.");
+                                                }
+                                            } catch { toast.error("Upload failed."); }
+                                            e.target.value = "";
+                                        }} />
+                                    </Label>
+                                </CardContent>
+                            </Card>
+
+                            <Card className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
+                                <CardHeader className="border-b border-gray-100 p-6">
+                                    <CardTitle className="text-base font-semibold text-gray-900 flex items-center gap-2">
+                                        <PenLine className="h-4 w-4" /> Principal Signature
+                                    </CardTitle>
+                                    <CardDescription className="text-xs text-gray-500">Used on fee structure, receipts and admit cards</CardDescription>
+                                </CardHeader>
+                                <CardContent className="p-6 flex flex-col items-center">
+                                    {school?.principalSignature ? (
+                                        <img src={school.principalSignature} alt="Principal signature" className="h-14 w-auto object-contain border border-gray-200 rounded-lg max-w-[200px]" />
+                                    ) : (
+                                        <div className="h-14 w-40 rounded-lg border-2 border-dashed border-gray-200 flex items-center justify-center text-xs text-gray-400">No signature</div>
+                                    )}
+                                    <Label className="mt-4">
+                                        <span className="inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-4 py-2 text-xs font-medium text-gray-700 hover:bg-gray-50 cursor-pointer">
+                                            <ImageIcon className="h-3.5 w-3.5" /> {school?.principalSignature ? "Replace Signature" : "Upload Signature"}
+                                        </span>
+                                        <input type="file" accept="image/*" className="sr-only" onChange={async (e) => {
+                                            const file = e.target.files?.[0];
+                                            if (!file) return;
+                                            const formData = new FormData();
+                                            formData.append("image", file);
+                                            try {
+                                                const { data } = await api.post("/upload/image", formData, { headers: { "Content-Type": "multipart/form-data" } });
+                                                const url = data?.data?.url ?? data?.url;
+                                                if (url) {
+                                                    await api.patch("/schools/me", { principalSignature: url });
+                                                    queryClient.invalidateQueries({ queryKey: ["school-me"] });
+                                                    toast.success("Signature updated.");
+                                                }
+                                            } catch { toast.error("Upload failed."); }
+                                            e.target.value = "";
+                                        }} />
                                     </Label>
                                 </CardContent>
                             </Card>

@@ -20,7 +20,9 @@ import {
     History,
     BookOpen,
     IdCard,
-    CalendarDays
+    CalendarDays,
+    Receipt,
+    UserX
 } from "lucide-react";
 
 interface SidebarProps extends React.HTMLAttributes<HTMLDivElement> { }
@@ -48,27 +50,21 @@ export function Sidebar({ className }: SidebarProps) {
 
     const masterRoutes = [
         {
-            label: "Manage Schools",
+            label: "Schools",
             icon: Building2,
             href: "/master/schools",
             roles: [UserRole.SUPER_ADMIN],
         },
         {
-            label: "Plans & Pricing",
+            label: "Plans",
             icon: Layers,
             href: "/master/plans",
             roles: [UserRole.SUPER_ADMIN],
         },
         {
-            label: "Global Payments",
+            label: "Subscriptions",
             icon: CreditCard,
-            href: "/master/payments",
-            roles: [UserRole.SUPER_ADMIN],
-        },
-        {
-            label: "System Logs",
-            icon: History,
-            href: "/master/logs",
+            href: "/master/subscriptions",
             roles: [UserRole.SUPER_ADMIN],
         },
     ];
@@ -93,10 +89,32 @@ export function Sidebar({ className }: SidebarProps) {
             roles: [UserRole.SUPER_ADMIN, UserRole.SCHOOL_ADMIN],
         },
         {
-            label: "Fees",
+            label: "Fee Structure",
+            icon: Layers,
+            href: "/fees/structure",
+            roles: [UserRole.SCHOOL_ADMIN, UserRole.ACCOUNTANT],
+            exact: true,
+        },
+        {
+            label: "Collect Fee",
             icon: Banknote,
             href: "/fees",
             roles: [UserRole.SCHOOL_ADMIN, UserRole.ACCOUNTANT],
+            exact: true, // only active on /fees, not /fees/structure, /fees/receipts, etc.
+        },
+        {
+            label: "Receipts",
+            icon: Receipt,
+            href: "/fees/receipts",
+            roles: [UserRole.SCHOOL_ADMIN, UserRole.ACCOUNTANT],
+            exact: true,
+        },
+        {
+            label: "Defaulters",
+            icon: UserX,
+            href: "/fees/defaulters",
+            roles: [UserRole.SCHOOL_ADMIN, UserRole.ACCOUNTANT],
+            exact: true,
         },
         {
             label: "Transport",
@@ -161,7 +179,10 @@ export function Sidebar({ className }: SidebarProps) {
                 </div>
                 <nav className="flex-1 space-y-0.5 px-3">
                     {filteredRoutes.map((route) => {
-                        const isActive = pathname === route.href || pathname?.startsWith(route.href + "/");
+                        const exact = (route as { exact?: boolean }).exact;
+                        const isActive = exact
+                            ? pathname === route.href
+                            : (pathname === route.href || pathname?.startsWith(route.href + "/"));
                         return (
                             <Link
                                 key={route.href}

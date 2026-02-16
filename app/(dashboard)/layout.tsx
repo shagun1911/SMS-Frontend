@@ -1,6 +1,7 @@
 import { Sidebar } from "@/components/layout/sidebar";
 import { Header } from "@/components/layout/header";
 import AuthGuard from "@/components/auth/auth-guard";
+import { AiChat } from "@/components/ai/ai-chat";
 
 export default function DashboardLayout({
     children,
@@ -23,6 +24,7 @@ export default function DashboardLayout({
                     </main>
                 </div>
             </div>
+            <AiChat />
         </AuthGuard>
     );
 }
