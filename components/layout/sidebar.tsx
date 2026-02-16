@@ -188,7 +188,7 @@ export function Sidebar({ className }: SidebarProps) {
                                 key={route.href}
                                 href={route.href}
                                 className={cn(
-                                    "flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-200",
+                                    "flex min-h-[44px] items-center gap-3 rounded-xl px-3 py-3 text-sm font-medium transition-all duration-200 active:scale-[0.98]",
                                     isActive
                                         ? "bg-indigo-600 text-white shadow-md shadow-indigo-500/25"
                                         : "text-slate-600 hover:bg-white hover:text-slate-900 hover:shadow-sm border border-transparent hover:border-slate-200"
