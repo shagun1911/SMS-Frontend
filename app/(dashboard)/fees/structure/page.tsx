@@ -40,7 +40,7 @@ import { toast } from "sonner";
 const componentSchema = z.object({
     name: z.string().min(1),
     amount: z.number().min(0),
-    type: z.enum(["monthly", "one-time"]).default("monthly"),
+    type: z.enum(["monthly", "one-time"]),
 });
 const formSchema = z.object({
     class: z.string().min(1, "Select class"),
