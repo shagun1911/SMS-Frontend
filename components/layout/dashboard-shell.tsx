@@ -67,7 +67,7 @@ function MobileDrawer() {
 function ShellContent({ children }: { children: React.ReactNode }) {
     return (
         <>
-            <div className="flex h-screen overflow-hidden bg-gray-50">
+            <div className="flex h-screen overflow-hidden bg-[hsl(var(--background))]">
                 {/* Desktop sidebar */}
                 <div className="hidden w-64 shrink-0 border-r md:block">
                     <Sidebar className="h-full" />
@@ -76,7 +76,7 @@ function ShellContent({ children }: { children: React.ReactNode }) {
                 {/* Main content */}
                 <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
                     <Header />
-                    <main className="flex-1 overflow-x-auto overflow-y-auto p-4 md:p-6 lg:p-8 overscroll-behavior-contain">{children}</main>
+                    <main className="flex-1 overflow-x-auto overflow-y-auto bg-gradient-to-br from-[hsl(var(--background))] via-[hsl(var(--background))] to-violet-50/30 p-4 md:p-6 lg:p-8 overscroll-behavior-contain">{children}</main>
                 </div>
             </div>
             <MobileDrawer />

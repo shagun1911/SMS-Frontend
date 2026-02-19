@@ -104,7 +104,7 @@ export function AiChat() {
                 <DialogContent className="flex max-h-[85vh] flex-col rounded-2xl border border-gray-200 bg-white p-0 shadow-xl">
                     <DialogHeader className="border-b border-gray-100 px-4 py-3">
                         <DialogTitle className="flex items-center gap-2 text-lg font-semibold text-gray-900">
-                            <Bot className="h-5 w-5 text-indigo-600" /> SSMS AI Assistant
+                            <Bot className="h-5 w-5 text-indigo-600" /> SMS AI Assistant
                         </DialogTitle>
                         <p className="text-xs text-gray-500">Ask about students, fees, teachers, performance, or system help. Hindi + English.</p>
                     </DialogHeader>

@@ -10,8 +10,9 @@ interface ChartData {
 export function OverviewChart({ data }: { data?: ChartData[] }) {
     if (!data || data.length === 0) {
         return (
-            <div className="flex h-[350px] items-center justify-center text-zinc-500 text-sm">
-                No data available for the current period.
+            <div className="flex h-[280px] flex-col items-center justify-center rounded-xl border border-dashed border-[hsl(var(--border))] bg-[hsl(var(--muted))]/20 text-center">
+                <p className="text-sm font-medium text-[hsl(var(--muted-foreground))]">No collection data yet</p>
+                <p className="mt-1 text-xs text-[hsl(var(--muted-foreground))]">Fee collections will appear here.</p>
             </div>
         );
     }
@@ -21,32 +22,26 @@ export function OverviewChart({ data }: { data?: ChartData[] }) {
             <BarChart data={data}>
                 <XAxis
                     dataKey="name"
-                    stroke="#6b7280"
+                    stroke="hsl(var(--muted-foreground))"
                     fontSize={12}
                     tickLine={false}
                     axisLine={false}
                 />
                 <YAxis
-                    stroke="#6b7280"
+                    stroke="hsl(var(--muted-foreground))"
                     fontSize={12}
                     tickLine={false}
                     axisLine={false}
                     tickFormatter={(value) => `₹${value / 1000}k`}
                 />
                 <Tooltip
-                    cursor={{ fill: 'rgba(99, 102, 241, 0.08)' }}
+                    cursor={{ fill: "hsl(var(--muted) / 0.5)" }}
                     content={({ active, payload }) => {
                         if (active && payload && payload.length) {
                             return (
-                                <div className="rounded-xl border border-gray-200 bg-white p-3 shadow-lg">
-                                    <div className="flex flex-col gap-1">
-                                        <span className="text-xs font-medium text-gray-500">
-                                            Collection
-                                        </span>
-                                        <span className="text-sm font-bold text-gray-900">
-                                            {formatCurrency(payload[0].value as number)}
-                                        </span>
-                                    </div>
+                                <div className="flex flex-col gap-1 rounded-xl border border-[hsl(var(--border))] bg-white p-3 shadow-lg">
+                                    <span className="text-xs font-medium text-[hsl(var(--muted-foreground))]">Collection</span>
+                                    <span className="text-sm font-bold text-[hsl(var(--foreground))]">{formatCurrency(payload[0].value as number)}</span>
                                 </div>
                             )
                         }
@@ -55,13 +50,13 @@ export function OverviewChart({ data }: { data?: ChartData[] }) {
                 />
                 <Bar
                     dataKey="total"
-                    fill="url(#barGradient)"
+                    fill="url(#overviewBarGradient)"
                     radius={[8, 8, 0, 0]}
                 />
                 <defs>
-                    <linearGradient id="barGradient" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor="#6366f1" />
-                        <stop offset="100%" stopColor="#4f46e5" />
+                    <linearGradient id="overviewBarGradient" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor="hsl(var(--primary))" />
+                        <stop offset="100%" stopColor="hsl(172 66% 38%)" />
                     </linearGradient>
                 </defs>
             </BarChart>

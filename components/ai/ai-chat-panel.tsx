@@ -4,7 +4,7 @@ import { useState, useRef, useEffect } from "react";
 import ReactMarkdown from "react-markdown";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Bot, Loader2, Trash2, Send } from "lucide-react";
+import { Bot, Loader2, Trash2, Send, Sparkles } from "lucide-react";
 import api from "@/lib/api";
 import { cn } from "@/lib/utils";
 
@@ -37,41 +37,25 @@ export function AiChatPanel() {
     const sendMessage = async (text: string) => {
         const trimmed = text.trim();
         if (!trimmed || loading) return;
-        // Prevent duplicate send within 2s (e.g. double-click or Strict Mode double-invoke)
         const now = Date.now();
         if (lastSentRef.current.text === trimmed && now - lastSentRef.current.at < 2000) return;
         lastSentRef.current = { text: trimmed, at: now };
         setInput("");
-        const userMsg: Message = {
-            id: `u-${Date.now()}`,
-            role: "user",
-            content: trimmed,
-            timestamp: new Date(),
-        };
+        const userMsg: Message = { id: `u-${Date.now()}`, role: "user", content: trimmed, timestamp: new Date() };
         setMessages((prev) => [...prev, userMsg]);
         setLoading(true);
         setError(null);
         try {
             const res = await api.post("/ai/query", { message: trimmed });
             const reply = res.data?.data?.reply ?? res.data?.reply ?? "No response.";
-            const assistantMsg: Message = {
-                id: `a-${Date.now()}`,
-                role: "assistant",
-                content: reply,
-                timestamp: new Date(),
-            };
+            const assistantMsg: Message = { id: `a-${Date.now()}`, role: "assistant", content: reply, timestamp: new Date() };
             setMessages((prev) => [...prev, assistantMsg]);
-        } catch (err: any) {
-            const msg = err.response?.data?.message ?? err.message ?? "Request failed.";
+        } catch (err: unknown) {
+            const msg = (err as { response?: { data?: { message?: string } }; message?: string })?.response?.data?.message ?? (err as { message?: string })?.message ?? "Request failed.";
             setError(msg);
             setMessages((prev) => [
                 ...prev,
-                {
-                    id: `a-${Date.now()}`,
-                    role: "assistant",
-                    content: `Sorry, I couldn't process that. ${msg}`,
-                    timestamp: new Date(),
-                },
+                { id: `a-${Date.now()}`, role: "assistant", content: `Sorry, I couldn't process that. ${msg}`, timestamp: new Date() },
             ]);
         } finally {
             setLoading(false);
@@ -89,46 +73,51 @@ export function AiChatPanel() {
     };
 
     return (
-        <div className="flex h-full flex-col rounded-2xl border border-indigo-200 bg-white shadow-lg">
-            <div className="border-b border-indigo-100 bg-gradient-to-r from-indigo-600 to-indigo-500 px-4 py-3">
-                <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                        <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-white/20">
-                            <Bot className="h-5 w-5 text-white" />
-                        </div>
-                        <div>
-                            <h3 className="font-semibold text-white">AI Assistant</h3>
-                            <p className="text-xs text-indigo-100">Student, fees, performance • Hindi + English</p>
-                        </div>
+        <div className="flex h-full min-h-[420px] max-h-[calc(100vh-120px)] flex-col overflow-hidden rounded-2xl border border-[hsl(var(--border))] bg-white shadow-lg transition-shadow hover:shadow-xl">
+            {/* Header: light, modern */}
+            <div className="flex shrink-0 items-center justify-between border-b border-[hsl(var(--border))] bg-[hsl(var(--muted))]/30 px-4 py-3">
+                <div className="flex items-center gap-3">
+                    <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary text-primary-foreground">
+                        <Bot className="h-5 w-5" />
                     </div>
-                    <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8 shrink-0 text-white/80 hover:bg-white/20 hover:text-white"
-                        onClick={clearChat}
-                        title="Clear chat"
-                    >
-                        <Trash2 className="h-4 w-4" />
-                    </Button>
+                    <div>
+                        <h3 className="text-sm font-semibold text-[hsl(var(--foreground))]">AI Assistant</h3>
+                        <p className="text-xs text-[hsl(var(--muted-foreground))]">Students, fees, performance • Hindi + English</p>
+                    </div>
                 </div>
+                <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 rounded-lg text-[hsl(var(--muted-foreground))] hover:bg-[hsl(var(--muted))] hover:text-[hsl(var(--foreground))]"
+                    onClick={clearChat}
+                    title="Clear chat"
+                >
+                    <Trash2 className="h-4 w-4" />
+                </Button>
             </div>
 
+            {/* Messages area */}
             <div
                 ref={scrollRef}
-                className="flex-1 overflow-y-auto px-3 py-3 min-h-[200px] max-h-[calc(100vh-320px)] space-y-3"
+                className="flex-1 overflow-y-auto px-4 py-4 min-h-[200px] space-y-4"
             >
                 {messages.length === 0 && (
-                    <div className="rounded-xl border border-dashed border-indigo-200 bg-indigo-50/50 p-4 text-center">
-                        <p className="text-sm font-medium text-indigo-900 mb-2">Enter details to fetch instantly</p>
-                        <p className="text-xs text-indigo-700 mb-3">e.g. student name + class, fee query, defaulters, or system help</p>
-                        <div className="flex flex-wrap gap-2 justify-center">
+                    <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-[hsl(var(--border))] bg-[hsl(var(--muted))]/20 p-6 text-center">
+                        <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-primary">
+                            <Sparkles className="h-6 w-6" />
+                        </div>
+                        <p className="text-sm font-medium text-[hsl(var(--foreground))]">Ask anything about your school</p>
+                        <p className="mt-1 max-w-[260px] text-xs text-[hsl(var(--muted-foreground))]">
+                            Student details, fee queries, defaulters, or how to use a feature.
+                        </p>
+                        <div className="mt-4 flex flex-wrap justify-center gap-2">
                             {SUGGESTIONS.map((s) => (
                                 <button
                                     key={s}
                                     type="button"
                                     onClick={() => sendMessage(s)}
-                                    className="rounded-lg border border-indigo-200 bg-white px-3 py-2 text-xs text-indigo-700 hover:bg-indigo-50 transition-colors"
+                                    className="rounded-full border border-[hsl(var(--border))] bg-white px-4 py-2 text-xs font-medium text-[hsl(var(--foreground))] shadow-sm transition-all hover:border-primary/30 hover:bg-primary/5 hover:shadow-md"
                                 >
                                     {s}
                                 </button>
@@ -137,25 +126,19 @@ export function AiChatPanel() {
                     </div>
                 )}
                 {messages.map((m) => (
-                    <div
-                        key={m.id}
-                        className={cn(
-                            "flex",
-                            m.role === "user" ? "justify-end" : "justify-start"
-                        )}
-                    >
+                    <div key={m.id} className={cn("flex", m.role === "user" ? "justify-end" : "justify-start")}>
                         <div
                             className={cn(
-                                "max-w-[90%] rounded-2xl px-3 py-2 text-sm",
+                                "max-w-[85%] rounded-2xl px-4 py-2.5 text-sm",
                                 m.role === "user"
-                                    ? "bg-indigo-600 text-white"
-                                    : "bg-gray-100 text-gray-900 border border-gray-200"
+                                    ? "bg-primary text-primary-foreground"
+                                    : "bg-[hsl(var(--muted))]/50 text-[hsl(var(--foreground))] border border-[hsl(var(--border))]/50"
                             )}
                         >
                             {m.role === "user" ? (
                                 <p className="whitespace-pre-wrap">{m.content}</p>
                             ) : (
-                                <div className="ai-response text-left space-y-2 [&_h3]:font-semibold [&_h3]:text-gray-900 [&_h3]:mt-2 [&_h3]:mb-1 [&_h3]:text-sm [&_p]:my-1 [&_p]:leading-relaxed [&_ul]:my-1 [&_ul]:pl-4 [&_li]:my-0.5 [&_strong]:font-semibold [&_strong]:text-gray-900">
+                                <div className="ai-response text-left space-y-2 [&_h3]:font-semibold [&_h3]:text-[hsl(var(--foreground))] [&_h3]:mt-2 [&_h3]:mb-1 [&_h3]:text-sm [&_p]:my-1 [&_p]:leading-relaxed [&_ul]:my-1 [&_ul]:pl-4 [&_li]:my-0.5 [&_strong]:font-semibold [&_strong]:text-[hsl(var(--foreground))]">
                                     <ReactMarkdown>{m.content}</ReactMarkdown>
                                 </div>
                             )}
@@ -164,30 +147,32 @@ export function AiChatPanel() {
                 ))}
                 {loading && (
                     <div className="flex justify-start">
-                        <div className="flex items-center gap-2 rounded-2xl bg-gray-100 border border-gray-200 px-3 py-2 text-sm text-gray-600">
-                            <Loader2 className="h-4 w-4 animate-spin" /> Fetching...
+                        <div className="flex items-center gap-2 rounded-2xl bg-[hsl(var(--muted))]/50 border border-[hsl(var(--border))]/50 px-4 py-2.5 text-sm text-[hsl(var(--muted-foreground))]">
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                            <span>Thinking...</span>
                         </div>
                     </div>
                 )}
             </div>
 
             {error && (
-                <p className="px-3 text-xs text-amber-600">{error}</p>
+                <p className="shrink-0 px-4 pb-1 text-xs text-destructive">{error}</p>
             )}
 
-            <form onSubmit={handleSubmit} className="border-t border-gray-100 p-3">
+            {/* Input: modern pill style */}
+            <form onSubmit={handleSubmit} className="shrink-0 border-t border-[hsl(var(--border))] bg-[hsl(var(--muted))]/20 p-3">
                 <div className="flex gap-2">
                     <Input
                         value={input}
                         onChange={(e) => setInput(e.target.value)}
-                        placeholder="e.g. Shagun class 10 details..."
-                        className="flex-1 rounded-xl border-indigo-200 text-sm"
+                        placeholder="Ask about students, fees, defaulters..."
+                        className="min-w-0 flex-1 rounded-xl border-[hsl(var(--border))] bg-white text-sm focus-visible:ring-primary"
                         disabled={loading}
                     />
                     <Button
                         type="submit"
-                        size="sm"
-                        className="rounded-xl bg-indigo-600 hover:bg-indigo-500 shrink-0"
+                        size="icon"
+                        className="h-10 w-10 shrink-0 rounded-xl"
                         disabled={loading || !input.trim()}
                     >
                         {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}

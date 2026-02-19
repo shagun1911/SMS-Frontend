@@ -1,130 +1,238 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
+import { useState, useEffect } from "react";
 import {
   GraduationCap,
   Users,
   Banknote,
   Bus,
   CalendarDays,
-  FileText,
   BarChart3,
   ArrowRight,
   School,
   ShieldCheck,
+  Play,
 } from "lucide-react";
+import { AnimatedDashboardMock } from "@/components/landing/animated-dashboard-mock";
+import { AnimatedFeesMock } from "@/components/landing/animated-fees-mock";
+import { AnimatedStudentsMock } from "@/components/landing/animated-students-mock";
+import { DemoMedia } from "@/components/landing/demo-media";
 
 const features = [
-  {
-    title: "Student Management",
-    description: "Enrollments, class & section, academic records, and promotions.",
-    icon: GraduationCap,
-  },
-  {
-    title: "Staff & Payroll",
-    description: "Personnel, salary structure, monthly payroll, and bonus tracking.",
-    icon: Users,
-  },
-  {
-    title: "Fees & Accounting",
-    description: "Fee structures, collections, ledger, and outstanding tracking.",
-    icon: Banknote,
-  },
-  {
-    title: "Transport Management",
-    description: "Buses, routes, and student transport assignments.",
-    icon: Bus,
-  },
-  {
-    title: "Attendance & Exams",
-    description: "Daily attendance, exam schedules, and result management.",
-    icon: CalendarDays,
-  },
-  {
-    title: "Reports & Analytics",
-    description: "Dashboards, fee trends, and institutional insights.",
-    icon: BarChart3,
-  },
+  { title: "Student Management", description: "Enrollments, class & section, academic records, and promotions.", icon: GraduationCap },
+  { title: "Staff & Payroll", description: "Personnel, salary structure, monthly payroll, and bonus tracking.", icon: Users },
+  { title: "Fees & Accounting", description: "Fee structures, collections, ledger, and outstanding tracking.", icon: Banknote },
+  { title: "Transport Management", description: "Buses, routes, and student transport assignments.", icon: Bus },
+  { title: "Exams & Results", description: "Exam schedules, marks entry, admit cards, and result management.", icon: CalendarDays },
+  { title: "Reports & Analytics", description: "Dashboards, fee trends, and institutional insights.", icon: BarChart3 },
 ];
 
 const steps = [
   { step: 1, title: "Register your school", text: "Create your institution and add admin details." },
   { step: 2, title: "Configure classes & fees", text: "Set up sessions, fee structures, and transport." },
   { step: 3, title: "Enroll students & staff", text: "Add students and staff; manage payroll and fees." },
-  { step: 4, title: "Run daily operations", text: "Take attendance, collect fees, and publish results." },
+  { step: 4, title: "Run daily operations", text: "Collect fees, conduct exams, and publish results." },
+];
+
+const DEMOS = [
+  {
+    id: "dashboard",
+    title: "Dashboard at a glance",
+    description: "Stats, fee trends, and recent activity in one view.",
+    videoSrc: "/demos/dashboard.mp4",
+    gifSrc: "/hero-preview.gif",
+    fallback: <AnimatedDashboardMock />,
+  },
+  {
+    id: "fees",
+    title: "Fee collection",
+    description: "Collect fees, print receipts, and track defaulters.",
+    videoSrc: "/demos/fees.mp4",
+    gifSrc: "/demos/fees.gif",
+    fallback: <AnimatedFeesMock />,
+  },
+  {
+    id: "students",
+    title: "Student management",
+    description: "Enroll students, manage classes, and track progress.",
+    videoSrc: "/demos/students.mp4",
+    gifSrc: "/demos/students.gif",
+    fallback: <AnimatedStudentsMock />,
+  },
 ];
 
 export default function LandingPage() {
+  const [heroVideoLoaded, setHeroVideoLoaded] = useState(false);
+  const [heroGifLoaded, setHeroGifLoaded] = useState(false);
+  const [scrolled, setScrolled] = useState(false);
+  const showHeroMedia = heroVideoLoaded || heroGifLoaded;
+
+  useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > 32);
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
+
   return (
-    <div className="min-h-screen bg-gray-50 text-gray-900">
-      {/* Hero */}
-      <header className="border-b border-gray-200 bg-white">
-        <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4">
-            <div className="flex items-center gap-2">
-            <div className="relative h-9 w-9">
-              <Image src="/logo.png" alt="SSMS" fill className="object-contain" sizes="36px" />
+    <div className="min-h-screen bg-[hsl(var(--background))] text-[hsl(var(--foreground))]">
+      {/* Navbar: embedded, shrinks on scroll for modern feel */}
+      <header
+        className={`sticky top-0 z-50 border-b bg-[hsl(var(--card))] transition-all duration-200 ${
+          scrolled ? "border-[hsl(var(--border))] shadow-card" : "border-transparent"
+        }`}
+      >
+        <div className={`mx-auto flex max-w-6xl items-center justify-between px-4 transition-all duration-200 ${scrolled ? "h-12" : "h-14"}`}>
+          <Link href="/" className="flex items-center gap-2 text-[hsl(var(--foreground))] transition-smooth hover:opacity-80">
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[hsl(var(--primary))] text-white">
+              <School className="h-4 w-4" />
             </div>
-            <span className="text-xl font-semibold tracking-tight text-gray-900">SSMS</span>
-          </div>
-          <nav className="flex items-center gap-6 text-sm font-medium text-gray-600">
-            <Link href="#features" className="hover:text-indigo-600 transition-colors">Features</Link>
-            <Link href="#how-it-works" className="hover:text-indigo-600 transition-colors">How it works</Link>
-            <Link href="/login" className="hover:text-indigo-600 transition-colors">Login</Link>
+            <span className="font-semibold tracking-tight">SMS</span>
+          </Link>
+          <nav className="flex items-center gap-6 text-sm font-medium text-[hsl(var(--muted-foreground))]">
+            <Link href="#features" className="transition-smooth hover:text-[hsl(var(--foreground))]">Features</Link>
+            <Link href="#demos" className="transition-smooth hover:text-[hsl(var(--foreground))]">Demos</Link>
+            <Link href="#how-it-works" className="transition-smooth hover:text-[hsl(var(--foreground))]">How it works</Link>
+            <Link
+              href="/login"
+              className="rounded-lg bg-[hsl(var(--primary))] px-4 py-2 text-sm font-medium text-white transition-smooth hover:opacity-90"
+            >
+              Login
+            </Link>
           </nav>
         </div>
       </header>
 
       <main>
-        {/* Hero Section */}
-        <section className="relative overflow-hidden border-b border-gray-200 bg-white py-20 sm:py-28">
-          <div className="absolute inset-0 bg-gradient-to-br from-indigo-50/80 via-white to-purple-50/50" />
-          <div className="relative mx-auto max-w-6xl px-4 text-center">
-            <h1 className="text-4xl font-bold tracking-tight text-gray-900 sm:text-5xl md:text-6xl">
-              Shagun School Management System
-            </h1>
-            <p className="mx-auto mt-6 max-w-2xl text-lg text-gray-600">
-              One platform for admissions, fees, payroll, attendance, and exams. Built for schools that want clarity and control.
+        {/* Hero – minimal, generous whitespace */}
+        <section className="relative overflow-hidden py-28 sm:py-36">
+          <div className="absolute inset-0 bg-[hsl(var(--background))]" />
+          <div className="relative mx-auto max-w-4xl px-4 text-center">
+            <span className="animate-fade-in-up inline-block h-2 w-2 rounded-full bg-[hsl(var(--foreground))]/60" aria-hidden />
+            <p className="animate-fade-in-up animation-delay-100 mt-4 text-sm font-medium uppercase tracking-widest text-[hsl(var(--muted-foreground))]">
+              School Management System
             </p>
-            <div className="mt-10 flex flex-wrap items-center justify-center gap-4">
+            <h1 className="animate-fade-in-up animation-delay-200 mt-6 text-4xl font-bold tracking-tight text-[hsl(var(--foreground))] sm:text-5xl md:text-6xl">
+              One platform.
+              <br />
+              <span className="text-[hsl(var(--primary))]">Every school need.</span>
+            </h1>
+            <p className="animate-fade-in-up animation-delay-300 mx-auto mt-6 max-w-lg text-base text-[hsl(var(--muted-foreground))] leading-relaxed">
+              Admissions, fees, payroll, transport, and exams—built for clarity and control.
+            </p>
+            <div className="animate-fade-in-up animation-delay-400 mt-12 flex flex-wrap items-center justify-center gap-4">
               <Link
                 href="/login?portal=school"
-                className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-6 py-3.5 text-base font-semibold text-white shadow-sm hover:bg-indigo-500 transition-colors"
+                className="group inline-flex items-center gap-2 rounded-xl bg-[hsl(var(--primary))] px-6 py-3.5 text-sm font-semibold text-white transition-smooth hover:opacity-90"
               >
                 Login as School
-                <ArrowRight className="h-4 w-4" />
+                <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
               </Link>
               <Link
                 href="/login?portal=master"
-                className="inline-flex items-center gap-2 rounded-xl border-2 border-gray-300 bg-white px-6 py-3.5 text-base font-semibold text-gray-700 hover:border-indigo-400 hover:text-indigo-600 transition-colors"
+                className="inline-flex items-center gap-2 rounded-xl border border-[hsl(var(--border))] bg-[hsl(var(--card))] px-6 py-3.5 text-sm font-medium text-[hsl(var(--foreground))] transition-smooth hover:bg-[hsl(var(--muted))] shadow-card"
               >
                 <ShieldCheck className="h-4 w-4" />
                 Master Admin
               </Link>
             </div>
+            {/* Hero visual */}
+            <div className="animate-fade-in-up animation-delay-500 relative mx-auto mt-20 max-w-5xl" style={{ animationFillMode: "both" }}>
+              <div className="overflow-hidden rounded-2xl border border-[hsl(var(--border))] bg-[hsl(var(--card))] shadow-card">
+                <div className="border-b border-[hsl(var(--border))] bg-[hsl(var(--muted))]/50 px-4 py-2.5">
+                  <span className="text-xs font-medium text-[hsl(var(--muted-foreground))]">Dashboard</span>
+                </div>
+                <div className="relative aspect-[16/9] bg-[hsl(var(--muted))]/30">
+                  <video
+                    autoPlay
+                    muted
+                    loop
+                    playsInline
+                    className={`absolute inset-0 h-full w-full object-cover object-top transition-opacity duration-500 ${heroVideoLoaded ? "opacity-100" : "opacity-0"}`}
+                    onLoadedData={() => setHeroVideoLoaded(true)}
+                  >
+                    <source src="/demos/hero.mp4" type="video/mp4" />
+                  </video>
+                  <img
+                    src="/hero-preview.gif"
+                    alt=""
+                    className={`absolute inset-0 h-full w-full object-cover object-top transition-opacity duration-500 ${!heroVideoLoaded && heroGifLoaded ? "opacity-100" : "opacity-0"}`}
+                    onLoad={() => setHeroGifLoaded(true)}
+                  />
+                  <div className={`absolute inset-0 transition-opacity duration-500 ${showHeroMedia ? "opacity-0 pointer-events-none" : "opacity-100"}`} aria-hidden={showHeroMedia}>
+                    <AnimatedDashboardMock />
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
         </section>
 
-        {/* Features */}
-        <section id="features" className="py-20 sm:py-24">
+        {/* Demos – soft shadows, accent underline */}
+        <section id="demos" className="relative py-28 sm:py-32">
           <div className="mx-auto max-w-6xl px-4">
-            <h2 className="text-center text-3xl font-bold tracking-tight text-gray-900 sm:text-4xl">
+            <div className="text-center">
+              <Link
+                href="#demos"
+                className="animate-fade-in-up inline-flex items-center gap-2 rounded-xl border border-[hsl(var(--border))] bg-[hsl(var(--card))] px-5 py-2.5 text-sm font-medium text-[hsl(var(--foreground))] shadow-card transition-smooth hover:bg-[hsl(var(--muted))]"
+              >
+                <Play className="h-4 w-4 text-[hsl(var(--primary))]" />
+                See it in action
+              </Link>
+              <h2 className="animate-fade-in-up animation-delay-100 mt-10 text-3xl font-bold tracking-tight text-[hsl(var(--foreground))] sm:text-4xl">
+                Your school, running on SMS
+              </h2>
+              <span className="animate-fade-in-up animation-delay-100 mx-auto mt-3 block h-1 w-12 rounded-full bg-[hsl(var(--primary))]/80" />
+              <p className="animate-fade-in-up animation-delay-200 mx-auto mt-6 max-w-xl text-base text-[hsl(var(--muted-foreground))]">
+                Dashboard, fee collection, and student management in one place.
+              </p>
+            </div>
+            <div className="mt-16 grid gap-8 sm:grid-cols-1 lg:grid-cols-3">
+              {DEMOS.map((d, i) => (
+                <div
+                  key={d.id}
+                  className="animate-fade-in-up flex flex-col rounded-2xl border border-[hsl(var(--border))] bg-[hsl(var(--card))] overflow-hidden shadow-card transition-smooth hover-lift animation-fill-both"
+                  style={{ animationDelay: `${200 + i * 80}ms` }}
+                >
+                  <div className="relative h-[300px] shrink-0 overflow-hidden bg-[hsl(var(--muted))]/30">
+                    <DemoMedia videoSrc={d.videoSrc} gifSrc={d.gifSrc} className="h-full w-full" compact={d.id === "dashboard"}>
+                      {d.fallback}
+                    </DemoMedia>
+                  </div>
+                  <div className="shrink-0 border-t border-[hsl(var(--border))] px-6 py-5">
+                    <h3 className="text-lg font-bold text-[hsl(var(--foreground))]">{d.title}</h3>
+                    <span className="mt-2 block h-0.5 w-8 rounded-full bg-[hsl(var(--primary))]/60" />
+                    <p className="mt-3 text-sm text-[hsl(var(--muted-foreground))] leading-relaxed">{d.description}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        {/* Features – cards with soft shadow, optional left accent */}
+        <section id="features" className="relative border-t border-[hsl(var(--border))] py-28 sm:py-32">
+          <div className="mx-auto max-w-6xl px-4">
+            <h2 className="animate-fade-in-up text-center text-3xl font-bold tracking-tight text-[hsl(var(--foreground))] sm:text-4xl">
               Everything your school needs
             </h2>
-            <p className="mx-auto mt-4 max-w-2xl text-center text-lg text-gray-600">
-              Student management, staff payroll, fees, transport, attendance, and exams in one place.
+            <span className="animate-fade-in-up animation-delay-100 mx-auto mt-3 block h-1 w-12 rounded-full bg-[hsl(var(--primary))]/80" />
+            <p className="animate-fade-in-up animation-delay-100 mx-auto mt-6 max-w-xl text-center text-base text-[hsl(var(--muted-foreground))]">
+              One place for students, staff, fees, transport, and exams.
             </p>
             <div className="mt-16 grid gap-8 sm:grid-cols-2 lg:grid-cols-3">
-              {features.map((f) => (
+              {features.map((f, i) => (
                 <div
                   key={f.title}
-                  className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm transition-shadow hover:shadow-md"
+                  className="animate-fade-in-up relative rounded-2xl border border-[hsl(var(--border))] bg-[hsl(var(--card))] p-7 pl-8 shadow-card transition-smooth hover-lift"
+                  style={{ animationDelay: `${120 + i * 60}ms`, animationFillMode: "both" }}
                 >
-                  <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-indigo-100 text-indigo-600">
+                  <span className="absolute left-0 top-6 bottom-6 w-0.5 rounded-r-full bg-[hsl(var(--primary))]/30" aria-hidden />
+                  <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-[hsl(var(--primary))]/10 text-[hsl(var(--primary))]">
                     <f.icon className="h-6 w-6" />
                   </div>
-                  <h3 className="mt-4 text-lg font-semibold text-gray-900">{f.title}</h3>
-                  <p className="mt-2 text-gray-600">{f.description}</p>
+                  <h3 className="mt-5 text-lg font-bold text-[hsl(var(--foreground))]">{f.title}</h3>
+                  <p className="mt-2 text-sm text-[hsl(var(--muted-foreground))] leading-relaxed">{f.description}</p>
                 </div>
               ))}
             </div>
@@ -132,22 +240,29 @@ export default function LandingPage() {
         </section>
 
         {/* How it works */}
-        <section id="how-it-works" className="border-t border-gray-200 bg-white py-20 sm:py-24">
+        <section id="how-it-works" className="relative border-t border-[hsl(var(--border))] py-28 sm:py-32">
           <div className="mx-auto max-w-6xl px-4">
-            <h2 className="text-center text-3xl font-bold tracking-tight text-gray-900 sm:text-4xl">
+            <h2 className="animate-fade-in-up text-center text-3xl font-bold tracking-tight text-[hsl(var(--foreground))] sm:text-4xl">
               How it works
             </h2>
-            <p className="mx-auto mt-4 max-w-2xl text-center text-lg text-gray-600">
-              Get your school online in a few steps.
+            <span className="animate-fade-in-up animation-delay-100 mx-auto mt-3 block h-1 w-12 rounded-full bg-[hsl(var(--primary))]/80" />
+            <p className="animate-fade-in-up animation-delay-100 mx-auto mt-6 max-w-xl text-center text-base text-[hsl(var(--muted-foreground))]">
+              Get your school online in four steps.
             </p>
-            <div className="mt-16 grid gap-8 sm:grid-cols-2 lg:grid-cols-4">
-              {steps.map((s) => (
-                <div key={s.step} className="relative rounded-2xl border border-gray-200 bg-gray-50/50 p-6">
-                  <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-indigo-600 text-sm font-semibold text-white">
+            <div className="mt-16 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+              {steps.map((s, i) => (
+                <div
+                  key={s.step}
+                  className="animate-fade-in-up flex gap-5 rounded-2xl border border-[hsl(var(--border))] bg-[hsl(var(--card))] p-6 shadow-card transition-smooth hover-lift"
+                  style={{ animationDelay: `${180 + i * 80}ms`, animationFillMode: "both" }}
+                >
+                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[hsl(var(--muted))] text-base font-bold text-[hsl(var(--foreground))]">
                     {s.step}
                   </span>
-                  <h3 className="mt-4 text-lg font-semibold text-gray-900">{s.title}</h3>
-                  <p className="mt-2 text-gray-600">{s.text}</p>
+                  <div>
+                    <h3 className="font-bold text-[hsl(var(--foreground))]">{s.title}</h3>
+                    <p className="mt-2 text-sm text-[hsl(var(--muted-foreground))] leading-relaxed">{s.text}</p>
+                  </div>
                 </div>
               ))}
             </div>
@@ -155,25 +270,32 @@ export default function LandingPage() {
         </section>
 
         {/* CTA */}
-        <section className="border-t border-gray-200 py-20 sm:py-24">
-          <div className="mx-auto max-w-3xl px-4 text-center">
-            <h2 className="text-3xl font-bold tracking-tight text-gray-900">
+        <section className="border-t border-[hsl(var(--border))] py-28 sm:py-32">
+          <div className="mx-auto max-w-2xl px-4 text-center">
+            <h2 className="text-3xl font-bold tracking-tight text-[hsl(var(--foreground))] sm:text-4xl">
               Ready to get started?
             </h2>
-            <p className="mt-4 text-lg text-gray-600">
-              Log in to your school dashboard or register a new institution.
+            <span className="mx-auto mt-3 block h-1 w-12 rounded-full bg-[hsl(var(--primary))]/80" />
+            <p className="mt-6 text-base text-[hsl(var(--muted-foreground))]">
+              Log in or register your institution.
             </p>
-            <div className="mt-8 flex flex-wrap items-center justify-center gap-4">
+            <div className="mt-10 flex flex-wrap items-center justify-center gap-4">
               <Link
                 href="/login?portal=school"
-                className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-6 py-3.5 text-base font-semibold text-white shadow-sm hover:bg-indigo-500 transition-colors"
+                className="inline-flex items-center gap-2 rounded-lg bg-[hsl(var(--primary))] px-5 py-2.5 text-sm font-medium text-white transition-smooth hover:opacity-90"
               >
                 <School className="h-4 w-4" />
                 School Login
               </Link>
               <Link
+                href="/register"
+                className="inline-flex items-center gap-2 rounded-lg border border-[hsl(var(--border))] bg-[hsl(var(--card))] px-5 py-2.5 text-sm font-medium text-[hsl(var(--foreground))] transition-smooth hover:bg-[hsl(var(--muted))]"
+              >
+                Register school
+              </Link>
+              <Link
                 href="/login?portal=master"
-                className="inline-flex items-center gap-2 rounded-xl border border-gray-300 bg-white px-6 py-3.5 text-base font-semibold text-gray-700 hover:bg-gray-50 transition-colors"
+                className="inline-flex items-center gap-2 rounded-lg border border-[hsl(var(--border))] bg-[hsl(var(--card))] px-5 py-2.5 text-sm font-medium text-[hsl(var(--foreground))] transition-smooth hover:bg-[hsl(var(--muted))]"
               >
                 Master Admin
               </Link>
@@ -182,28 +304,24 @@ export default function LandingPage() {
         </section>
       </main>
 
-      {/* Footer */}
-      <footer className="border-t border-gray-200 bg-white py-12">
+      <footer className="border-t border-[hsl(var(--border))] bg-[hsl(var(--card))] py-10">
         <div className="mx-auto max-w-6xl px-4">
-          <div className="flex flex-col items-center justify-between gap-6 sm:flex-row">
+          <div className="flex flex-col items-center justify-between gap-4 sm:flex-row">
             <div className="flex items-center gap-2">
-              <div className="relative h-6 w-6">
-                <Image src="/logo.png" alt="SSMS" fill className="object-contain" sizes="24px" />
+              <div className="flex h-7 w-7 items-center justify-center rounded-md bg-[hsl(var(--primary))] text-white">
+                <School className="h-3.5 w-3.5" />
               </div>
-              <span className="font-semibold text-gray-900">SSMS</span>
+              <span className="font-semibold text-[hsl(var(--foreground))] text-sm">SMS</span>
             </div>
-            <nav className="flex flex-wrap items-center justify-center gap-6 text-sm text-gray-600">
-              <Link href="#features" className="hover:text-indigo-600 transition-colors">Features</Link>
-              <Link href="#how-it-works" className="hover:text-indigo-600 transition-colors">How it works</Link>
-              <Link href="/login" className="hover:text-indigo-600 transition-colors">Login</Link>
-              <span className="text-gray-400">|</span>
-              <span className="text-gray-500">About</span>
-              <span className="text-gray-500">Contact</span>
-              <span className="text-gray-500">Terms</span>
+            <nav className="flex flex-wrap items-center justify-center gap-5 text-sm text-[hsl(var(--muted-foreground))]">
+              <Link href="#features" className="transition-smooth hover:text-[hsl(var(--foreground))]">Features</Link>
+              <Link href="#demos" className="transition-smooth hover:text-[hsl(var(--foreground))]">Demos</Link>
+              <Link href="#how-it-works" className="transition-smooth hover:text-[hsl(var(--foreground))]">How it works</Link>
+              <Link href="/login" className="transition-smooth hover:text-[hsl(var(--foreground))]">Login</Link>
             </nav>
           </div>
-          <p className="mt-8 text-center text-xs text-gray-500">
-            &copy; {new Date().getFullYear()} Shagun Systems. Enterprise-grade security.
+          <p className="mt-6 text-center text-xs text-[hsl(var(--muted-foreground))]">
+            &copy; {new Date().getFullYear()} School Management System
           </p>
         </div>
       </footer>

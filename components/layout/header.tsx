@@ -40,7 +40,7 @@ export function Header() {
     const { toggle: toggleMobileMenu } = useMobileMenu();
 
     return (
-        <header className="sticky top-0 z-30 w-full border-b border-slate-200 bg-white/95 backdrop-blur-xl shadow-sm">
+        <header className="sticky top-0 z-30 w-full border-b border-[hsl(var(--border))] bg-white/90 backdrop-blur-xl shadow-sm transition-smooth">
             <div className="flex h-14 items-center justify-between gap-2 px-3 sm:px-4 md:px-6">
                 <div className="flex min-w-0 items-center gap-2 sm:gap-3">
                     <Button
@@ -50,7 +50,7 @@ export function Header() {
                         onClick={toggleMobileMenu}
                         aria-label="Open menu"
                     >
-                        <Menu className="h-5 w-5 text-slate-600" />
+                        <Menu className="h-5 w-5 text-[hsl(var(--muted-foreground))]" />
                     </Button>
                     {user?.role !== "superadmin" && activeSess && (
                         <DropdownMenu>
@@ -58,11 +58,11 @@ export function Header() {
                                 <Button
                                     variant="outline"
                                     size="sm"
-                                    className="h-9 min-w-0 gap-1.5 rounded-xl border-slate-200 bg-white text-xs font-medium text-slate-700 hover:bg-slate-50 hover:border-indigo-200 sm:gap-2 sm:text-sm"
+                                    className="h-9 min-w-0 gap-1.5 rounded-xl border-[hsl(var(--border))] bg-white text-xs font-medium text-[hsl(var(--foreground))] hover:bg-[hsl(var(--muted))] sm:gap-2 sm:text-sm"
                                 >
-                                    <Calendar className="h-4 w-4 shrink-0 text-indigo-600" />
+                                    <Calendar className="h-4 w-4 shrink-0 text-primary" />
                                     <span className="truncate max-w-[100px] sm:max-w-none">{activeSess.sessionYear ?? "Session"}</span>
-                                    <ChevronDown className="h-3.5 w-3.5 shrink-0 text-slate-400" />
+                                    <ChevronDown className="h-3.5 w-3.5 shrink-0 text-[hsl(var(--muted-foreground))]" />
                                 </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="start" className="w-52 rounded-xl">
@@ -72,8 +72,8 @@ export function Header() {
                                             key={sess._id}
                                             className={
                                                 sess.isActive
-                                                    ? "bg-indigo-50 text-indigo-700 font-medium rounded-lg"
-                                                    : "text-slate-600 rounded-lg"
+                                                    ? "bg-[hsl(var(--accent))] text-[hsl(var(--accent-foreground))] font-medium rounded-lg"
+                                                    : "text-[hsl(var(--muted-foreground))] rounded-lg"
                                             }
                                         >
                                             {sess.sessionYear} {sess.isActive && " ✓"}
@@ -85,22 +85,22 @@ export function Header() {
                 </div>
 
                 <div className="flex shrink-0 items-center gap-1 sm:gap-2">
-                    <Button variant="ghost" size="icon" className="relative h-9 w-9 rounded-xl hover:bg-slate-100">
-                        <Bell className="h-4 w-4 text-slate-600" />
-                        <span className="absolute right-1 top-1 h-2 w-2 rounded-full bg-indigo-500 ring-2 ring-white" />
+                    <Button variant="ghost" size="icon" className="relative h-9 w-9 rounded-xl hover:bg-[hsl(var(--muted))]">
+                        <Bell className="h-4 w-4 text-[hsl(var(--muted-foreground))]" />
+                        <span className="absolute right-1 top-1 h-2 w-2 rounded-full bg-primary ring-2 ring-white" />
                     </Button>
-                    <div className="flex items-center gap-1 border-l border-slate-200 pl-2 sm:gap-2 sm:pl-3">
+                    <div className="flex items-center gap-1 border-l border-[hsl(var(--border))] pl-2 sm:gap-2 sm:pl-3">
                         <div className="hidden flex-col items-end sm:flex md:flex">
-                            <span className="text-sm font-semibold leading-none text-slate-900">
+                            <span className="text-sm font-semibold leading-none text-[hsl(var(--foreground))]">
                                 {user?.name || "Administrator"}
                             </span>
-                            <span className="mt-0.5 text-xs text-slate-500 capitalize">
+                            <span className="mt-0.5 text-xs text-[hsl(var(--muted-foreground))] capitalize">
                                 {user?.role?.replace("_", " ") || "Admin"}
                             </span>
                         </div>
-                        <Avatar className="h-9 w-9 border-2 border-slate-200 ring-2 ring-indigo-100 rounded-xl">
+                        <Avatar className="h-9 w-9 rounded-xl border-2 border-[hsl(var(--border))] ring-2 ring-[hsl(var(--primary))]/10">
                             <AvatarImage src={user?.photo} alt={user?.name} />
-                            <AvatarFallback className="bg-indigo-100 text-indigo-700 font-semibold text-sm rounded-xl">
+                            <AvatarFallback className="bg-[hsl(var(--primary))]/10 font-semibold text-sm text-primary rounded-xl">
                                 {user?.name?.charAt(0) || "A"}
                             </AvatarFallback>
                         </Avatar>
@@ -108,7 +108,7 @@ export function Header() {
                             variant="ghost"
                             size="icon"
                             onClick={handleLogout}
-                            className="h-9 w-9 rounded-xl hover:bg-red-50 text-slate-500 hover:text-red-600"
+                            className="h-9 w-9 rounded-xl text-[hsl(var(--muted-foreground))] hover:bg-destructive/10 hover:text-destructive"
                         >
                             <LogOut className="h-4 w-4" />
                         </Button>

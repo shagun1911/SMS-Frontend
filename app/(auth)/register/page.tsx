@@ -105,131 +105,125 @@ export default function RegisterPage() {
     };
 
     return (
-        <div className="relative min-h-screen w-full overflow-y-auto bg-[#0A0A0A] text-white py-12 px-4">
-            {/* Background Glow */}
-            <div className="fixed -top-[10%] -right-[10%] h-[600px] w-[600px] rounded-full bg-purple-600/10 blur-[120px] pointer-events-none" />
-
+        <div className="relative min-h-screen w-full overflow-y-auto bg-[hsl(var(--background))] py-12 px-4">
+            <div className="absolute inset-0 bg-gradient-to-br from-[hsl(var(--primary))]/5 via-transparent to-[hsl(var(--primary))]/10" />
             <div className="relative z-10 mx-auto w-full max-w-2xl">
                 <Link
                     href="/"
-                    className="group mb-8 inline-flex items-center gap-2 text-zinc-500 hover:text-white transition-colors"
+                    className="mb-8 inline-flex items-center gap-2 text-[hsl(var(--muted-foreground))] transition-smooth hover:text-[hsl(var(--primary))]"
                 >
-                    <ArrowLeft className="h-4 w-4 transition-transform group-hover:-translate-x-1" />
+                    <ArrowLeft className="h-4 w-4" />
                     <span className="text-sm font-medium">Back to Home</span>
                 </Link>
 
-                {/* Header */}
                 <div className="mb-12">
-                    <h1 className="text-4xl font-bold tracking-tight mb-4">Onboard your Institution</h1>
-                    <p className="text-zinc-400">Join the SSMS network and modernize your school operations.</p>
-
-                    {/* Steps indicator */}
+                    <h1 className="text-3xl font-bold tracking-tight text-[hsl(var(--foreground))] sm:text-4xl">Onboard your Institution</h1>
+                    <p className="mt-2 text-[hsl(var(--muted-foreground))]">Join the SMS network and modernize your school operations.</p>
                     <div className="mt-8 flex items-center gap-4">
-                        <div className={`h-1 flex-1 rounded-full transition-colors duration-500 ${step >= 1 ? 'bg-purple-500' : 'bg-white/10'}`} />
-                        <div className={`h-1 flex-1 rounded-full transition-colors duration-500 ${step >= 2 ? 'bg-purple-500' : 'bg-white/10'}`} />
+                        <div className={`h-1.5 flex-1 rounded-full transition-colors duration-500 ${step >= 1 ? "bg-primary" : "bg-[hsl(var(--border))]"}`} />
+                        <div className={`h-1.5 flex-1 rounded-full transition-colors duration-500 ${step >= 2 ? "bg-primary" : "bg-[hsl(var(--border))]"}`} />
                     </div>
                 </div>
 
-                {/* Form Container */}
-                <div className="space-y-8 bg-white/[0.03] border border-white/10 rounded-[2.5rem] p-8 md:p-12 backdrop-blur-xl">
+                <div className="space-y-8 rounded-2xl border border-[hsl(var(--border))] bg-white p-8 shadow-xl md:p-12">
                     <form onSubmit={handleSubmit(onSubmit)}>
                         {step === 1 ? (
-                            <div className="space-y-6 animate-in fade-in slide-in-from-right-10 duration-500">
-                                <div className="flex items-center gap-3 mb-6">
-                                    <Building2 className="h-6 w-6 text-purple-400" />
-                                    <h2 className="text-xl font-semibold">School Information</h2>
+                            <div className="animate-fade-in space-y-6">
+                                <div className="mb-6 flex items-center gap-3">
+                                    <Building2 className="h-6 w-6 text-primary" />
+                                    <h2 className="text-xl font-semibold text-[hsl(var(--foreground))]">School Information</h2>
                                 </div>
 
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
                                     <div className="space-y-2">
-                                        <label className="text-xs font-bold uppercase tracking-wider text-zinc-500 ml-1">School Name</label>
-                                        <Input {...register("school.schoolName")} placeholder="Example Public School" className="bg-white/5 border-white/10 h-14 rounded-2xl" />
-                                        {errors.school?.schoolName && <p className="text-[10px] text-red-400 ml-1">{errors.school.schoolName.message}</p>}
+                                        <label className="ml-1 text-xs font-medium uppercase tracking-wider text-[hsl(var(--muted-foreground))]">School Name</label>
+                                        <Input {...register("school.schoolName")} placeholder="Example Public School" className="h-12 rounded-xl border-[hsl(var(--input))]" />
+                                        {errors.school?.schoolName && <p className="ml-1 text-xs text-destructive">{errors.school.schoolName.message}</p>}
                                     </div>
                                     <div className="space-y-2">
-                                        <label className="text-xs font-bold uppercase tracking-wider text-zinc-500 ml-1">School Code (Short)</label>
-                                        <Input {...register("school.schoolCode")} placeholder="EPS2024" className="bg-white/5 border-white/10 h-14 rounded-2xl" />
-                                        {errors.school?.schoolCode && <p className="text-[10px] text-red-400 ml-1">{errors.school.schoolCode.message}</p>}
+                                        <label className="ml-1 text-xs font-medium uppercase tracking-wider text-[hsl(var(--muted-foreground))]">School Code</label>
+                                        <Input {...register("school.schoolCode")} placeholder="EPS2024" className="h-12 rounded-xl border-[hsl(var(--input))]" />
+                                        {errors.school?.schoolCode && <p className="ml-1 text-xs text-destructive">{errors.school.schoolCode.message}</p>}
                                     </div>
                                     <div className="space-y-2">
-                                        <label className="text-xs font-bold uppercase tracking-wider text-zinc-500 ml-1">Official Email</label>
-                                        <Input {...register("school.email")} type="email" placeholder="contact@example.edu" className="bg-white/5 border-white/10 h-14 rounded-2xl" />
-                                        {errors.school?.email && <p className="text-[10px] text-red-400 ml-1">{errors.school.email.message}</p>}
+                                        <label className="ml-1 text-xs font-medium uppercase tracking-wider text-[hsl(var(--muted-foreground))]">Official Email</label>
+                                        <Input {...register("school.email")} type="email" placeholder="contact@example.edu" className="h-12 rounded-xl border-[hsl(var(--input))]" />
+                                        {errors.school?.email && <p className="ml-1 text-xs text-destructive">{errors.school.email.message}</p>}
                                     </div>
                                     <div className="space-y-2">
-                                        <label className="text-xs font-bold uppercase tracking-wider text-zinc-500 ml-1">Phone Number</label>
-                                        <Input {...register("school.phone")} placeholder="+91 99999 99999" className="bg-white/5 border-white/10 h-14 rounded-2xl" />
-                                        {errors.school?.phone && <p className="text-[10px] text-red-400 ml-1">{errors.school.phone.message}</p>}
+                                        <label className="ml-1 text-xs font-medium uppercase tracking-wider text-[hsl(var(--muted-foreground))]">Phone</label>
+                                        <Input {...register("school.phone")} placeholder="+91 99999 99999" className="h-12 rounded-xl border-[hsl(var(--input))]" />
+                                        {errors.school?.phone && <p className="ml-1 text-xs text-destructive">{errors.school.phone.message}</p>}
                                     </div>
                                 </div>
 
                                 <div className="space-y-4 pt-4">
-                                    <div className="flex items-center gap-2 text-zinc-400">
+                                    <div className="flex items-center gap-2 text-[hsl(var(--muted-foreground))]">
                                         <MapPin className="h-4 w-4" />
-                                        <span className="text-sm font-medium">Address Details</span>
+                                        <span className="text-sm font-medium">Address</span>
                                     </div>
-                                    <Input {...register("school.address.street")} placeholder="Street Address" className="bg-white/5 border-white/10 h-14 rounded-2xl" />
-                                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                                        <Input {...register("school.address.city")} placeholder="City" className="bg-white/5 border-white/10 h-14 rounded-2xl" />
-                                        <Input {...register("school.address.state")} placeholder="State" className="bg-white/5 border-white/10 h-14 rounded-2xl" />
-                                        <Input {...register("school.address.pincode")} placeholder="Pincode" className="bg-white/5 border-white/10 h-14 rounded-2xl" />
-                                        <Input {...register("school.address.country")} placeholder="Country" className="bg-white/5 border-white/10 h-14 rounded-2xl" />
+                                    <Input {...register("school.address.street")} placeholder="Street Address" className="h-12 rounded-xl border-[hsl(var(--input))]" />
+                                    <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+                                        <Input {...register("school.address.city")} placeholder="City" className="h-12 rounded-xl border-[hsl(var(--input))]" />
+                                        <Input {...register("school.address.state")} placeholder="State" className="h-12 rounded-xl border-[hsl(var(--input))]" />
+                                        <Input {...register("school.address.pincode")} placeholder="Pincode" className="h-12 rounded-xl border-[hsl(var(--input))]" />
+                                        <Input {...register("school.address.country")} placeholder="Country" className="h-12 rounded-xl border-[hsl(var(--input))]" />
                                     </div>
                                 </div>
 
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4">
+                                <div className="grid grid-cols-1 gap-6 pt-4 md:grid-cols-2">
                                     <div className="space-y-2">
-                                        <label className="text-xs font-bold uppercase tracking-wider text-zinc-500 ml-1">Principal Name</label>
-                                        <Input {...register("school.principalName")} placeholder="Dr. John Doe" className="bg-white/5 border-white/10 h-14 rounded-2xl" />
+                                        <label className="ml-1 text-xs font-medium uppercase tracking-wider text-[hsl(var(--muted-foreground))]">Principal Name</label>
+                                        <Input {...register("school.principalName")} placeholder="Dr. John Doe" className="h-12 rounded-xl border-[hsl(var(--input))]" />
                                     </div>
                                     <div className="space-y-2">
-                                        <label className="text-xs font-bold uppercase tracking-wider text-zinc-500 ml-1">Affiliated Board</label>
-                                        <select {...register("school.board")} className="w-full h-14 bg-white/5 border-white/10 rounded-2xl px-4 text-sm outline-none focus:ring-1 focus:ring-purple-500">
-                                            <option value="CBSE" className="bg-zinc-900">CBSE</option>
-                                            <option value="ICSE" className="bg-zinc-900">ICSE</option>
-                                            <option value="RBSE" className="bg-zinc-900">RBSE</option>
-                                            <option value="State Board" className="bg-zinc-900">State Board</option>
+                                        <label className="ml-1 text-xs font-medium uppercase tracking-wider text-[hsl(var(--muted-foreground))]">Board</label>
+                                        <select {...register("school.board")} className="h-12 w-full rounded-xl border border-[hsl(var(--input))] bg-[hsl(var(--background))] px-4 text-sm outline-none focus:ring-2 focus:ring-[hsl(var(--ring))]">
+                                            <option value="CBSE">CBSE</option>
+                                            <option value="ICSE">ICSE</option>
+                                            <option value="RBSE">RBSE</option>
+                                            <option value="State Board">State Board</option>
                                         </select>
                                     </div>
                                 </div>
 
-                                <Button type="button" onClick={nextStep} className="w-full h-14 bg-purple-600 hover:bg-purple-500 rounded-2xl font-bold mt-8 shadow-lg shadow-purple-500/20">
+                                <Button type="button" onClick={nextStep} className="mt-8 h-12 w-full font-semibold">
                                     Next: Admin Account Setup
                                 </Button>
                             </div>
                         ) : (
-                            <div className="space-y-6 animate-in fade-in slide-in-from-right-10 duration-500">
-                                <div className="flex items-center gap-3 mb-6">
-                                    <User className="h-6 w-6 text-purple-400" />
-                                    <h2 className="text-xl font-semibold">Primary Administrative Account</h2>
+                            <div className="animate-fade-in space-y-6">
+                                <div className="mb-6 flex items-center gap-3">
+                                    <User className="h-6 w-6 text-primary" />
+                                    <h2 className="text-xl font-semibold text-[hsl(var(--foreground))]">Primary Administrative Account</h2>
                                 </div>
 
                                 <div className="space-y-4">
                                     <div className="space-y-2">
-                                        <label className="text-xs font-bold uppercase tracking-wider text-zinc-500 ml-1">Full Name</label>
-                                        <Input {...register("admin.name")} placeholder="Admin Name" className="bg-white/5 border-white/10 h-14 rounded-2xl" />
+                                        <label className="ml-1 text-xs font-medium uppercase tracking-wider text-[hsl(var(--muted-foreground))]">Full Name</label>
+                                        <Input {...register("admin.name")} placeholder="Admin Name" className="h-12 rounded-xl border-[hsl(var(--input))]" />
                                     </div>
                                     <div className="space-y-2">
-                                        <label className="text-xs font-bold uppercase tracking-wider text-zinc-500 ml-1">Personal Email (Login Username)</label>
-                                        <Input {...register("admin.email")} placeholder="admin@example.com" className="bg-white/5 border-white/10 h-14 rounded-2xl" />
+                                        <label className="ml-1 text-xs font-medium uppercase tracking-wider text-[hsl(var(--muted-foreground))]">Email (Login)</label>
+                                        <Input {...register("admin.email")} placeholder="admin@example.com" className="h-12 rounded-xl border-[hsl(var(--input))]" />
                                     </div>
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                    <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
                                         <div className="space-y-2">
-                                            <label className="text-xs font-bold uppercase tracking-wider text-zinc-500 ml-1">Mobile number</label>
-                                            <Input {...register("admin.phone")} placeholder="+91 88888 88888" className="bg-white/5 border-white/10 h-14 rounded-2xl" />
+                                            <label className="ml-1 text-xs font-medium uppercase tracking-wider text-[hsl(var(--muted-foreground))]">Mobile</label>
+                                            <Input {...register("admin.phone")} placeholder="+91 88888 88888" className="h-12 rounded-xl border-[hsl(var(--input))]" />
                                         </div>
                                         <div className="space-y-2">
-                                            <label className="text-xs font-bold uppercase tracking-wider text-zinc-500 ml-1">Secure Password</label>
-                                            <Input {...register("admin.password")} type="password" placeholder="••••••••" className="bg-white/5 border-white/10 h-14 rounded-2xl" />
+                                            <label className="ml-1 text-xs font-medium uppercase tracking-wider text-[hsl(var(--muted-foreground))]">Password</label>
+                                            <Input {...register("admin.password")} type="password" placeholder="••••••••" className="h-12 rounded-xl border-[hsl(var(--input))]" />
                                         </div>
                                     </div>
                                 </div>
 
-                                <div className="flex gap-4 mt-8">
-                                    <Button type="button" onClick={() => setStep(1)} variant="outline" className="h-14 flex-1 border-white/10 hover:bg-white/5 rounded-2xl font-bold">
+                                <div className="mt-8 flex gap-4">
+                                    <Button type="button" onClick={() => setStep(1)} variant="outline" className="flex-1 font-semibold">
                                         Previous
                                     </Button>
-                                    <Button type="submit" disabled={isLoading} className="h-14 flex-[2] bg-purple-600 hover:bg-purple-500 rounded-2xl font-bold shadow-lg shadow-purple-500/20">
+                                    <Button type="submit" disabled={isLoading} className="flex-[2] font-semibold">
                                         {isLoading ? <Loader2 className="h-5 w-5 animate-spin" /> : "Complete Registration"}
                                     </Button>
                                 </div>
@@ -238,7 +232,7 @@ export default function RegisterPage() {
                     </form>
                 </div>
 
-                <p className="mt-8 text-center text-zinc-600 text-[10px] tracking-[0.2em] uppercase font-bold">
+                <p className="mt-8 text-center text-[10px] font-medium uppercase tracking-[0.2em] text-[hsl(var(--muted-foreground))]">
                     All registrations are subject to verification by Shagun Systems
                 </p>
             </div>
