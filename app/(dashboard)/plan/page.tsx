@@ -54,6 +54,10 @@ export default function PlanPage() {
                 window.location.href = data.url;
                 return;
             }
+            if (data?.redirectUrl) {
+                window.location.href = data.redirectUrl;
+                return;
+            }
             if (!data?.orderId || !data?.keyId) {
                 toast.error("Order not created.");
                 return;
@@ -87,7 +91,12 @@ export default function PlanPage() {
                             window.location.href = "/plan?success=1";
                         } catch (e: any) {
                             const msg = e.response?.data?.message || e.response?.data?.error || e.message;
-                            toast.error(msg || "Payment verification failed. Please try again.");
+                            const fallback = e.response?.status === 401
+                                ? "Session expired. Please log in again."
+                                : e.response?.status >= 500
+                                    ? "Server error. Please try again later."
+                                    : !e.response ? "Network error. Check your connection." : "Payment verification failed. Please try again.";
+                            toast.error(msg && String(msg).trim() ? String(msg) : fallback);
                         }
                     },
                     modal: { ondismiss: () => toast.info("Payment canceled.") },
@@ -98,7 +107,12 @@ export default function PlanPage() {
         },
         onError: (e: any) => {
             const msg = e.response?.data?.message || e.response?.data?.error || e.message;
-            toast.error(msg || "Checkout failed. Please try again.");
+            const fallback = e.response?.status === 401
+                ? "Session expired. Please log in again."
+                : e.response?.status >= 500
+                    ? "Server error. Please try again later."
+                    : !e.response ? "Network error. Check your connection." : "Checkout failed. Please try again.";
+            toast.error(msg && String(msg).trim() ? String(msg) : fallback);
         },
     });
 
