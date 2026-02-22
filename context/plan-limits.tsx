@@ -48,7 +48,7 @@ export function PlanLimitsProvider({ children }: { children: ReactNode }) {
             value={{
                 planLimits,
                 enabledFeatures,
-                isLoading: isSchool && isLoading,
+                isLoading: !!(isSchool && isLoading),
                 hasFeature,
             }}
         >
