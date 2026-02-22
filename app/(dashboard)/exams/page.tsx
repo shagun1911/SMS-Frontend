@@ -191,5 +191,6 @@ export default function ExamsPage() {
                 </>
             )}
         </div>
+        </LockedFeatureGate>
     );
 }
