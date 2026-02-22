@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useForm, SubmitHandler, Resolver } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -11,13 +11,7 @@ import { Modal } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
-import {
-    Loader2,
-    UserPlus,
-    Camera,
-    CheckCircle2,
-    FileCheck
-} from "lucide-react";
+import { Loader2, Save, Camera, CheckCircle2, FileCheck } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 const studentSchema = z.object({
@@ -46,12 +40,13 @@ const studentSchema = z.object({
 
 type StudentValues = z.infer<typeof studentSchema>;
 
-interface AddStudentModalProps {
+interface EditStudentModalProps {
     isOpen: boolean;
     onClose: () => void;
+    student: any | null;
 }
 
-export function AddStudentModal({ isOpen, onClose }: AddStudentModalProps) {
+export function EditStudentModal({ isOpen, onClose, student }: EditStudentModalProps) {
     const queryClient = useQueryClient();
     const [photoPreview, setPhotoPreview] = useState<string | null>(null);
     const [isUploading, setIsUploading] = useState(false);
@@ -79,61 +74,71 @@ export function AddStudentModal({ isOpen, onClose }: AddStudentModalProps) {
         formState: { errors },
     } = useForm<StudentValues>({
         resolver: zodResolver(studentSchema) as Resolver<StudentValues>,
-        defaultValues: {
-            gender: "Male",
-            tcSubmitted: false,
-            migrationSubmitted: false,
-            address: {
-                state: "Rajasthan",
-                city: "Jaipur"
-            }
-        }
     });
+
+    useEffect(() => {
+        if (student && isOpen) {
+            const dob = student.dateOfBirth ? new Date(student.dateOfBirth).toISOString().slice(0, 10) : "";
+            reset({
+                firstName: student.firstName || "",
+                lastName: student.lastName || "",
+                fatherName: student.fatherName || "",
+                motherName: student.motherName || "",
+                dateOfBirth: dob,
+                gender: student.gender || "Male",
+                class: student.class || "",
+                section: student.section || "",
+                phone: student.phone || "",
+                email: student.email || "",
+                photo: student.photo || "",
+                tcSubmitted: student.tcSubmitted ?? false,
+                migrationSubmitted: student.migrationSubmitted ?? false,
+                initialDepositAmount: student.initialDepositAmount ?? 0,
+                depositPaymentMode: student.depositPaymentMode || "",
+                address: {
+                    street: student.address?.street || "",
+                    city: student.address?.city || "",
+                    state: student.address?.state || "",
+                    pincode: student.address?.pincode || "",
+                },
+            });
+            setSelectedClass(student.class || "");
+            setPhotoPreview(student.photo && student.photo !== "default-student.png" ? student.photo : null);
+        }
+    }, [student, isOpen, reset]);
 
     const isTcChecked = watch("tcSubmitted");
     const isMigrationChecked = watch("migrationSubmitted");
 
     const mutation = useMutation({
-        mutationFn: (data: StudentValues) => api.post("/students", data),
+        mutationFn: (data: StudentValues) => api.put(`/students/${student._id}`, data),
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ["students"] });
-            toast.success("Student Enrolled", {
-                description: "The student record has been saved to the database."
-            });
-            reset();
-            setPhotoPreview(null);
+            toast.success("Student Updated", { description: "The student record has been saved." });
             onClose();
         },
         onError: (error: any) => {
             const msg = error.response?.data?.message || error.response?.data?.error || error.message;
-            const desc = msg && msg !== "Something went wrong" ? msg : "Check your connection and try again.";
-            toast.error("Enrollment Failed", { description: desc });
-        }
+            toast.error("Update Failed", { description: msg || "Check your connection and try again." });
+        },
     });
 
     const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (!file) return;
-
-        // Preview local
         const reader = new FileReader();
-        reader.onloadend = () => {
-            setPhotoPreview(reader.result as string);
-        };
+        reader.onloadend = () => setPhotoPreview(reader.result as string);
         reader.readAsDataURL(file);
-
-        // Upload to backend
         setIsUploading(true);
         const formData = new FormData();
         formData.append("image", file);
-
         try {
             const res = await api.post("/upload/image?folder=students", formData, {
-                headers: { "Content-Type": "multipart/form-data" }
+                headers: { "Content-Type": "multipart/form-data" },
             });
             setValue("photo", res.data.data.url);
             toast.success("Photo Uploaded");
-        } catch (error) {
+        } catch {
             toast.error("Upload Failed");
             setPhotoPreview(null);
         } finally {
@@ -141,59 +146,39 @@ export function AddStudentModal({ isOpen, onClose }: AddStudentModalProps) {
         }
     };
 
-    const onSubmit: SubmitHandler<StudentValues> = (data) => {
-        mutation.mutate(data);
-    };
+    const onSubmit: SubmitHandler<StudentValues> = (data) => mutation.mutate(data);
+
+    if (!student) return null;
 
     return (
         <Modal
             isOpen={isOpen}
             onClose={onClose}
-            title="Student Enrollment"
-            description="Complete the registration by providing personal and document details."
+            title="Edit Student"
+            description={`Update details for ${student.firstName} ${student.lastName} (${student.admissionNumber})`}
             className="max-w-3xl"
         >
             <form onSubmit={handleSubmit(onSubmit)} className="space-y-8 max-h-[75vh] overflow-y-auto px-1 pr-4 scrollbar-hide">
-
-                {/* Section: Profile Image */}
+                {/* Photo */}
                 <div className="flex flex-col items-center gap-4 py-4 bg-white/[0.02] border border-white/5 rounded-3xl">
-                    <div
-                        className="relative group cursor-pointer"
-                        onClick={() => document.getElementById("photo-upload")?.click()}
-                    >
+                    <div className="relative group cursor-pointer" onClick={() => document.getElementById("edit-photo-upload")?.click()}>
                         <Avatar className="h-24 w-24 border-2 border-dashed border-gray-200 overflow-hidden bg-gray-50 transition-colors group-hover:border-indigo-300">
                             {photoPreview ? (
                                 <AvatarImage src={photoPreview} className="object-cover" />
                             ) : (
                                 <AvatarFallback className="bg-transparent">
-                                    {isUploading ? (
-                                        <Loader2 className="h-8 w-8 text-zinc-500 animate-spin" />
-                                    ) : (
-                                        <Camera className="h-8 w-8 text-zinc-500 group-hover:text-purple-400" />
-                                    )}
+                                    {isUploading ? <Loader2 className="h-8 w-8 text-zinc-500 animate-spin" /> : <Camera className="h-8 w-8 text-zinc-500 group-hover:text-purple-400" />}
                                 </AvatarFallback>
                             )}
                         </Avatar>
                         <div className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity rounded-full">
-                            <span className="text-[10px] font-bold text-white uppercase tracking-widest">
-                                {isUploading ? "Uploading..." : "Click to Upload"}
-                            </span>
+                            <span className="text-[10px] font-bold text-white uppercase tracking-widest">{isUploading ? "Uploading..." : "Change Photo"}</span>
                         </div>
-                        <input
-                            id="photo-upload"
-                            type="file"
-                            accept="image/*"
-                            className="hidden"
-                            onChange={handlePhotoUpload}
-                        />
-                    </div>
-                    <div className="text-center mt-2">
-                        <p className="text-sm font-bold text-white">Student Portrait</p>
-                        <p className="text-[10px] text-zinc-500 uppercase tracking-widest mt-1">PNG or JPG up to 2MB</p>
+                        <input id="edit-photo-upload" type="file" accept="image/*" className="hidden" onChange={handlePhotoUpload} />
                     </div>
                 </div>
 
-                {/* Section: Personal Information */}
+                {/* Identity */}
                 <div className="space-y-4 pt-4">
                     <div className="flex items-center gap-2 mb-2">
                         <div className="h-1 w-6 bg-purple-500 rounded-full" />
@@ -202,29 +187,27 @@ export function AddStudentModal({ isOpen, onClose }: AddStudentModalProps) {
                     <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-2">
                             <label className="text-[10px] font-bold uppercase tracking-widest text-zinc-500 ml-1">First Name</label>
-                            <Input {...register("firstName")} placeholder="John" className="h-10 rounded-xl border-gray-200 bg-white" />
+                            <Input {...register("firstName")} className="h-10 rounded-xl border-gray-200 bg-white" />
                             {errors.firstName && <p className="text-[10px] text-red-400 ml-1">{errors.firstName.message}</p>}
                         </div>
                         <div className="space-y-2">
                             <label className="text-[10px] font-bold uppercase tracking-widest text-zinc-500 ml-1">Last Name</label>
-                            <Input {...register("lastName")} placeholder="Doe" className="h-10 rounded-xl border-gray-200 bg-white" />
+                            <Input {...register("lastName")} className="h-10 rounded-xl border-gray-200 bg-white" />
                             {errors.lastName && <p className="text-[10px] text-red-400 ml-1">{errors.lastName.message}</p>}
                         </div>
                     </div>
-
                     <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-2">
                             <label className="text-[10px] font-bold uppercase tracking-widest text-zinc-500 ml-1">Father's Name</label>
-                            <Input {...register("fatherName")} placeholder="Mr. Smith Doe" className="h-10 rounded-xl border-gray-200 bg-white" />
+                            <Input {...register("fatherName")} className="h-10 rounded-xl border-gray-200 bg-white" />
                             {errors.fatherName && <p className="text-[10px] text-red-400 ml-1">{errors.fatherName.message}</p>}
                         </div>
                         <div className="space-y-2">
                             <label className="text-[10px] font-bold uppercase tracking-widest text-zinc-500 ml-1">Mother's Name</label>
-                            <Input {...register("motherName")} placeholder="Mrs. Jane Doe" className="h-10 rounded-xl border-gray-200 bg-white" />
+                            <Input {...register("motherName")} className="h-10 rounded-xl border-gray-200 bg-white" />
                             {errors.motherName && <p className="text-[10px] text-red-400 ml-1">{errors.motherName.message}</p>}
                         </div>
                     </div>
-
                     <div className="grid grid-cols-3 gap-4">
                         <div className="space-y-2">
                             <label className="text-[10px] font-bold uppercase tracking-widest text-zinc-500 ml-1">Birth Date</label>
@@ -242,11 +225,10 @@ export function AddStudentModal({ isOpen, onClose }: AddStudentModalProps) {
                         />
                         <div className="space-y-2">
                             <label className="text-[10px] font-bold uppercase tracking-widest text-zinc-500 ml-1">Contact No</label>
-                            <Input {...register("phone")} placeholder="+91 00000 00000" className="h-10 rounded-xl border-gray-200 bg-white" />
+                            <Input {...register("phone")} className="h-10 rounded-xl border-gray-200 bg-white" />
                             {errors.phone && <p className="text-[10px] text-red-400 ml-1">{errors.phone.message}</p>}
                         </div>
                     </div>
-
                     <div className="space-y-2">
                         <label className="text-[10px] font-bold uppercase tracking-widest text-zinc-500 ml-1">Email <span className="text-zinc-400 normal-case">(optional)</span></label>
                         <Input {...register("email")} type="email" placeholder="student@example.com" className="h-10 rounded-xl border-gray-200 bg-white" />
@@ -254,7 +236,7 @@ export function AddStudentModal({ isOpen, onClose }: AddStudentModalProps) {
                     </div>
                 </div>
 
-                {/* Section: Academic Assignment */}
+                {/* Academic */}
                 <div className="space-y-4">
                     <div className="flex items-center gap-2 mb-2">
                         <div className="h-1 w-6 bg-blue-500 rounded-full" />
@@ -263,7 +245,7 @@ export function AddStudentModal({ isOpen, onClose }: AddStudentModalProps) {
                     <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-2">
                             <label className="text-[10px] font-bold uppercase tracking-widest text-zinc-500 ml-1">Target Class</label>
-                            <select 
+                            <select
                                 className="h-10 w-full rounded-xl border-gray-200 bg-white px-3 text-sm"
                                 {...register("class")}
                                 onChange={(e) => {
@@ -274,25 +256,21 @@ export function AddStudentModal({ isOpen, onClose }: AddStudentModalProps) {
                             >
                                 <option value="">Select Class</option>
                                 {Array.isArray(classes) && classes.map((cls: any) => (
-                                    <option key={cls._id} value={cls.className}>
-                                        Class {cls.className}
-                                    </option>
+                                    <option key={cls._id} value={cls.className}>Class {cls.className}</option>
                                 ))}
                             </select>
                             {errors.class && <p className="text-[10px] text-red-400 ml-1">{errors.class.message}</p>}
                         </div>
                         <div className="space-y-2">
                             <label className="text-[10px] font-bold uppercase tracking-widest text-zinc-500 ml-1">Assigned Section</label>
-                            <select 
+                            <select
                                 className="h-10 w-full rounded-xl border-gray-200 bg-white px-3 text-sm"
                                 {...register("section")}
                                 disabled={!selectedClass}
                             >
                                 <option value="">Select Section</option>
                                 {selectedClassData?.sections?.map((sec: string) => (
-                                    <option key={sec} value={sec}>
-                                        Section {sec}
-                                    </option>
+                                    <option key={sec} value={sec}>Section {sec}</option>
                                 ))}
                             </select>
                             {errors.section && <p className="text-[10px] text-red-400 ml-1">{errors.section.message}</p>}
@@ -300,7 +278,7 @@ export function AddStudentModal({ isOpen, onClose }: AddStudentModalProps) {
                     </div>
                 </div>
 
-                {/* Section: Fee at Admission */}
+                {/* Fee at Admission */}
                 <div className="space-y-4">
                     <div className="flex items-center gap-2 mb-2">
                         <div className="h-1 w-6 bg-teal-500 rounded-full" />
@@ -313,10 +291,7 @@ export function AddStudentModal({ isOpen, onClose }: AddStudentModalProps) {
                         </div>
                         <div className="space-y-2">
                             <label className="text-[10px] font-bold uppercase tracking-widest text-zinc-500 ml-1">Payment Mode</label>
-                            <select
-                                className="h-10 w-full rounded-xl border-gray-200 bg-white px-3 text-sm"
-                                {...register("depositPaymentMode")}
-                            >
+                            <select className="h-10 w-full rounded-xl border-gray-200 bg-white px-3 text-sm" {...register("depositPaymentMode")}>
                                 <option value="">Select mode</option>
                                 <option value="cash">Cash</option>
                                 <option value="upi">UPI</option>
@@ -328,7 +303,7 @@ export function AddStudentModal({ isOpen, onClose }: AddStudentModalProps) {
                     </div>
                 </div>
 
-                {/* Section: Document Submission */}
+                {/* Documents */}
                 <div className="space-y-4">
                     <div className="flex items-center gap-2 mb-2">
                         <div className="h-1 w-6 bg-emerald-500 rounded-full" />
@@ -337,29 +312,28 @@ export function AddStudentModal({ isOpen, onClose }: AddStudentModalProps) {
                     <div className="grid grid-cols-2 gap-4">
                         <div
                             onClick={() => setValue("tcSubmitted", !isTcChecked)}
-                            className={`flex items-center justify-between p-4 rounded-2xl border cursor-pointer transition-all ${isTcChecked ? 'bg-emerald-50 border-emerald-200' : 'border border-dashed border-gray-200 bg-gray-50 hover:border-gray-300'}`}
+                            className={`flex items-center justify-between p-4 rounded-2xl border cursor-pointer transition-all ${isTcChecked ? "bg-emerald-50 border-emerald-200" : "border border-dashed border-gray-200 bg-gray-50 hover:border-gray-300"}`}
                         >
                             <div className="flex items-center gap-3">
-                                <FileCheck className={`h-5 w-5 ${isTcChecked ? 'text-emerald-400' : 'text-zinc-500'}`} />
-                                <span className={`text-xs font-bold ${isTcChecked ? 'text-white' : 'text-zinc-400'}`}>TC Accepted</span>
+                                <FileCheck className={`h-5 w-5 ${isTcChecked ? "text-emerald-500" : "text-zinc-400"}`} />
+                                <span className={`text-xs font-bold ${isTcChecked ? "text-emerald-700" : "text-zinc-400"}`}>TC Accepted</span>
                             </div>
-                            <CheckCircle2 className={`h-4 w-4 ${isTcChecked ? 'text-emerald-400' : 'text-zinc-800'}`} />
+                            <CheckCircle2 className={`h-4 w-4 ${isTcChecked ? "text-emerald-500" : "text-zinc-300"}`} />
                         </div>
-
                         <div
                             onClick={() => setValue("migrationSubmitted", !isMigrationChecked)}
-                            className={`flex items-center justify-between p-4 rounded-2xl border cursor-pointer transition-all ${isMigrationChecked ? 'bg-emerald-50 border-emerald-200' : 'border border-dashed border-gray-200 bg-gray-50 hover:border-gray-300'}`}
+                            className={`flex items-center justify-between p-4 rounded-2xl border cursor-pointer transition-all ${isMigrationChecked ? "bg-emerald-50 border-emerald-200" : "border border-dashed border-gray-200 bg-gray-50 hover:border-gray-300"}`}
                         >
                             <div className="flex items-center gap-3">
-                                <FileCheck className={`h-5 w-5 ${isMigrationChecked ? 'text-emerald-400' : 'text-zinc-500'}`} />
-                                <span className={`text-xs font-bold ${isMigrationChecked ? 'text-white' : 'text-zinc-400'}`}>Migration Received</span>
+                                <FileCheck className={`h-5 w-5 ${isMigrationChecked ? "text-emerald-500" : "text-zinc-400"}`} />
+                                <span className={`text-xs font-bold ${isMigrationChecked ? "text-emerald-700" : "text-zinc-400"}`}>Migration Received</span>
                             </div>
-                            <CheckCircle2 className={`h-4 w-4 ${isMigrationChecked ? 'text-emerald-400' : 'text-zinc-800'}`} />
+                            <CheckCircle2 className={`h-4 w-4 ${isMigrationChecked ? "text-emerald-500" : "text-zinc-300"}`} />
                         </div>
                     </div>
                 </div>
 
-                {/* Section: Residency */}
+                {/* Address */}
                 <div className="space-y-4">
                     <div className="flex items-center gap-2 mb-2">
                         <div className="h-1 w-6 bg-amber-500 rounded-full" />
@@ -370,35 +344,20 @@ export function AddStudentModal({ isOpen, onClose }: AddStudentModalProps) {
                         {errors.address?.street && <p className="text-[10px] text-red-400 ml-1">{errors.address.street.message}</p>}
                     </div>
                     <div className="grid grid-cols-3 gap-4">
-                        <div className="space-y-1">
-                            <Input {...register("address.city")} placeholder="City" className="h-10 rounded-xl border-gray-200 bg-white" />
-                        </div>
-                        <div className="space-y-1">
-                            <Input {...register("address.state")} placeholder="State" className="h-10 rounded-xl border-gray-200 bg-white" />
-                        </div>
-                        <div className="space-y-1">
-                            <Input {...register("address.pincode")} placeholder="Zip Code" className="h-10 rounded-xl border-gray-200 bg-white" />
-                        </div>
+                        <Input {...register("address.city")} placeholder="City" className="h-10 rounded-xl border-gray-200 bg-white" />
+                        <Input {...register("address.state")} placeholder="State" className="h-10 rounded-xl border-gray-200 bg-white" />
+                        <Input {...register("address.pincode")} placeholder="Zip Code" className="h-10 rounded-xl border-gray-200 bg-white" />
                     </div>
                 </div>
 
                 <div className="flex gap-4 pt-6 pb-2">
-                    <Button
-                        type="button"
-                        variant="ghost"
-                        onClick={onClose}
-                        className="h-11 flex-1 rounded-xl border border-gray-200 font-medium hover:bg-gray-50"
-                    >
-                        Discard
+                    <Button type="button" variant="ghost" onClick={onClose} className="h-11 flex-1 rounded-xl border border-gray-200 font-medium hover:bg-gray-50">
+                        Cancel
                     </Button>
-                    <Button
-                        type="submit"
-                        disabled={mutation.isPending}
-                        className="h-14 flex-[2] bg-purple-600 hover:bg-purple-500 rounded-2xl font-bold shadow-xl shadow-purple-500/20 active:scale-[0.98] transition-transform"
-                    >
+                    <Button type="submit" disabled={mutation.isPending} className="h-14 flex-[2] bg-blue-600 hover:bg-blue-500 rounded-2xl font-bold shadow-xl shadow-blue-500/20 active:scale-[0.98] transition-transform">
                         {mutation.isPending ? <Loader2 className="h-5 w-5 animate-spin" /> : (
                             <div className="flex items-center gap-2">
-                                <UserPlus className="h-4 w-4" /> Finalize Enrollment
+                                <Save className="h-4 w-4" /> Save Changes
                             </div>
                         )}
                     </Button>

@@ -83,7 +83,7 @@ export default function ReceiptsPage() {
         <LockedFeatureGate featureKey="fees" featureLabel="Fee receipts">
         <div className="flex-1 space-y-6">
             <div>
-                <h2 className="text-2xl font-bold tracking-tight text-gray-900">Receipts</h2>
+                <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-gray-900">Receipts</h2>
                 <p className="mt-1 text-sm text-gray-500">View and download fee payment receipts.</p>
             </div>
 
@@ -112,6 +112,7 @@ export default function ReceiptsPage() {
                     ) : filtered.length === 0 ? (
                         <div className="p-12 text-center text-gray-500">No receipts found.</div>
                     ) : (
+                        <div className="overflow-x-auto">
                         <Table>
                             <TableHeader>
                                 <TableRow className="bg-gray-50">
@@ -151,6 +152,7 @@ export default function ReceiptsPage() {
                                 ))}
                             </TableBody>
                         </Table>
+                        </div>
                     )}
                 </CardContent>
             </Card>

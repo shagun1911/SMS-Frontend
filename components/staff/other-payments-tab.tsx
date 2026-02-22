@@ -6,8 +6,10 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Loader2, Plus } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Loader2, Plus, Gift, MinusCircle } from "lucide-react";
 import { useState } from "react";
+import { toast } from "sonner";
 
 interface OtherPaymentsTabProps {
   staffId: string;
@@ -40,75 +42,65 @@ export default function OtherPaymentsTab({ staffId }: OtherPaymentsTabProps) {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["other-payments", staffId] });
-      setIsAdding(false);
-      setTitle("");
-      setAmount("");
-      setType("bonus");
+      toast.success("Payment added");
+      reset();
     },
+    onError: (e: any) => toast.error(e.response?.data?.message ?? "Failed to add"),
   });
 
-  if (isLoading && !data) {
+  const reset = () => { setIsAdding(false); setTitle(""); setAmount(""); setType("bonus"); };
+  const fmt = (n: number) => `₹${n?.toLocaleString("en-IN")}`;
+
+  if (isLoading) {
     return (
       <div className="flex h-32 items-center justify-center">
-        <Loader2 className="h-5 w-5 animate-spin text-blue-500" />
+        <Loader2 className="h-5 w-5 animate-spin text-primary" />
       </div>
     );
   }
 
   const payments = data || [];
+  const bonusTotal = payments.filter((p: any) => p.type === "bonus").reduce((s: number, p: any) => s + p.amount, 0);
+  const adjustTotal = payments.filter((p: any) => p.type === "adjustment").reduce((s: number, p: any) => s + p.amount, 0);
 
   return (
-    <Card className="border border-white/5 bg-neutral-900/70 p-6 space-y-4">
+    <Card className="p-6 space-y-5">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-sm font-semibold text-white">Other payments</h2>
-          <p className="mt-1 text-xs text-zinc-400">
-            One-time bonuses or adjustments that sit outside the base structure.
+          <h2 className="text-base font-semibold">Bonuses & Adjustments</h2>
+          <p className="mt-0.5 text-sm text-muted-foreground">
+            One-time payments outside the regular salary structure. Included when generating monthly payroll.
           </p>
         </div>
-        {!isAdding ? (
-          <Button
-            size="sm"
-            className="text-xs"
-            onClick={() => setIsAdding(true)}
-          >
-            <Plus className="mr-1 h-3 w-3" />
-            Add Other Payment
+        {!isAdding && (
+          <Button size="sm" className="gap-1.5" onClick={() => setIsAdding(true)}>
+            <Plus className="h-3.5 w-3.5" /> Add
           </Button>
-        ) : null}
+        )}
       </div>
 
+      {/* Add form */}
       {isAdding && (
-        <div className="rounded-xl border border-white/10 bg-neutral-900/80 p-4 space-y-3">
-          <div className="grid gap-3 md:grid-cols-3">
+        <div className="rounded-xl border bg-muted/30 p-4 space-y-3">
+          <div className="grid gap-3 sm:grid-cols-3">
             <div className="space-y-1">
-              <Label className="text-xs text-zinc-400">Title</Label>
-              <Input
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                className="h-9 text-xs bg-neutral-900 border-white/10"
-                placeholder="Diwali bonus"
-              />
+              <Label className="text-xs text-muted-foreground">Title</Label>
+              <Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. Diwali bonus" className="h-9 text-sm" />
             </div>
             <div className="space-y-1">
-              <Label className="text-xs text-zinc-400">Amount</Label>
-              <Input
-                type="number"
-                value={amount}
-                onChange={(e) => setAmount(e.target.value === "" ? "" : Number(e.target.value))}
-                className="h-9 text-xs bg-neutral-900 border-white/10"
-              />
+              <Label className="text-xs text-muted-foreground">Amount</Label>
+              <Input type="number" value={amount} onChange={(e) => setAmount(e.target.value === "" ? "" : Number(e.target.value))} className="h-9 text-sm" />
             </div>
             <div className="space-y-1">
-              <Label className="text-xs text-zinc-400">Type</Label>
+              <Label className="text-xs text-muted-foreground">Type</Label>
               <div className="flex gap-2">
                 <button
                   type="button"
                   onClick={() => setType("bonus")}
-                  className={`flex-1 rounded-lg border px-3 py-1.5 text-[11px] ${
+                  className={`flex-1 rounded-lg border px-3 py-2 text-xs font-medium transition-colors ${
                     type === "bonus"
-                      ? "border-emerald-500 bg-emerald-500/10 text-emerald-300"
-                      : "border-white/10 text-zinc-400"
+                      ? "border-emerald-300 bg-emerald-50 text-emerald-700"
+                      : "border-border text-muted-foreground hover:bg-muted/50"
                   }`}
                 >
                   Bonus
@@ -116,84 +108,83 @@ export default function OtherPaymentsTab({ staffId }: OtherPaymentsTabProps) {
                 <button
                   type="button"
                   onClick={() => setType("adjustment")}
-                  className={`flex-1 rounded-lg border px-3 py-1.5 text-[11px] ${
+                  className={`flex-1 rounded-lg border px-3 py-2 text-xs font-medium transition-colors ${
                     type === "adjustment"
-                      ? "border-rose-500 bg-rose-500/10 text-rose-300"
-                      : "border-white/10 text-zinc-400"
+                      ? "border-rose-300 bg-rose-50 text-rose-700"
+                      : "border-border text-muted-foreground hover:bg-muted/50"
                   }`}
                 >
-                  Adjustment
+                  Deduction
                 </button>
               </div>
             </div>
           </div>
           <div className="flex justify-end gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              className="text-xs"
-              onClick={() => {
-                setIsAdding(false);
-                setTitle("");
-                setAmount("");
-                setType("bonus");
-              }}
-              disabled={mutation.isPending}
-            >
-              Cancel
-            </Button>
-            <Button
-              size="sm"
-              className="text-xs"
-              onClick={() => mutation.mutate()}
-              disabled={mutation.isPending || !title || !amount}
-            >
-              {mutation.isPending && <Loader2 className="mr-1 h-3 w-3 animate-spin" />}
+            <Button variant="ghost" size="sm" onClick={reset} disabled={mutation.isPending}>Cancel</Button>
+            <Button size="sm" onClick={() => mutation.mutate()} disabled={mutation.isPending || !title || !amount}>
+              {mutation.isPending && <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />}
               Save
             </Button>
           </div>
         </div>
       )}
 
-      <div className="overflow-x-auto">
-        {payments.length === 0 ? (
-          <p className="text-xs text-zinc-500">No other payments recorded.</p>
-        ) : (
-          <table className="min-w-full text-xs text-left text-zinc-300">
-            <thead className="border-b border-white/5 text-[11px] uppercase tracking-wide text-zinc-500">
-              <tr>
-                <th className="pb-2 pr-4">Title</th>
-                <th className="pb-2 pr-4">Amount</th>
-                <th className="pb-2 pr-4">Type</th>
-                <th className="pb-2 pr-4">Date</th>
+      {/* Summary pills */}
+      {payments.length > 0 && (
+        <div className="flex gap-3">
+          <div className="rounded-lg border bg-emerald-50/60 border-emerald-200 px-3 py-2 text-sm">
+            <span className="text-muted-foreground">Total bonuses: </span>
+            <span className="font-semibold text-emerald-700">{fmt(bonusTotal)}</span>
+          </div>
+          <div className="rounded-lg border bg-rose-50/60 border-rose-200 px-3 py-2 text-sm">
+            <span className="text-muted-foreground">Total adjustments: </span>
+            <span className="font-semibold text-rose-700">{fmt(adjustTotal)}</span>
+          </div>
+        </div>
+      )}
+
+      {/* Table */}
+      {payments.length === 0 ? (
+        <div className="text-center py-8">
+          <Gift className="h-8 w-8 text-muted-foreground/40 mx-auto mb-2" />
+          <p className="text-sm text-muted-foreground">No bonuses or adjustments recorded yet.</p>
+        </div>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                <th className="pb-2.5 pr-4">Title</th>
+                <th className="pb-2.5 pr-4 text-right">Amount</th>
+                <th className="pb-2.5 pr-4 text-center">Type</th>
+                <th className="pb-2.5">Date</th>
               </tr>
             </thead>
             <tbody>
               {payments.map((p: any) => (
-                <tr key={p._id} className="border-b border-white/5 last:border-0">
-                  <td className="py-2 pr-4 text-xs">{p.title}</td>
-                  <td className="py-2 pr-4 text-xs font-semibold text-emerald-400">
-                    ₹{p.amount}
+                <tr key={p._id} className="border-b last:border-0 hover:bg-muted/30 transition-colors">
+                  <td className="py-3 pr-4 font-medium">{p.title}</td>
+                  <td className={`py-3 pr-4 text-right font-semibold tabular-nums ${p.type === "bonus" ? "text-emerald-700" : "text-rose-600"}`}>
+                    {p.type === "bonus" ? "+" : "-"}{fmt(p.amount)}
                   </td>
-                  <td className="py-2 pr-4 text-xs capitalize text-zinc-300">
-                    {p.type}
+                  <td className="py-3 pr-4 text-center">
+                    {p.type === "bonus" ? (
+                      <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200 text-xs">Bonus</Badge>
+                    ) : (
+                      <Badge variant="outline" className="bg-rose-50 text-rose-700 border-rose-200 text-xs">Adjustment</Badge>
+                    )}
                   </td>
-                  <td className="py-2 pr-4 text-xs text-zinc-400">
+                  <td className="py-3 text-muted-foreground">
                     {p.date
-                      ? new Date(p.date).toLocaleDateString("en-IN", {
-                          day: "2-digit",
-                          month: "short",
-                          year: "numeric",
-                        })
-                      : "-"}
+                      ? new Date(p.date).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })
+                      : "—"}
                   </td>
                 </tr>
               ))}
             </tbody>
           </table>
-        )}
-      </div>
+        </div>
+      )}
     </Card>
   );
 }
-

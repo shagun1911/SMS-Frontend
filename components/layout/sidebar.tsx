@@ -28,6 +28,8 @@ import {
     Wallet,
     Sparkles,
     Lock,
+    Bell,
+    ArrowUpRight,
 } from "lucide-react";
 import { usePlanLimits } from "@/context/plan-limits";
 
@@ -93,6 +95,7 @@ export function Sidebar({ className }: SidebarProps) {
         { label: "Students", icon: GraduationCap, href: "/students", roles: [UserRole.SCHOOL_ADMIN, UserRole.TEACHER, UserRole.ACCOUNTANT], featureKey: "students" },
         { label: "Classes", icon: BookOpen, href: "/classes", roles: [UserRole.SCHOOL_ADMIN, UserRole.TEACHER], featureKey: "classes" },
         { label: "Staff", icon: Users, href: "/staff", roles: [UserRole.SUPER_ADMIN, UserRole.SCHOOL_ADMIN], featureKey: "staff" },
+        { label: "Payroll", icon: Wallet, href: "/payroll", roles: [UserRole.SCHOOL_ADMIN, UserRole.ACCOUNTANT], featureKey: "staff" },
         { label: "Fee Structure", icon: Layers, href: "/fees/structure", roles: [UserRole.SCHOOL_ADMIN, UserRole.ACCOUNTANT], exact: true, featureKey: "fees" },
         { label: "Collect Fee", icon: Banknote, href: "/fees", roles: [UserRole.SCHOOL_ADMIN, UserRole.ACCOUNTANT], exact: true, featureKey: "fees" },
         { label: "Receipts", icon: Receipt, href: "/fees/receipts", roles: [UserRole.SCHOOL_ADMIN, UserRole.ACCOUNTANT], exact: true, featureKey: "fees" },
@@ -101,6 +104,8 @@ export function Sidebar({ className }: SidebarProps) {
         { label: "Exams", icon: FileText, href: "/exams", roles: [UserRole.SCHOOL_ADMIN, UserRole.TEACHER], featureKey: "exams" },
         { label: "Admit Cards", icon: IdCard, href: "/admit-cards", roles: [UserRole.SCHOOL_ADMIN, UserRole.TEACHER], featureKey: "admit_cards" },
         { label: "Timetable", icon: CalendarDays, href: "/timetable", roles: [UserRole.SCHOOL_ADMIN, UserRole.TEACHER], featureKey: "timetable" },
+        { label: "Promotion", icon: ArrowUpRight, href: "/promotion", roles: [UserRole.SCHOOL_ADMIN], featureKey: "students" },
+        { label: "Notifications", icon: Bell, href: "/notifications", roles: [UserRole.SCHOOL_ADMIN], featureKey: "students" },
         { label: "Sessions", icon: CalendarDays, href: "/sessions", roles: [UserRole.SCHOOL_ADMIN], featureKey: "sessions" },
         { label: "Plan & Billing", icon: Sparkles, href: "/plan", roles: [UserRole.SCHOOL_ADMIN], featureKey: "plan_billing" },
     ];
@@ -118,45 +123,46 @@ export function Sidebar({ className }: SidebarProps) {
     const filteredRoutes = allRoutes.filter((route) => route.roles.includes(role));
 
     return (
-        <div className={cn("pb-12 h-screen border-r border-[hsl(var(--border))] bg-[hsl(var(--card))] w-64 shrink-0", className)}>
-            <div className="flex h-full flex-col py-5">
-                <div className="px-4 mb-6">
-                    <div className="flex items-center gap-3 rounded-xl border border-[hsl(var(--border))] bg-white px-4 py-3 shadow-sm transition-smooth">
-                        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-sm">
-                            <School className="h-5 w-5" />
-                        </div>
-                        <span className="text-base font-bold tracking-tight text-[hsl(var(--foreground))]">SMS</span>
+        <div className={cn("h-screen border-r border-[hsl(var(--border))] bg-[hsl(var(--card))] w-64 shrink-0 flex flex-col", className)}>
+            {/* Logo – fixed at top */}
+            <div className="px-4 pt-5 pb-4 shrink-0">
+                <div className="flex items-center gap-3 rounded-xl border border-[hsl(var(--border))] bg-white px-4 py-3 shadow-sm transition-smooth">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-sm">
+                        <School className="h-5 w-5" />
                     </div>
+                    <span className="text-base font-bold tracking-tight text-[hsl(var(--foreground))]">SMS</span>
                 </div>
-                <nav className="flex-1 space-y-0.5 px-3">
-                    {filteredRoutes.map((route) => {
-                        const exact = (route as { exact?: boolean }).exact;
-                        const featureKey = (route as { featureKey?: string }).featureKey;
-                        const locked = featureKey && role !== UserRole.SUPER_ADMIN && !hasFeature(featureKey);
-                        const isActive = exact
-                            ? pathname === route.href
-                            : (pathname === route.href || pathname?.startsWith(route.href + "/"));
-                        return (
-                            <Link
-                                key={route.href}
-                                href={locked ? "/plan" : route.href}
-                                className={cn(
-                                    "flex min-h-[44px] items-center gap-3 rounded-xl px-3 py-3 text-sm font-medium transition-smooth active:scale-[0.98]",
-                                    isActive && !locked
-                                        ? "bg-primary text-primary-foreground shadow-md"
-                                        : "text-[hsl(var(--muted-foreground))] hover:bg-[hsl(var(--accent))] hover:text-[hsl(var(--accent-foreground))] border border-transparent hover:border-[hsl(var(--border))]",
-                                    locked && "opacity-80"
-                                )}
-                                title={locked ? "Upgrade your plan to use this feature" : undefined}
-                            >
-                                <route.icon className={cn("h-5 w-5 shrink-0", isActive && !locked ? "text-primary-foreground" : "text-[hsl(var(--muted-foreground))]")} />
-                                {route.label}
-                                {locked && <Lock className="ml-auto h-3.5 w-3.5 shrink-0 text-amber-500" />}
-                            </Link>
-                        );
-                    })}
-                </nav>
             </div>
+
+            {/* Scrollable nav */}
+            <nav className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden px-3 pb-6 space-y-0.5 scrollbar-thin">
+                {filteredRoutes.map((route) => {
+                    const exact = (route as { exact?: boolean }).exact;
+                    const featureKey = (route as { featureKey?: string }).featureKey;
+                    const locked = featureKey && role !== UserRole.SUPER_ADMIN && !hasFeature(featureKey);
+                    const isActive = exact
+                        ? pathname === route.href
+                        : (pathname === route.href || pathname?.startsWith(route.href + "/"));
+                    return (
+                        <Link
+                            key={route.href}
+                            href={locked ? "/plan" : route.href}
+                            className={cn(
+                                "flex min-h-[40px] items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-smooth active:scale-[0.98]",
+                                isActive && !locked
+                                    ? "bg-primary text-primary-foreground shadow-md"
+                                    : "text-[hsl(var(--muted-foreground))] hover:bg-[hsl(var(--accent))] hover:text-[hsl(var(--accent-foreground))] border border-transparent hover:border-[hsl(var(--border))]",
+                                locked && "opacity-80"
+                            )}
+                            title={locked ? "Upgrade your plan to use this feature" : undefined}
+                        >
+                            <route.icon className={cn("h-5 w-5 shrink-0", isActive && !locked ? "text-primary-foreground" : "text-[hsl(var(--muted-foreground))]")} />
+                            {route.label}
+                            {locked && <Lock className="ml-auto h-3.5 w-3.5 shrink-0 text-amber-500" />}
+                        </Link>
+                    );
+                })}
+            </nav>
         </div>
     );
 }

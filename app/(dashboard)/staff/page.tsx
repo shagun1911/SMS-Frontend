@@ -160,9 +160,9 @@ export default function StaffPage() {
     return (
         <LockedFeatureGate featureKey="staff" featureLabel="Staff & payroll">
         <div className="flex-1 space-y-6">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>
-                    <h2 className="text-3xl font-bold tracking-tight text-gray-900">
+                    <h2 className="text-xl sm:text-3xl font-bold tracking-tight text-gray-900">
                         Staff Directory
                     </h2>
                     <p className="text-gray-500 mt-1 text-sm">
@@ -171,7 +171,7 @@ export default function StaffPage() {
                 </div>
                 <Button
                     onClick={() => setIsAddModalOpen(true)}
-                    className="bg-indigo-600 hover:bg-indigo-500 gap-2 font-semibold shadow-sm rounded-xl h-12"
+                    className="w-full sm:w-auto bg-indigo-600 hover:bg-indigo-500 gap-2 font-semibold shadow-sm rounded-xl h-12"
                 >
                     <UserPlus className="h-4 w-4" /> Register New Personnel
                 </Button>

@@ -44,23 +44,21 @@ export default function ExamsPage() {
     return (
         <LockedFeatureGate featureKey="exams" featureLabel="Exams & results">
         <div className="flex-1 space-y-6">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>
-                    <h2 className="text-2xl font-bold tracking-tight text-gray-900">
+                    <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-gray-900">
                         Academic Examinations
                     </h2>
                     <p className="mt-1 text-sm text-gray-500">
                         Schedule assessments, manage date-sheets, and publish results.
                     </p>
                 </div>
-                <div className="flex gap-3">
-                    <Button 
-                        className="bg-indigo-600 hover:bg-indigo-500 gap-2 h-10 rounded-xl"
-                        onClick={() => setIsNewExamOpen(true)}
-                    >
-                        <Plus className="h-4 w-4" /> New Examination
-                    </Button>
-                </div>
+                <Button 
+                    className="bg-indigo-600 hover:bg-indigo-500 gap-2 h-10 rounded-xl w-full sm:w-auto"
+                    onClick={() => setIsNewExamOpen(true)}
+                >
+                    <Plus className="h-4 w-4" /> New Examination
+                </Button>
             </div>
 
             <div className="grid gap-6 md:grid-cols-3">
@@ -100,14 +98,14 @@ export default function ExamsPage() {
             </div>
 
             <Tabs defaultValue="upcoming" className="space-y-6">
-                <div className="flex items-center justify-between rounded-2xl border border-gray-200 bg-white p-1.5">
-                    <TabsList className="gap-2 border-0 bg-transparent">
-                        <TabsTrigger value="upcoming" className="data-[state=active]:bg-indigo-100 data-[state=active]:text-indigo-700 rounded-xl px-5 h-9 text-xs font-medium">Upcoming</TabsTrigger>
-                        <TabsTrigger value="ongoing" className="data-[state=active]:bg-indigo-100 data-[state=active]:text-indigo-700 rounded-xl px-5 h-9 text-xs font-medium">Ongoing</TabsTrigger>
-                        <TabsTrigger value="completed" className="data-[state=active]:bg-indigo-100 data-[state=active]:text-indigo-700 rounded-xl px-5 h-9 text-xs font-medium">Completed</TabsTrigger>
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between rounded-2xl border border-gray-200 bg-white p-1.5">
+                    <TabsList className="gap-2 border-0 bg-transparent w-full sm:w-auto">
+                        <TabsTrigger value="upcoming" className="data-[state=active]:bg-indigo-100 data-[state=active]:text-indigo-700 rounded-xl px-3 sm:px-5 h-9 text-xs font-medium flex-1 sm:flex-none">Upcoming</TabsTrigger>
+                        <TabsTrigger value="ongoing" className="data-[state=active]:bg-indigo-100 data-[state=active]:text-indigo-700 rounded-xl px-3 sm:px-5 h-9 text-xs font-medium flex-1 sm:flex-none">Ongoing</TabsTrigger>
+                        <TabsTrigger value="completed" className="data-[state=active]:bg-indigo-100 data-[state=active]:text-indigo-700 rounded-xl px-3 sm:px-5 h-9 text-xs font-medium flex-1 sm:flex-none">Completed</TabsTrigger>
                     </TabsList>
                     <div className="flex items-center gap-3 px-2">
-                        <div className="relative w-48">
+                        <div className="relative w-full sm:w-48">
                             <Input placeholder="Search exam..." className="h-9 border-gray-200 bg-white pl-9" />
                         </div>
                     </div>

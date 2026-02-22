@@ -37,21 +37,21 @@ export default function TransportPage() {
     return (
         <LockedFeatureGate featureKey="transport" featureLabel="Transport">
         <div className="flex-1 space-y-6">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>
-                    <h2 className="text-2xl font-bold tracking-tight text-gray-900">
+                    <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-gray-900">
                         Fleet Management
                     </h2>
                     <p className="mt-1 text-sm text-gray-500">
                         Track school buses, maintain routes, and monitor student safety.
                     </p>
                 </div>
-                <div className="flex gap-3">
-                    <Button variant="outline" className="gap-2 h-10 rounded-xl border-gray-200 hover:bg-gray-50">
+                <div className="flex gap-3 w-full sm:w-auto">
+                    <Button variant="outline" className="w-full sm:w-auto gap-2 h-10 rounded-xl border-gray-200 hover:bg-gray-50">
                         <Navigation className="h-4 w-4" /> Live Tracking
                     </Button>
                     <Button 
-                        className="bg-indigo-600 hover:bg-indigo-500 gap-2 h-10 rounded-xl"
+                        className="w-full sm:w-auto bg-indigo-600 hover:bg-indigo-500 gap-2 h-10 rounded-xl"
                         onClick={() => setIsAddVehicleOpen(true)}
                     >
                         <Plus className="h-4 w-4" /> Add Vehicle
@@ -59,7 +59,7 @@ export default function TransportPage() {
                 </div>
             </div>
 
-            <div className="grid gap-6 md:grid-cols-4">
+            <div className="grid grid-cols-2 gap-6 md:grid-cols-4">
                 <Card className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
                     <p className="text-xs font-medium uppercase tracking-wide text-gray-500">Total Fleet</p>
                     <h3 className="mt-1 text-2xl font-bold text-gray-900">{Array.isArray(fleet) ? fleet.length : 0}</h3>

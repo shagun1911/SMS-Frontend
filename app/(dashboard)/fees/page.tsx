@@ -79,10 +79,10 @@ export default function FeesPage() {
 
     return (
         <LockedFeatureGate featureKey="fees" featureLabel="Fee management">
-        <div className="flex-1 space-y-6">
-            <div className="flex items-center justify-between">
+        <div className="flex-1 space-y-4 sm:space-y-6">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>
-                    <h2 className="text-2xl font-bold tracking-tight text-gray-900">
+                    <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-gray-900">
                         Fee Management
                     </h2>
                     <p className="mt-1 text-sm text-gray-500">
@@ -90,11 +90,12 @@ export default function FeesPage() {
                     </p>
                 </div>
                 <div className="flex gap-2">
-                    <Button variant="outline" className="gap-2 border-gray-200 hover:bg-gray-50">
-                        <Download className="h-4 w-4" /> Export Ledger
+                    <Button variant="outline" size="sm" className="gap-2 border-gray-200 hover:bg-gray-50 text-xs sm:text-sm">
+                        <Download className="h-4 w-4" /> <span className="hidden sm:inline">Export</span> Ledger
                     </Button>
                     <Button 
-                        className="bg-indigo-600 hover:bg-indigo-500 gap-2"
+                        size="sm"
+                        className="bg-indigo-600 hover:bg-indigo-500 gap-2 text-xs sm:text-sm"
                         onClick={() => setIsCollectFeeOpen(true)}
                     >
                         <Plus className="h-4 w-4" /> Collect Fee
@@ -102,7 +103,7 @@ export default function FeesPage() {
                 </div>
             </div>
 
-            <div className="grid gap-4 md:grid-cols-4">
+            <div className="grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-4">
                 <Card className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
                     <p className="text-xs font-medium uppercase tracking-wide text-gray-500">Total Collected</p>
                     <div className="mt-2 flex items-baseline gap-2">
@@ -131,11 +132,11 @@ export default function FeesPage() {
 
             <Card className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
                 <CardHeader className="border-b border-gray-100 bg-gray-50/50">
-                    <div className="flex items-center justify-between">
-                        <CardTitle className="text-lg font-semibold flex items-center gap-2 text-gray-900">
+                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                        <CardTitle className="text-base sm:text-lg font-semibold flex items-center gap-2 text-gray-900">
                             <Banknote className="h-5 w-5 text-indigo-600" /> Payment Records
                         </CardTitle>
-                        <div className="relative w-64">
+                        <div className="relative w-full sm:w-64">
                             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
                             <Input
                                 placeholder="Search student or receipt..."
@@ -146,7 +147,7 @@ export default function FeesPage() {
                         </div>
                     </div>
                 </CardHeader>
-                <CardContent className="p-0">
+                <CardContent className="p-0 overflow-x-auto">
                     {isLoading ? (
                         <div className="flex h-64 w-full items-center justify-center">
                             <Loader2 className="h-8 w-8 animate-spin text-indigo-500" />

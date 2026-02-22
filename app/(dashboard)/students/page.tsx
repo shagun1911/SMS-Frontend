@@ -31,6 +31,7 @@ import api from "@/lib/api";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 import { AddStudentModal } from "@/components/dashboard/add-student-modal";
+import { EditStudentModal } from "@/components/dashboard/edit-student-modal";
 import { LockedFeatureGate } from "@/components/plan/locked-feature-gate";
 
 function parseCSV(text: string): Record<string, string>[] {
@@ -50,6 +51,18 @@ export default function StudentsPage() {
     const [search, setSearch] = useState("");
     const [page, setPage] = useState(1);
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+    const [editStudent, setEditStudent] = useState<any | null>(null);
+
+    const deleteMutation = useMutation({
+        mutationFn: async (id: string) => {
+            await api.delete(`/students/${id}`);
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ["students"] });
+            toast.success("Student deleted");
+        },
+        onError: (err: any) => toast.error(err.response?.data?.message ?? "Delete failed"),
+    });
 
     const importMutation = useMutation({
         mutationFn: async (rows: Record<string, string>[]) => {
@@ -135,17 +148,17 @@ export default function StudentsPage() {
 
     return (
         <LockedFeatureGate featureKey="students" featureLabel="Students">
-        <div className="flex-1 space-y-6">
-            <div className="flex items-center justify-between">
+        <div className="flex-1 space-y-4 sm:space-y-6">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>
-                    <h2 className="text-3xl font-bold tracking-tight text-gray-900">
+                    <h2 className="text-xl sm:text-3xl font-bold tracking-tight text-gray-900">
                         Student Directory
                     </h2>
-                    <p className="text-gray-500 mt-1">
+                    <p className="text-gray-500 mt-1 text-sm">
                         Manage enrollments, academic records and student profiles.
                     </p>
                 </div>
-                <div className="flex gap-2">
+                <div className="flex flex-wrap gap-2">
                     <input
                         type="file"
                         accept=".csv"
@@ -155,46 +168,95 @@ export default function StudentsPage() {
                     />
                     <Button
                         variant="outline"
-                        className="gap-2 border-gray-200"
+                        size="sm"
+                        className="gap-2 border-gray-200 text-xs sm:text-sm"
                         onClick={handleExportCSV}
                     >
-                        <Download className="h-4 w-4" /> Export CSV
+                        <Download className="h-4 w-4" /> <span className="hidden sm:inline">Export</span> CSV
                     </Button>
                     <Button
                         variant="outline"
-                        className="gap-2 border-gray-200"
+                        size="sm"
+                        className="gap-2 border-gray-200 text-xs sm:text-sm"
                         onClick={() => document.getElementById("csv-import")?.click()}
                         disabled={importMutation.isPending}
                     >
                         {importMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
-                        Import CSV
+                        <span className="hidden sm:inline">Import</span> CSV
                     </Button>
                     <Button
                         onClick={() => setIsAddModalOpen(true)}
-                        className="bg-indigo-600 hover:bg-indigo-500 gap-2 font-bold shadow-sm"
+                        size="sm"
+                        className="bg-indigo-600 hover:bg-indigo-500 gap-2 font-bold shadow-sm text-xs sm:text-sm"
                     >
                         <Plus className="h-4 w-4" /> Add Student
                     </Button>
                 </div>
             </div>
 
-            <div className="flex items-center gap-4">
-                <div className="relative flex-1 max-w-sm">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
+                <div className="relative flex-1 sm:max-w-sm">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-500" />
                     <Input
                         placeholder="Search by name or admission no..."
-                        className="pl-10 bg-white border-gray-200 h-12 rounded-xl focus:ring-indigo-500/20"
+                        className="pl-10 bg-white border-gray-200 h-10 sm:h-12 rounded-xl focus:ring-indigo-500/20"
                         value={search}
                         onChange={(e) => setSearch(e.target.value)}
                     />
                 </div>
-                <Button variant="outline" className="gap-2 border-gray-200 h-12 rounded-xl bg-white">
+                <Button variant="outline" className="gap-2 border-gray-200 h-10 sm:h-12 rounded-xl bg-white w-full sm:w-auto">
                     <Filter className="h-4 w-4" /> Filter
                 </Button>
             </div>
 
-            <Card className="border border-gray-200 bg-white rounded-2xl overflow-hidden shadow-sm">
+            {/* Mobile card view */}
+            <div className="block sm:hidden space-y-3">
+                {isLoading ? (
+                    <div className="flex h-48 items-center justify-center">
+                        <Loader2 className="h-8 w-8 animate-spin text-indigo-500" />
+                    </div>
+                ) : students.length === 0 ? (
+                    <p className="py-12 text-center text-sm text-gray-500">No students found.</p>
+                ) : (
+                    students.map((student: any) => (
+                        <Card key={student._id} className="p-4 border-gray-200">
+                            <div className="flex items-start gap-3">
+                                <Avatar className="h-10 w-10 border border-gray-200 shrink-0">
+                                    <AvatarImage src={student.photo} />
+                                    <AvatarFallback className="bg-indigo-100 text-indigo-600">{student.firstName?.charAt(0)}</AvatarFallback>
+                                </Avatar>
+                                <div className="flex-1 min-w-0">
+                                    <p className="font-semibold text-sm text-gray-900 truncate">{student.firstName} {student.lastName}</p>
+                                    <p className="text-xs text-gray-500">{student.admissionNumber} · {student.phone}</p>
+                                    <div className="flex items-center gap-2 mt-2 flex-wrap">
+                                        <Badge variant="outline" className="border-gray-200 bg-gray-50 text-gray-600 text-[10px]">Class {student.class}</Badge>
+                                        <Badge variant="outline" className="border-purple-500/20 bg-purple-500/5 text-purple-400 text-[10px]">Sec {student.section}</Badge>
+                                        <Badge className={cn(
+                                            "capitalize px-2 py-0.5 rounded-full text-[10px] font-bold",
+                                            student.status === "active" ? "bg-emerald-500/10 text-emerald-500 border border-emerald-500/20"
+                                                : student.status === "pending_fees" ? "bg-amber-500/10 text-amber-500 border border-amber-500/20"
+                                                : "bg-red-500/10 text-red-500 border border-red-500/20"
+                                        )}>{student.status?.replace("_", " ")}</Badge>
+                                    </div>
+                                </div>
+                                <div className="flex gap-1 shrink-0">
+                                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setEditStudent(student)}>
+                                        <FileEdit className="h-3.5 w-3.5 text-gray-500" />
+                                    </Button>
+                                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => { if (confirm(`Delete ${student.firstName}?`)) deleteMutation.mutate(student._id); }}>
+                                        <Trash2 className="h-3.5 w-3.5 text-gray-500" />
+                                    </Button>
+                                </div>
+                            </div>
+                        </Card>
+                    ))
+                )}
+            </div>
+
+            {/* Desktop table view */}
+            <Card className="border border-gray-200 bg-white rounded-2xl overflow-hidden shadow-sm hidden sm:block">
                 <CardContent className="p-0">
+                    <div className="overflow-x-auto">
                     <Table>
                         <TableHeader className="bg-gray-50">
                             <TableRow className="border-gray-100 hover:bg-transparent">
@@ -232,11 +294,11 @@ export default function StudentsPage() {
                                                 <Avatar className="h-10 w-10 border border-gray-200">
                                                     <AvatarImage src={student.photo} />
                                                     <AvatarFallback className="bg-indigo-100 text-indigo-600">
-                                                        {student.firstName.charAt(0)}
+                                                        {student.firstName?.charAt(0)}
                                                     </AvatarFallback>
                                                 </Avatar>
                                                 <div className="flex flex-col">
-                                                    <span className="font-bold text-white group-hover:text-purple-400 transition-colors">
+                                                    <span className="font-bold text-gray-900 group-hover:text-indigo-600 transition-colors">
                                                         {student.firstName} {student.lastName}
                                                     </span>
                                                     <span className="text-xs text-gray-500">{student.phone}</span>
@@ -264,15 +326,30 @@ export default function StudentsPage() {
                                                             : "bg-red-500/10 text-red-400 border border-red-500/20"
                                                 )}
                                             >
-                                                {student.status.replace("_", " ")}
+                                                {student.status?.replace("_", " ")}
                                             </Badge>
                                         </TableCell>
                                         <TableCell className="pr-8 text-right">
                                             <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                                <Button variant="ghost" size="icon" className="h-9 w-9 rounded-lg hover:bg-gray-100 text-gray-500 hover:text-gray-900">
+                                                <Button
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    className="h-9 w-9 rounded-lg hover:bg-gray-100 text-gray-500 hover:text-gray-900"
+                                                    onClick={(e) => { e.stopPropagation(); setEditStudent(student); }}
+                                                >
                                                     <FileEdit className="h-4 w-4" />
                                                 </Button>
-                                                <Button variant="ghost" size="icon" className="h-9 w-9 rounded-lg hover:bg-red-50 text-gray-500 hover:text-red-600">
+                                                <Button
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    className="h-9 w-9 rounded-lg hover:bg-red-50 text-gray-500 hover:text-red-600"
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        if (confirm(`Delete ${student.firstName} ${student.lastName}?`)) {
+                                                            deleteMutation.mutate(student._id);
+                                                        }
+                                                    }}
+                                                >
                                                     <Trash2 className="h-4 w-4" />
                                                 </Button>
                                             </div>
@@ -282,13 +359,14 @@ export default function StudentsPage() {
                             )}
                         </TableBody>
                     </Table>
+                    </div>
                 </CardContent>
             </Card>
 
             {/* Pagination */}
-            <div className="flex items-center justify-between px-2 text-gray-500">
-                <p className="text-sm">Showing {students.length} of {data?.pagination?.total || 0} students</p>
-                <div className="flex items-center gap-2">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between px-2 text-gray-500">
+                <p className="text-xs sm:text-sm text-center sm:text-left">Showing {students.length} of {data?.pagination?.total || 0} students</p>
+                <div className="flex items-center justify-center gap-2">
                     <Button
                         variant="outline"
                         size="sm"
@@ -313,6 +391,11 @@ export default function StudentsPage() {
             <AddStudentModal
                 isOpen={isAddModalOpen}
                 onClose={() => setIsAddModalOpen(false)}
+            />
+            <EditStudentModal
+                isOpen={!!editStudent}
+                onClose={() => setEditStudent(null)}
+                student={editStudent}
             />
         </div>
         </LockedFeatureGate>

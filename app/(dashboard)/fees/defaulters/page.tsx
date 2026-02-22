@@ -67,12 +67,12 @@ export default function DefaultersPage() {
     return (
         <LockedFeatureGate featureKey="fees" featureLabel="Fee defaulters">
         <div className="flex-1 space-y-6">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>
-                    <h2 className="text-2xl font-bold tracking-tight text-gray-900">Fee Defaulters</h2>
+                    <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-gray-900">Fee Defaulters</h2>
                     <p className="mt-1 text-sm text-gray-500">Students with pending fee (due amount &gt; 0).</p>
                 </div>
-                <Button variant="outline" className="gap-2" onClick={downloadCsv} disabled={filtered.length === 0}>
+                <Button variant="outline" className="w-full sm:w-auto gap-2" onClick={downloadCsv} disabled={filtered.length === 0}>
                     <Download className="h-4 w-4" /> Download list
                 </Button>
             </div>
@@ -102,6 +102,7 @@ export default function DefaultersPage() {
                     ) : filtered.length === 0 ? (
                         <div className="p-12 text-center text-gray-500">No defaulters at the moment.</div>
                     ) : (
+                        <div className="overflow-x-auto">
                         <Table>
                             <TableHeader>
                                 <TableRow className="bg-gray-50">
@@ -129,6 +130,7 @@ export default function DefaultersPage() {
                                 ))}
                             </TableBody>
                         </Table>
+                        </div>
                     )}
                 </CardContent>
             </Card>

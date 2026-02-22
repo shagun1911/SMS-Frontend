@@ -191,12 +191,12 @@ export default function FeeStructurePage() {
     return (
         <LockedFeatureGate featureKey="fees" featureLabel="Fee structure">
         <div className="flex-1 space-y-6">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>
-                    <h2 className="text-2xl font-bold tracking-tight text-gray-900">Fee Structure</h2>
+                    <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-gray-900">Fee Structure</h2>
                     <p className="mt-1 text-sm text-gray-500">Define class-wise annual fee components.</p>
                 </div>
-                <Button className="gap-2 bg-indigo-600 hover:bg-indigo-500" onClick={openCreate}>
+                <Button className="w-full sm:w-auto gap-2 bg-indigo-600 hover:bg-indigo-500" onClick={openCreate}>
                     <Plus className="h-4 w-4" /> Add Structure
                 </Button>
             </div>
@@ -215,6 +215,7 @@ export default function FeeStructurePage() {
                     ) : structures.length === 0 ? (
                         <div className="p-12 text-center text-gray-500">No fee structures. Add one for a class.</div>
                     ) : (
+                        <div className="overflow-x-auto">
                         <Table>
                             <TableHeader>
                                 <TableRow className="bg-gray-50">
@@ -261,6 +262,7 @@ export default function FeeStructurePage() {
                                 })}
                             </TableBody>
                         </Table>
+                        </div>
                     )}
                 </CardContent>
             </Card>
