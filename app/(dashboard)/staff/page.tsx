@@ -26,6 +26,7 @@ import { Badge } from "@/components/ui/badge";
 import api from "@/lib/api";
 
 import { AddStaffModal } from "@/components/dashboard/add-staff-modal";
+import { LockedFeatureGate } from "@/components/plan/locked-feature-gate";
 
   interface StaffMember {
     _id: string;
@@ -157,6 +158,7 @@ export default function StaffPage() {
     );
 
     return (
+        <LockedFeatureGate featureKey="staff" featureLabel="Staff & payroll">
         <div className="flex-1 space-y-6">
             <div className="flex items-center justify-between">
                 <div>
@@ -215,6 +217,7 @@ export default function StaffPage() {
                 onClose={() => setIsAddModalOpen(false)}
             />
         </div>
+        </LockedFeatureGate>
     );
 }
 

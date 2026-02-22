@@ -10,6 +10,7 @@ import { OverviewChart } from "@/components/dashboard/overview-chart";
 import { GenderRatioChart } from "@/components/dashboard/gender-ratio-chart";
 import { RecentActivity } from "@/components/dashboard/recent-activity";
 import { AiChatPanel } from "@/components/ai/ai-chat-panel";
+import { usePlanLimits } from "@/context/plan-limits";
 import {
     School,
     Users,
@@ -33,6 +34,7 @@ import { Progress } from "@/components/ui/progress";
 
 export default function SchoolDashboardPage() {
     const { user } = useAuthStore();
+    const { hasFeature } = usePlanLimits();
 
     const { data: stats, isLoading } = useQuery({
         queryKey: ["school-stats"],
@@ -61,10 +63,12 @@ export default function SchoolDashboardPage() {
     return (
         <div className="flex flex-1 flex-col gap-8 lg:flex-row lg:gap-10">
             <div className="min-w-0 flex-1 space-y-8">
-                {/* Mobile: AI first */}
-                <div className="lg:hidden">
-                    <AiChatPanel />
-                </div>
+                {/* Mobile: AI first (only if plan includes AI) */}
+                {hasFeature("ai") && (
+                    <div className="lg:hidden">
+                        <AiChatPanel />
+                    </div>
+                )}
 
                 {/* Header: more breathing room */}
                 <header className="animate-fade-in-up flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -260,12 +264,14 @@ export default function SchoolDashboardPage() {
                 )}
             </div>
 
-            {/* Desktop: AI panel */}
-            <aside className="hidden w-[360px] shrink-0 lg:block">
-                <div className="sticky top-4">
-                    <AiChatPanel />
-                </div>
-            </aside>
+            {/* Desktop: AI panel (only if plan includes AI) */}
+            {hasFeature("ai") && (
+                <aside className="hidden w-[360px] shrink-0 lg:block">
+                    <div className="sticky top-4">
+                        <AiChatPanel />
+                    </div>
+                </aside>
+            )}
         </div>
     );
 }

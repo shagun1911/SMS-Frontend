@@ -9,7 +9,6 @@ import {
     Loader2,
     Edit2,
     Trash2,
-    X,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -23,15 +22,17 @@ import {
     DialogTitle,
     DialogTrigger,
 } from "@/components/ui/dialog";
-import { Badge } from "@/components/ui/badge";
 import api from "@/lib/api";
+import { LockedFeatureGate } from "@/components/plan/locked-feature-gate";
+
+const SECTIONS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
 
 export default function ClassesPage() {
     const queryClient = useQueryClient();
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingClass, setEditingClass] = useState<any>(null);
     const [className, setClassName] = useState("");
-    const [sections, setSections] = useState(["A"]);
+    const [section, setSection] = useState("A");
     const [roomNumber, setRoomNumber] = useState("");
     const [capacity, setCapacity] = useState("");
     const [studentsModalClass, setStudentsModalClass] = useState<any>(null);
@@ -91,7 +92,7 @@ export default function ClassesPage() {
 
     const resetForm = () => {
         setClassName("");
-        setSections(["A"]);
+        setSection("A");
         setRoomNumber("");
         setCapacity("");
         setEditingClass(null);
@@ -100,8 +101,8 @@ export default function ClassesPage() {
     const handleOpenModal = (cls?: any) => {
         if (cls) {
             setEditingClass(cls);
-            setClassName(cls.className);
-            setSections(cls.sections ?? ["A"]);
+            setClassName(cls.className ?? "");
+            setSection(cls.section ?? "A");
             setRoomNumber(cls.roomNumber ?? "");
             setCapacity(cls.capacity?.toString() ?? "");
         } else {
@@ -113,7 +114,7 @@ export default function ClassesPage() {
     const handleSubmit = () => {
         const payload = {
             className,
-            sections,
+            section,
             roomNumber: roomNumber || undefined,
             capacity: capacity ? Number(capacity) : undefined,
         };
@@ -124,16 +125,8 @@ export default function ClassesPage() {
         }
     };
 
-    const addSection = () => {
-        const next = String.fromCharCode(65 + sections.length); // A=65
-        if (sections.length < 26) setSections([...sections, next]);
-    };
-
-    const removeSection = (idx: number) => {
-        if (sections.length > 1) setSections(sections.filter((_, i) => i !== idx));
-    };
-
     return (
+        <LockedFeatureGate featureKey="classes" featureLabel="Classes & sections">
         <div className="flex-1 space-y-6">
             <div className="flex items-center justify-between">
                 <div>
@@ -141,7 +134,7 @@ export default function ClassesPage() {
                         Classes & Sections
                     </h2>
                     <p className="mt-1 text-sm text-gray-500">
-                        Manage class structure, sections, and student grouping.
+                        Each class + section is a separate card (e.g. Class 4 A, Class 4 B).
                     </p>
                 </div>
                 <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
@@ -150,61 +143,44 @@ export default function ClassesPage() {
                             className="gap-2 bg-indigo-600 hover:bg-indigo-500"
                             onClick={() => handleOpenModal()}
                         >
-                            <Plus className="h-4 w-4" /> Add Class
+                            <Plus className="h-4 w-4" /> Add Class & Section
                         </Button>
                     </DialogTrigger>
                     <DialogContent className="max-w-lg">
                         <DialogHeader>
                             <DialogTitle>
-                                {editingClass ? "Edit Class" : "Add New Class"}
+                                {editingClass ? "Edit Class" : "Add New Class & Section"}
                             </DialogTitle>
                         </DialogHeader>
                         <div className="space-y-4 py-4">
                             <div className="space-y-2">
                                 <Label>Class Name</Label>
                                 <Input
-                                    placeholder="e.g., I, II, III, IV, V, VI..."
+                                    placeholder="e.g. 4, V, X"
                                     value={className}
                                     onChange={(e) => setClassName(e.target.value)}
                                 />
                             </div>
                             <div className="space-y-2">
-                                <div className="flex items-center justify-between">
-                                    <Label>Sections</Label>
-                                    <Button
-                                        type="button"
-                                        variant="outline"
-                                        size="sm"
-                                        onClick={addSection}
-                                    >
-                                        <Plus className="h-3 w-3 mr-1" /> Add Section
-                                    </Button>
-                                </div>
-                                <div className="flex flex-wrap gap-2">
-                                    {sections.map((sec, idx) => (
-                                        <Badge
-                                            key={idx}
-                                            className="gap-1.5 bg-indigo-100 text-indigo-700 hover:bg-indigo-200"
-                                        >
-                                            Section {sec}
-                                            {sections.length > 1 && (
-                                                <button
-                                                    type="button"
-                                                    onClick={() => removeSection(idx)}
-                                                    className="ml-1"
-                                                >
-                                                    <X className="h-3 w-3" />
-                                                </button>
-                                            )}
-                                        </Badge>
+                                <Label>Section</Label>
+                                <select
+                                    value={section}
+                                    onChange={(e) => setSection(e.target.value)}
+                                    className="h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                                >
+                                    {SECTIONS.map((s) => (
+                                        <option key={s} value={s}>Section {s}</option>
                                     ))}
-                                </div>
+                                </select>
+                                <p className="text-xs text-muted-foreground">
+                                    Class 4 + Section A and Class 4 + Section B are separate entries.
+                                </p>
                             </div>
                             <div className="grid grid-cols-2 gap-4">
                                 <div className="space-y-2">
                                     <Label>Room Number (Optional)</Label>
                                     <Input
-                                        placeholder="e.g., 101"
+                                        placeholder="e.g. 101"
                                         value={roomNumber}
                                         onChange={(e) => setRoomNumber(e.target.value)}
                                     />
@@ -213,7 +189,7 @@ export default function ClassesPage() {
                                     <Label>Capacity (Optional)</Label>
                                     <Input
                                         type="number"
-                                        placeholder="e.g., 40"
+                                        placeholder="e.g. 40"
                                         value={capacity}
                                         onChange={(e) => setCapacity(e.target.value)}
                                     />
@@ -266,7 +242,7 @@ export default function ClassesPage() {
                                             </div>
                                             <div>
                                                 <CardTitle className="text-xl font-bold text-gray-900">
-                                                    Class {cls.className}
+                                                    Class {cls.className} – Section {(cls.section ?? cls.sections?.[0] ?? "A")}
                                                 </CardTitle>
                                                 {cls.roomNumber && (
                                                     <p className="mt-0.5 text-xs text-gray-500">
@@ -287,9 +263,9 @@ export default function ClassesPage() {
                                             <Button
                                                 variant="ghost"
                                                 size="icon"
-                                                className="h-8 w-8 text-gray-500 hover:bg-white hover:text-red-600"
+                                                className="h-8 w-8 text-gray-500 hover:text-red-600"
                                                 onClick={() => {
-                                                    if (confirm(`Delete Class ${cls.className}?`)) {
+                                                    if (confirm(`Delete Class ${cls.className} Section ${cls.section ?? cls.sections?.[0] ?? "A"}?`)) {
                                                         deleteClass.mutate(cls._id);
                                                     }
                                                 }}
@@ -301,19 +277,6 @@ export default function ClassesPage() {
                                 </CardHeader>
                                 <CardContent className="p-6">
                                     <div className="space-y-4">
-                                        <div>
-                                            <p className="text-xs font-medium text-gray-500 mb-2">Sections</p>
-                                            <div className="flex flex-wrap gap-2">
-                                                {cls.sections?.map((sec: string) => (
-                                                    <Badge
-                                                        key={sec}
-                                                        className="bg-indigo-100 text-indigo-700"
-                                                    >
-                                                        {sec}
-                                                    </Badge>
-                                                ))}
-                                            </div>
-                                        </div>
                                         {cls.capacity && (
                                             <div className="flex items-center gap-2 text-sm text-gray-600">
                                                 <Users className="h-4 w-4 text-gray-400" />
@@ -347,7 +310,7 @@ export default function ClassesPage() {
                                 No classes configured yet
                             </p>
                             <p className="mt-1 text-xs text-gray-500">
-                                Create your first class to get started
+                                Add Class & Section (e.g. Class 4 A, then Class 4 B) to get started
                             </p>
                         </div>
                     )}
@@ -358,15 +321,16 @@ export default function ClassesPage() {
                 <ClassStudentsModal
                     classId={studentsModalClass._id}
                     className={studentsModalClass.className}
-                    sections={studentsModalClass.sections}
+                    section={studentsModalClass.section ?? studentsModalClass.sections?.[0] ?? "A"}
                     onClose={() => setStudentsModalClass(null)}
                 />
             )}
         </div>
+        </LockedFeatureGate>
     );
 }
 
-function ClassStudentsModal({ classId, className, sections, onClose }: { classId: string; className: string; sections?: string[]; onClose: () => void }) {
+function ClassStudentsModal({ classId, className, section, onClose }: { classId: string; className: string; section: string; onClose: () => void }) {
     const { data: students, isLoading } = useQuery({
         queryKey: ["class-students", classId],
         queryFn: async () => {
@@ -378,7 +342,7 @@ function ClassStudentsModal({ classId, className, sections, onClose }: { classId
         <Dialog open={!!classId} onOpenChange={() => onClose()}>
             <DialogContent className="max-w-2xl max-h-[80vh] overflow-hidden flex flex-col">
                 <DialogHeader>
-                    <DialogTitle>Class {className} – Students</DialogTitle>
+                    <DialogTitle>Class {className} – Section {section} – Students</DialogTitle>
                 </DialogHeader>
                 <div className="overflow-y-auto flex-1 min-h-0">
                     {isLoading ? (
@@ -388,7 +352,7 @@ function ClassStudentsModal({ classId, className, sections, onClose }: { classId
                             {(students ?? []).map((s: any) => (
                                 <li key={s._id} className="flex items-center justify-between rounded-lg border border-gray-100 bg-gray-50/50 px-4 py-2 text-sm">
                                     <span className="font-medium text-gray-900">{s.firstName} {s.lastName}</span>
-                                    <span className="text-gray-500">Sec {s.section} • Adm: {s.admissionNumber}</span>
+                                    <span className="text-gray-500">Adm: {s.admissionNumber}</span>
                                 </li>
                             ))}
                             {(students ?? []).length === 0 && (

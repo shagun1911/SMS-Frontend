@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { Sidebar } from "@/components/layout/sidebar";
 import { Header } from "@/components/layout/header";
 import { MobileMenuProvider, useMobileMenu } from "@/components/layout/mobile-menu-context";
+import { PlanLimitsProvider } from "@/context/plan-limits";
 import { AiChat } from "@/components/ai/ai-chat";
 import { X } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -88,7 +89,9 @@ function ShellContent({ children }: { children: React.ReactNode }) {
 export function DashboardShell({ children }: { children: React.ReactNode }) {
     return (
         <MobileMenuProvider>
-            <ShellContent>{children}</ShellContent>
+            <PlanLimitsProvider>
+                <ShellContent>{children}</ShellContent>
+            </PlanLimitsProvider>
         </MobileMenuProvider>
     );
 }

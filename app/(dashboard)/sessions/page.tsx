@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Plus, Calendar, CheckCircle, XCircle } from "lucide-react";
+import { LockedFeatureGate } from "@/components/plan/locked-feature-gate";
 import api from "@/lib/api";
 import { toast } from "sonner";
 
@@ -87,6 +88,7 @@ export default function SessionsPage() {
   }
 
   return (
+    <LockedFeatureGate featureKey="sessions" featureLabel="Sessions">
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <div>
@@ -249,5 +251,6 @@ export default function SessionsPage() {
         )}
       </div>
     </div>
+    </LockedFeatureGate>
   );
 }

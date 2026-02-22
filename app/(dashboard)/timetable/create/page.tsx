@@ -25,7 +25,6 @@ function formatTime(mins: number): string {
 export default function CreateTimetablePage() {
     const queryClient = useQueryClient();
     const [classId, setClassId] = useState("");
-    const [section, setSection] = useState("A");
 
     const { data: settings } = useQuery({
         queryKey: ["timetable-settings"],
@@ -76,6 +75,9 @@ export default function CreateTimetablePage() {
 
     const [grid, setGrid] = useState<Record<string, { subject: string; teacherId: string }>>({});
 
+    const selectedClass = (classes as any[]).find((c: any) => c._id === classId);
+    const section = selectedClass?.section ?? selectedClass?.sections?.[0] ?? "A";
+
     const { data: existingTimetable } = useQuery({
         queryKey: ["timetable-class", classId, section],
         queryFn: async () => {
@@ -117,7 +119,7 @@ export default function CreateTimetablePage() {
                     });
                 return { dayOfWeek, slots };
             });
-            await api.post("/timetable/create", { className: (classes as any[]).find((c: any) => c._id === classId)?.className, section, days });
+            await api.post("/timetable/create", { className: selectedClass?.className, section, days });
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ["timetable-class", classId, section] });
@@ -131,14 +133,11 @@ export default function CreateTimetablePage() {
         },
     });
 
-    const selectedClass = (classes as any[]).find((c: any) => c._id === classId);
-    const sections = selectedClass?.sections?.length ? selectedClass.sections : ["A", "B", "C"];
-
     return (
         <div className="space-y-6">
             <div>
                 <h2 className="text-2xl font-bold tracking-tight text-gray-900">Create Timetable</h2>
-                <p className="mt-1 text-sm text-gray-500">Select class and section, then fill subject and teacher for each period.</p>
+                <p className="mt-1 text-sm text-gray-500">Select class (each class + section is one entry), then fill subject and teacher for each period.</p>
             </div>
             <Card className="border border-gray-200 bg-white shadow-sm">
                 <CardHeader>
@@ -147,27 +146,17 @@ export default function CreateTimetablePage() {
                 <CardContent>
                     <div className="flex flex-wrap gap-4">
                             <div className="space-y-2">
-                                <Label>Class</Label>
+                                <Label>Class & Section</Label>
                                 <select
                                     value={classId}
-                                    onChange={(e) => { setClassId(e.target.value); setSection(sections[0] || "A"); }}
-                                    className="h-10 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm min-w-[140px]"
+                                    onChange={(e) => setClassId(e.target.value)}
+                                    className="h-10 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm min-w-[180px]"
                                 >
                                     <option value="">Select class</option>
                                     {(classes as any[]).map((c: any) => (
-                                        <option key={c._id} value={c._id}>{c.className}</option>
-                                    ))}
-                                </select>
-                            </div>
-                            <div className="space-y-2">
-                                <Label>Section</Label>
-                                <select
-                                    value={section}
-                                    onChange={(e) => setSection(e.target.value)}
-                                    className="h-10 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm min-w-[80px]"
-                                >
-                                    {sections.map((s: string) => (
-                                        <option key={s} value={s}>{s}</option>
+                                        <option key={c._id} value={c._id}>
+                                            Class {c.className} – Section {c.section ?? c.sections?.[0] ?? "A"}
+                                        </option>
                                     ))}
                                 </select>
                             </div>
@@ -178,7 +167,7 @@ export default function CreateTimetablePage() {
             {classId && (
                 <Card className="border border-gray-200 bg-white overflow-x-auto shadow-sm">
                     <CardHeader>
-                        <CardTitle>Grid – {selectedClass?.className} {section}</CardTitle>
+                        <CardTitle>Grid – Class {selectedClass?.className} Section {section}</CardTitle>
                         <p className="text-sm text-gray-500">Select subject and teacher for each cell. Conflicts will be reported on save.</p>
                     </CardHeader>
                     <CardContent className="p-4">

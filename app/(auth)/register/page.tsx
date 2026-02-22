@@ -96,9 +96,9 @@ export default function RegisterPage() {
             });
             router.push("/login?portal=school");
         } catch (error: any) {
-            toast.error("Registration failed", {
-                description: error.response?.data?.message || "Something went wrong",
-            });
+            const msg = error.response?.data?.message || error.response?.data?.error || error.message;
+            const desc = msg && msg !== "Something went wrong" ? msg : "Check your details and connection, then try again.";
+            toast.error("Registration failed", { description: desc });
         } finally {
             setIsLoading(false);
         }

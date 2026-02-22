@@ -34,6 +34,7 @@ import {
     TableHeader,
     TableRow,
 } from "@/components/ui/table";
+import { LockedFeatureGate } from "@/components/plan/locked-feature-gate";
 import api from "@/lib/api";
 import { toast } from "sonner";
 
@@ -188,6 +189,7 @@ export default function FeeStructurePage() {
     const classNameList = [...new Set(classOptions.map((c: any) => c.className || c.class).filter(Boolean))];
 
     return (
+        <LockedFeatureGate featureKey="fees" featureLabel="Fee structure">
         <div className="flex-1 space-y-6">
             <div className="flex items-center justify-between">
                 <div>
@@ -330,5 +332,6 @@ export default function FeeStructurePage() {
                 </DialogContent>
             </Dialog>
         </div>
+        </LockedFeatureGate>
     );
 }

@@ -93,6 +93,7 @@ export default function LandingPage() {
             <Link href="#features" className="transition-smooth hover:text-[hsl(var(--foreground))]">Features</Link>
             <Link href="#demos" className="transition-smooth hover:text-[hsl(var(--foreground))]">Demos</Link>
             <Link href="#how-it-works" className="transition-smooth hover:text-[hsl(var(--foreground))]">How it works</Link>
+            <Link href="#dashboard-guide" className="transition-smooth hover:text-[hsl(var(--foreground))]">Dashboard guide</Link>
             <Link
               href="/login"
               className="rounded-lg bg-[hsl(var(--primary))] px-4 py-2 text-sm font-medium text-white transition-smooth hover:opacity-90"
@@ -239,6 +240,44 @@ export default function LandingPage() {
           </div>
         </section>
 
+        {/* School dashboard guide – what you can do after login */}
+        <section id="dashboard-guide" className="relative border-t border-[hsl(var(--border))] py-28 sm:py-32">
+          <div className="mx-auto max-w-6xl px-4">
+            <h2 className="animate-fade-in-up text-center text-3xl font-bold tracking-tight text-[hsl(var(--foreground))] sm:text-4xl">
+              Your school dashboard – quick guide
+            </h2>
+            <span className="animate-fade-in-up animation-delay-100 mx-auto mt-3 block h-1 w-12 rounded-full bg-[hsl(var(--primary))]/80" />
+            <p className="animate-fade-in-up animation-delay-100 mx-auto mt-6 max-w-xl text-center text-base text-[hsl(var(--muted-foreground))]">
+              After you log in, here’s what you can do from the school dashboard. Your data is private to your school only.
+            </p>
+            <div className="mt-16 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+              {[
+                { title: 'Dashboard', text: 'View stats, fee trends, and recent activity at a glance.' },
+                { title: 'Students', text: 'Enroll students, assign class & section, and manage records.' },
+                { title: 'Classes & sections', text: 'Create classes and sections (e.g. Class 5 – Section A).' },
+                { title: 'Sessions', text: 'Create academic sessions and set start/end dates.' },
+                { title: 'Fees', text: 'Set fee structures per class, collect fees, print receipts, track defaulters.' },
+                { title: 'Staff & payroll', text: 'Add teachers and staff, set salary structure, run monthly payroll.' },
+                { title: 'Timetable', text: 'Create and print timetables per class/section.' },
+                { title: 'Exams & results', text: 'Create exams, enter marks, generate admit cards and results.' },
+                { title: 'Transport', text: 'Manage buses, routes, and student transport assignments.' },
+                { title: 'Plan & billing', text: 'View your subscription and upgrade or manage billing.' },
+                { title: 'AI assistant', text: 'Ask questions in plain language; answers use only your school’s data.' },
+              ].map((item, i) => (
+                <div
+                  key={item.title}
+                  className="animate-fade-in-up rounded-2xl border border-[hsl(var(--border))] bg-[hsl(var(--card))] p-6 shadow-card transition-smooth hover-lift"
+                  style={{ animationDelay: `${120 + i * 40}ms`, animationFillMode: 'both' }}
+                >
+                  <h3 className="font-bold text-[hsl(var(--foreground))]">{item.title}</h3>
+                  <span className="mt-2 block h-0.5 w-8 rounded-full bg-[hsl(var(--primary))]/60" />
+                  <p className="mt-3 text-sm text-[hsl(var(--muted-foreground))] leading-relaxed">{item.text}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+
         {/* How it works */}
         <section id="how-it-works" className="relative border-t border-[hsl(var(--border))] py-28 sm:py-32">
           <div className="mx-auto max-w-6xl px-4">
@@ -317,6 +356,7 @@ export default function LandingPage() {
               <Link href="#features" className="transition-smooth hover:text-[hsl(var(--foreground))]">Features</Link>
               <Link href="#demos" className="transition-smooth hover:text-[hsl(var(--foreground))]">Demos</Link>
               <Link href="#how-it-works" className="transition-smooth hover:text-[hsl(var(--foreground))]">How it works</Link>
+              <Link href="#dashboard-guide" className="transition-smooth hover:text-[hsl(var(--foreground))]">Dashboard guide</Link>
               <Link href="/login" className="transition-smooth hover:text-[hsl(var(--foreground))]">Login</Link>
             </nav>
           </div>

@@ -22,6 +22,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { NewExamModal } from "@/components/exams/new-exam-modal";
 import { MarksEntryModal } from "@/components/exams/marks-entry-modal";
 import { MeritListModal } from "@/components/exams/merit-list-modal";
+import { LockedFeatureGate } from "@/components/plan/locked-feature-gate";
 import api from "@/lib/api";
 
 export default function ExamsPage() {
@@ -41,6 +42,7 @@ export default function ExamsPage() {
     const exams = examsData || [];
 
     return (
+        <LockedFeatureGate featureKey="exams" featureLabel="Exams & results">
         <div className="flex-1 space-y-6">
             <div className="flex items-center justify-between">
                 <div>

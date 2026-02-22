@@ -23,14 +23,20 @@ import {
     IdCard,
     CalendarDays,
     Receipt,
-    UserX
+    UserX,
+    BarChart3,
+    Wallet,
+    Sparkles,
+    Lock,
 } from "lucide-react";
+import { usePlanLimits } from "@/context/plan-limits";
 
 interface SidebarProps extends React.HTMLAttributes<HTMLDivElement> { }
 
 export function Sidebar({ className }: SidebarProps) {
     const pathname = usePathname();
     const { user } = useAuthStore();
+    const { hasFeature } = usePlanLimits();
     const role = user?.role;
 
     // Return null if no user/role yet (prevents UI flicker of master admin items)
@@ -46,6 +52,7 @@ export function Sidebar({ className }: SidebarProps) {
             icon: LayoutDashboard,
             href: dashboardHref,
             roles: [UserRole.SUPER_ADMIN, UserRole.SCHOOL_ADMIN, UserRole.TEACHER, UserRole.ACCOUNTANT],
+            featureKey: "dashboard",
         },
     ];
 
@@ -57,96 +64,45 @@ export function Sidebar({ className }: SidebarProps) {
             roles: [UserRole.SUPER_ADMIN],
         },
         {
-            label: "Plans",
+            label: "Users & Billing",
+            icon: Users,
+            href: "/master/users-billing",
+            roles: [UserRole.SUPER_ADMIN],
+        },
+        {
+            label: "Plans Management",
             icon: Layers,
             href: "/master/plans",
             roles: [UserRole.SUPER_ADMIN],
         },
         {
-            label: "Subscriptions",
-            icon: CreditCard,
-            href: "/master/subscriptions",
+            label: "Usage Reports",
+            icon: BarChart3,
+            href: "/master/usage-reports",
+            roles: [UserRole.SUPER_ADMIN],
+        },
+        {
+            label: "Billing Overview",
+            icon: Wallet,
+            href: "/master/billing-overview",
             roles: [UserRole.SUPER_ADMIN],
         },
     ];
 
     const schoolRoutes = [
-        {
-            label: "Students",
-            icon: GraduationCap,
-            href: "/students",
-            roles: [UserRole.SCHOOL_ADMIN, UserRole.TEACHER, UserRole.ACCOUNTANT],
-        },
-        {
-            label: "Classes",
-            icon: BookOpen,
-            href: "/classes",
-            roles: [UserRole.SCHOOL_ADMIN, UserRole.TEACHER],
-        },
-        {
-            label: "Staff",
-            icon: Users,
-            href: "/staff",
-            roles: [UserRole.SUPER_ADMIN, UserRole.SCHOOL_ADMIN],
-        },
-        {
-            label: "Fee Structure",
-            icon: Layers,
-            href: "/fees/structure",
-            roles: [UserRole.SCHOOL_ADMIN, UserRole.ACCOUNTANT],
-            exact: true,
-        },
-        {
-            label: "Collect Fee",
-            icon: Banknote,
-            href: "/fees",
-            roles: [UserRole.SCHOOL_ADMIN, UserRole.ACCOUNTANT],
-            exact: true, // only active on /fees, not /fees/structure, /fees/receipts, etc.
-        },
-        {
-            label: "Receipts",
-            icon: Receipt,
-            href: "/fees/receipts",
-            roles: [UserRole.SCHOOL_ADMIN, UserRole.ACCOUNTANT],
-            exact: true,
-        },
-        {
-            label: "Defaulters",
-            icon: UserX,
-            href: "/fees/defaulters",
-            roles: [UserRole.SCHOOL_ADMIN, UserRole.ACCOUNTANT],
-            exact: true,
-        },
-        {
-            label: "Transport",
-            icon: Bus,
-            href: "/transport",
-            roles: [UserRole.SCHOOL_ADMIN, UserRole.TRANSPORT_MANAGER],
-        },
-        {
-            label: "Exams",
-            icon: FileText,
-            href: "/exams",
-            roles: [UserRole.SCHOOL_ADMIN, UserRole.TEACHER],
-        },
-        {
-            label: "Admit Cards",
-            icon: IdCard,
-            href: "/admit-cards",
-            roles: [UserRole.SCHOOL_ADMIN, UserRole.TEACHER],
-        },
-        {
-            label: "Timetable",
-            icon: CalendarDays,
-            href: "/timetable",
-            roles: [UserRole.SCHOOL_ADMIN, UserRole.TEACHER],
-        },
-        {
-            label: "Sessions",
-            icon: CalendarDays,
-            href: "/sessions",
-            roles: [UserRole.SCHOOL_ADMIN],
-        },
+        { label: "Students", icon: GraduationCap, href: "/students", roles: [UserRole.SCHOOL_ADMIN, UserRole.TEACHER, UserRole.ACCOUNTANT], featureKey: "students" },
+        { label: "Classes", icon: BookOpen, href: "/classes", roles: [UserRole.SCHOOL_ADMIN, UserRole.TEACHER], featureKey: "classes" },
+        { label: "Staff", icon: Users, href: "/staff", roles: [UserRole.SUPER_ADMIN, UserRole.SCHOOL_ADMIN], featureKey: "staff" },
+        { label: "Fee Structure", icon: Layers, href: "/fees/structure", roles: [UserRole.SCHOOL_ADMIN, UserRole.ACCOUNTANT], exact: true, featureKey: "fees" },
+        { label: "Collect Fee", icon: Banknote, href: "/fees", roles: [UserRole.SCHOOL_ADMIN, UserRole.ACCOUNTANT], exact: true, featureKey: "fees" },
+        { label: "Receipts", icon: Receipt, href: "/fees/receipts", roles: [UserRole.SCHOOL_ADMIN, UserRole.ACCOUNTANT], exact: true, featureKey: "fees" },
+        { label: "Defaulters", icon: UserX, href: "/fees/defaulters", roles: [UserRole.SCHOOL_ADMIN, UserRole.ACCOUNTANT], exact: true, featureKey: "fees" },
+        { label: "Transport", icon: Bus, href: "/transport", roles: [UserRole.SCHOOL_ADMIN, UserRole.TRANSPORT_MANAGER], featureKey: "transport" },
+        { label: "Exams", icon: FileText, href: "/exams", roles: [UserRole.SCHOOL_ADMIN, UserRole.TEACHER], featureKey: "exams" },
+        { label: "Admit Cards", icon: IdCard, href: "/admit-cards", roles: [UserRole.SCHOOL_ADMIN, UserRole.TEACHER], featureKey: "admit_cards" },
+        { label: "Timetable", icon: CalendarDays, href: "/timetable", roles: [UserRole.SCHOOL_ADMIN, UserRole.TEACHER], featureKey: "timetable" },
+        { label: "Sessions", icon: CalendarDays, href: "/sessions", roles: [UserRole.SCHOOL_ADMIN], featureKey: "sessions" },
+        { label: "Plan & Billing", icon: Sparkles, href: "/plan", roles: [UserRole.SCHOOL_ADMIN], featureKey: "plan_billing" },
     ];
 
     const settingsRoutes = [
@@ -175,22 +131,27 @@ export function Sidebar({ className }: SidebarProps) {
                 <nav className="flex-1 space-y-0.5 px-3">
                     {filteredRoutes.map((route) => {
                         const exact = (route as { exact?: boolean }).exact;
+                        const featureKey = (route as { featureKey?: string }).featureKey;
+                        const locked = featureKey && role !== UserRole.SUPER_ADMIN && !hasFeature(featureKey);
                         const isActive = exact
                             ? pathname === route.href
                             : (pathname === route.href || pathname?.startsWith(route.href + "/"));
                         return (
                             <Link
                                 key={route.href}
-                                href={route.href}
+                                href={locked ? "/plan" : route.href}
                                 className={cn(
                                     "flex min-h-[44px] items-center gap-3 rounded-xl px-3 py-3 text-sm font-medium transition-smooth active:scale-[0.98]",
-                                    isActive
+                                    isActive && !locked
                                         ? "bg-primary text-primary-foreground shadow-md"
-                                        : "text-[hsl(var(--muted-foreground))] hover:bg-[hsl(var(--accent))] hover:text-[hsl(var(--accent-foreground))] border border-transparent hover:border-[hsl(var(--border))]"
+                                        : "text-[hsl(var(--muted-foreground))] hover:bg-[hsl(var(--accent))] hover:text-[hsl(var(--accent-foreground))] border border-transparent hover:border-[hsl(var(--border))]",
+                                    locked && "opacity-80"
                                 )}
+                                title={locked ? "Upgrade your plan to use this feature" : undefined}
                             >
-                                <route.icon className={cn("h-5 w-5 shrink-0", isActive ? "text-primary-foreground" : "text-[hsl(var(--muted-foreground))]")} />
+                                <route.icon className={cn("h-5 w-5 shrink-0", isActive && !locked ? "text-primary-foreground" : "text-[hsl(var(--muted-foreground))]")} />
                                 {route.label}
+                                {locked && <Lock className="ml-auto h-3.5 w-3.5 shrink-0 text-amber-500" />}
                             </Link>
                         );
                     })}

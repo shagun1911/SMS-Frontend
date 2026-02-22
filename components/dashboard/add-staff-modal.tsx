@@ -66,9 +66,9 @@ export function AddStaffModal({ isOpen, onClose }: AddStaffModalProps) {
             onClose();
         },
         onError: (error: any) => {
-            toast.error("Process Failed", {
-                description: error.response?.data?.message || "Something went wrong"
-            });
+            const msg = error.response?.data?.message || error.response?.data?.error || error.message;
+            const desc = msg && msg !== "Something went wrong" ? msg : "Check your connection and try again.";
+            toast.error("Process Failed", { description: desc });
         }
     });
 

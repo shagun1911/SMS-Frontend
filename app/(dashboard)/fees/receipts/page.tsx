@@ -14,6 +14,7 @@ import {
     TableHeader,
     TableRow,
 } from "@/components/ui/table";
+import { LockedFeatureGate } from "@/components/plan/locked-feature-gate";
 import api from "@/lib/api";
 
 function formatDate(d: string | Date) {
@@ -79,6 +80,7 @@ export default function ReceiptsPage() {
     };
 
     return (
+        <LockedFeatureGate featureKey="fees" featureLabel="Fee receipts">
         <div className="flex-1 space-y-6">
             <div>
                 <h2 className="text-2xl font-bold tracking-tight text-gray-900">Receipts</h2>
@@ -153,5 +155,6 @@ export default function ReceiptsPage() {
                 </CardContent>
             </Card>
         </div>
+        </LockedFeatureGate>
     );
 }

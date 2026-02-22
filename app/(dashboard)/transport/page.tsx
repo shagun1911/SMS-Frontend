@@ -19,6 +19,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { AddVehicleModal } from "@/components/transport/add-vehicle-modal";
+import { LockedFeatureGate } from "@/components/plan/locked-feature-gate";
 import api from "@/lib/api";
 
 export default function TransportPage() {
@@ -34,6 +35,7 @@ export default function TransportPage() {
     const fleet = transportData || [];
 
     return (
+        <LockedFeatureGate featureKey="transport" featureLabel="Transport">
         <div className="flex-1 space-y-6">
             <div className="flex items-center justify-between">
                 <div>
@@ -148,5 +150,6 @@ export default function TransportPage() {
                 onOpenChange={setIsAddVehicleOpen}
             />
         </div>
+        </LockedFeatureGate>
     );
 }

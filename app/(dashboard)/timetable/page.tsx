@@ -6,6 +6,7 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { CalendarDays, Loader2, Download, Printer, Eye, Save, Settings } from "lucide-react";
+import { LockedFeatureGate } from "@/components/plan/locked-feature-gate";
 import api from "@/lib/api";
 import { toast } from "sonner";
 
@@ -91,6 +92,7 @@ export default function TimetablePage() {
         mutationFn: async () => {
             const payload = rows.map((row: any, ri: number) => ({
                 className: row.className,
+                section: row.section,
                 cells: Array.from({ length: totalCols }, (_, ci) => {
                     const key = `${ri}-${ci}`;
                     const g = grid[key] || {};
@@ -219,8 +221,10 @@ export default function TimetablePage() {
                             </thead>
                             <tbody>
                                 {rows.map((row: any, rowIdx: number) => (
-                                    <tr key={row.className} className="hover:bg-gray-50/50">
-                                        <td className="border border-gray-200 p-2 font-medium sticky left-0 bg-white z-10">{row.className}</td>
+                                    <tr key={`${row.className}-${row.section ?? rowIdx}`} className="hover:bg-gray-50/50">
+                                        <td className="border border-gray-200 p-2 font-medium sticky left-0 bg-white z-10">
+                                            {row.className}{row.section ? ` – ${row.section}` : ""}
+                                        </td>
                                         {periodColumns.map((p, colIdx) => {
                                             if (p.isLunch) {
                                                 return (
@@ -269,5 +273,6 @@ export default function TimetablePage() {
                 </CardContent>
             </Card>
         </div>
+        </LockedFeatureGate>
     );
 }

@@ -9,7 +9,6 @@ import api from "@/lib/api";
 
 export default function PrintTimetablePage() {
     const [classId, setClassId] = useState("");
-    const [section, setSection] = useState("A");
     const [action, setAction] = useState<"preview" | "download" | "print" | null>(null);
 
     const { data: classes = [] } = useQuery({
@@ -21,7 +20,7 @@ export default function PrintTimetablePage() {
     });
 
     const selectedClass = (classes as any[]).find((c: any) => c._id === classId);
-    const sections = selectedClass?.sections?.length ? selectedClass.sections : ["A", "B", "C"];
+    const section = selectedClass?.section ?? selectedClass?.sections?.[0] ?? "A";
 
     const handlePdf = async (a: "preview" | "download" | "print") => {
         if (!classId) return;
@@ -58,7 +57,7 @@ export default function PrintTimetablePage() {
         <div className="space-y-6">
             <div>
                 <h2 className="text-2xl font-bold tracking-tight text-gray-900">Print Timetable</h2>
-                <p className="mt-1 text-sm text-gray-500">Select class and section, then preview, download PDF, or print.</p>
+                <p className="mt-1 text-sm text-gray-500">Select class (each class + section is one entry), then preview, download PDF, or print.</p>
             </div>
             <Card className="max-w-md border border-gray-200 bg-white shadow-sm">
                 <CardHeader>
@@ -66,27 +65,17 @@ export default function PrintTimetablePage() {
                 </CardHeader>
                 <CardContent className="space-y-4">
                     <div>
-                        <label className="mb-1 block text-xs font-medium text-gray-500">Class</label>
+                        <label className="mb-1 block text-xs font-medium text-gray-500">Class & Section</label>
                         <select
                             value={classId}
-                            onChange={(e) => { setClassId(e.target.value); setSection(sections[0] || "A"); }}
+                            onChange={(e) => setClassId(e.target.value)}
                             className="h-10 w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm"
                         >
                             <option value="">Select class</option>
                             {(classes as any[]).map((c: any) => (
-                                <option key={c._id} value={c._id}>{c.className}</option>
-                            ))}
-                        </select>
-                    </div>
-                    <div>
-                        <label className="mb-1 block text-xs font-medium text-gray-500">Section</label>
-                        <select
-                            value={section}
-                            onChange={(e) => setSection(e.target.value)}
-                            className="h-10 w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm"
-                        >
-                            {sections.map((s: string) => (
-                                <option key={s} value={s}>{s}</option>
+                                <option key={c._id} value={c._id}>
+                                    Class {c.className} – Section {c.section ?? c.sections?.[0] ?? "A"}
+                                </option>
                             ))}
                         </select>
                     </div>

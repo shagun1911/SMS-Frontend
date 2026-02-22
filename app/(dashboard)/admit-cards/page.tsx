@@ -5,6 +5,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { IdCard, Loader2, Printer, Download, Eye } from "lucide-react";
+import { LockedFeatureGate } from "@/components/plan/locked-feature-gate";
 import api from "@/lib/api";
 
 export default function AdmitCardsPage() {
@@ -100,6 +101,7 @@ export default function AdmitCardsPage() {
     };
 
     return (
+        <LockedFeatureGate featureKey="admit_cards" featureLabel="Admit cards">
         <div className="flex-1 space-y-6">
             <div className="flex flex-wrap items-center justify-between gap-4">
                 <div>
@@ -216,5 +218,6 @@ export default function AdmitCardsPage() {
                 </>
             )}
         </div>
+        </LockedFeatureGate>
     );
 }

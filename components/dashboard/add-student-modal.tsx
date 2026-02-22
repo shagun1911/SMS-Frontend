@@ -102,9 +102,9 @@ export function AddStudentModal({ isOpen, onClose }: AddStudentModalProps) {
             onClose();
         },
         onError: (error: any) => {
-            toast.error("Enrollment Failed", {
-                description: error.response?.data?.message || "Something went wrong"
-            });
+            const msg = error.response?.data?.message || error.response?.data?.error || error.message;
+            const desc = msg && msg !== "Something went wrong" ? msg : "Check your connection and try again.";
+            toast.error("Enrollment Failed", { description: desc });
         }
     });
 

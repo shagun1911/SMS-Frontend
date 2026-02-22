@@ -28,6 +28,7 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { CollectFeeModal } from "@/components/fees/collect-fee-modal";
+import { LockedFeatureGate } from "@/components/plan/locked-feature-gate";
 import api from "@/lib/api";
 
 function formatCurrency(amount: number): string {
@@ -77,6 +78,7 @@ export default function FeesPage() {
     const transactionCount = stats?.transactionCount ?? 0;
 
     return (
+        <LockedFeatureGate featureKey="fees" featureLabel="Fee management">
         <div className="flex-1 space-y-6">
             <div className="flex items-center justify-between">
                 <div>
@@ -216,5 +218,6 @@ export default function FeesPage() {
                 onOpenChange={setIsCollectFeeOpen}
             />
         </div>
+        </LockedFeatureGate>
     );
 }

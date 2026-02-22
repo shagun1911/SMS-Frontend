@@ -13,6 +13,7 @@ import {
     TableHeader,
     TableRow,
 } from "@/components/ui/table";
+import { LockedFeatureGate } from "@/components/plan/locked-feature-gate";
 import api from "@/lib/api";
 import { useState, useMemo } from "react";
 
@@ -64,6 +65,7 @@ export default function DefaultersPage() {
     };
 
     return (
+        <LockedFeatureGate featureKey="fees" featureLabel="Fee defaulters">
         <div className="flex-1 space-y-6">
             <div className="flex items-center justify-between">
                 <div>
@@ -131,5 +133,6 @@ export default function DefaultersPage() {
                 </CardContent>
             </Card>
         </div>
+        </LockedFeatureGate>
     );
 }

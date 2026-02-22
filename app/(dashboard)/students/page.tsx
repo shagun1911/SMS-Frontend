@@ -31,6 +31,7 @@ import api from "@/lib/api";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 import { AddStudentModal } from "@/components/dashboard/add-student-modal";
+import { LockedFeatureGate } from "@/components/plan/locked-feature-gate";
 
 function parseCSV(text: string): Record<string, string>[] {
     const lines = text.trim().split(/\r?\n/);
@@ -133,6 +134,7 @@ export default function StudentsPage() {
     const students = data?.data || [];
 
     return (
+        <LockedFeatureGate featureKey="students" featureLabel="Students">
         <div className="flex-1 space-y-6">
             <div className="flex items-center justify-between">
                 <div>
@@ -313,6 +315,7 @@ export default function StudentsPage() {
                 onClose={() => setIsAddModalOpen(false)}
             />
         </div>
+        </LockedFeatureGate>
     );
 }
 
