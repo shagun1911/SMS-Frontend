@@ -101,6 +101,24 @@ export default function StudentsPage() {
         },
     });
 
+    const handleDownloadSampleCSV = () => {
+        const headers = ["firstname", "lastname", "fathername", "mothername", "class", "section", "phone", "gender", "address", "city", "state", "pincode", "dob"];
+        const demoRows = [
+            ["Rahul", "Kumar", "Rajesh Kumar", "Sunita Kumar", "I", "A", "9876543210", "Male", "123 Main St", "Jaipur", "Rajasthan", "302001", "2015-04-10"],
+            ["Priya", "Sharma", "Vikram Sharma", "Anita Sharma", "II", "B", "9876543211", "Female", "456 Park Ave", "Jaipur", "Rajasthan", "302002", "2014-08-22"],
+            ["Arjun", "Singh", "Mahendra Singh", "Kavita Singh", "III", "A", "9876543212", "Male", "789 Gandhi Rd", "Jaipur", "Rajasthan", "302003", "2013-01-15"],
+        ];
+        const lines = [headers.join(","), ...demoRows.map((r) => r.map((c) => `"${c}"`).join(","))];
+        const blob = new Blob([lines.join("\n")], { type: "text/csv;charset=utf-8;" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = "students-import-sample.csv";
+        a.click();
+        URL.revokeObjectURL(url);
+        toast.success("Sample CSV downloaded");
+    };
+
     const handleExportCSV = () => {
         const headers = ["admissionNumber", "firstName", "lastName", "class", "section", "phone", "fatherName", "motherName"];
         const list = data?.data ?? [];
@@ -173,6 +191,15 @@ export default function StudentsPage() {
                         onClick={handleExportCSV}
                     >
                         <Download className="h-4 w-4" /> <span className="hidden sm:inline">Export</span> CSV
+                    </Button>
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        className="gap-2 border-gray-200 text-xs sm:text-sm"
+                        onClick={handleDownloadSampleCSV}
+                    >
+                        <Download className="h-4 w-4" />
+                        <span className="hidden sm:inline">Download</span> Sample CSV
                     </Button>
                     <Button
                         variant="outline"

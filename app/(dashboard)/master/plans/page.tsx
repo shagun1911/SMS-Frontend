@@ -44,6 +44,7 @@ function getDefaultPlan() {
         maxTeachers: 50,
         priceMonthly: 0,
         priceYearly: 0,
+        trialDays: 0,
         features: "",
         isDefault: false,
         enabledFeatures: [...PLAN_FEATURE_KEYS] as string[],
@@ -119,6 +120,7 @@ export default function MasterPlansPage() {
             maxTeachers: p.maxTeachers ?? 0,
             priceMonthly: p.priceMonthly ?? 0,
             priceYearly: p.priceYearly ?? 0,
+            trialDays: p.trialDays ?? 0,
             features: Array.isArray(p.features) ? p.features.join("\n") : "",
             isDefault: !!p.isDefault,
             enabledFeatures: Array.isArray(p.enabledFeatures) && p.enabledFeatures.length > 0 ? p.enabledFeatures : [...PLAN_FEATURE_KEYS],
@@ -137,6 +139,7 @@ export default function MasterPlansPage() {
             maxTeachers: Number(form.maxTeachers),
             priceMonthly: monthly,
             priceYearly: yearly,
+            trialDays: Number(form.trialDays) || 0,
             features: form.features.split("\n").map((s) => s.trim()).filter(Boolean),
             isDefault: !!form.isDefault,
             ...(typeof form.enabledFeatures !== "undefined" && { enabledFeatures: form.enabledFeatures }),
@@ -184,6 +187,11 @@ export default function MasterPlansPage() {
                                 {isFree(p) && (
                                     <span className="rounded-md bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
                                         Free plan
+                                    </span>
+                                )}
+                                {(p.trialDays ?? 0) > 0 && (
+                                    <span className="rounded-md bg-violet-500/10 px-2 py-0.5 text-xs font-medium text-violet-600">
+                                        Includes {p.trialDays}-day free trial
                                     </span>
                                 )}
                                 {p.isDefault && (
@@ -309,6 +317,18 @@ export default function MasterPlansPage() {
                                 />
                                 <p className="mt-0.5 text-xs text-muted-foreground">Auto: monthly × 11 (1 month free).</p>
                             </div>
+                        </div>
+                        <div>
+                            <label className="text-sm font-medium">Trial days</label>
+                            <Input
+                                type="number"
+                                min={0}
+                                value={form.trialDays}
+                                onChange={(e) => setForm((f) => ({ ...f, trialDays: Number(e.target.value) || 0 }))}
+                                placeholder="0"
+                                className="mt-1"
+                            />
+                            <p className="mt-0.5 text-xs text-muted-foreground">e.g. 30 for a 30-day free trial. Use 0 for no trial.</p>
                         </div>
                         <div className="flex items-center gap-2">
                             <input

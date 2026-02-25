@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { Wallet, Loader2, TrendingUp, Building2, CreditCard } from "lucide-react";
+import { Wallet, Loader2, TrendingUp, Building2, CreditCard, UserCircle, ArrowDownRight, Target } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import api from "@/lib/api";
 
@@ -27,6 +27,9 @@ export default function MasterBillingOverviewPage() {
     const totalOrgs = data?.totalOrganizations ?? 0;
     const paidPlans = data?.paidPlans ?? 0;
     const distribution = data?.distribution ?? [];
+    const arpu = data?.arpu ?? 0;
+    const churnThisMonth = data?.churnThisMonth ?? 0;
+    const projectedArr = data?.projectedArr ?? 0;
 
     return (
         <div className="flex-1 space-y-6">
@@ -77,6 +80,42 @@ export default function MasterBillingOverviewPage() {
                         <div>
                             <p className="text-sm font-medium text-muted-foreground">Paid plans</p>
                             <p className="text-2xl font-bold">{paidPlans}</p>
+                        </div>
+                    </div>
+                </Card>
+                <Card className="rounded-2xl p-6">
+                    <div className="flex items-center gap-3">
+                        <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-violet-500/10 text-violet-600">
+                            <UserCircle className="h-6 w-6" />
+                        </div>
+                        <div>
+                            <p className="text-sm font-medium text-muted-foreground">ARPU</p>
+                            <p className="text-2xl font-bold">₹{arpu.toLocaleString(undefined, { maximumFractionDigits: 0 })}</p>
+                            <p className="text-xs text-muted-foreground">MRR ÷ paid schools</p>
+                        </div>
+                    </div>
+                </Card>
+                <Card className="rounded-2xl p-6">
+                    <div className="flex items-center gap-3">
+                        <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-amber-500/10 text-amber-600">
+                            <ArrowDownRight className="h-6 w-6" />
+                        </div>
+                        <div>
+                            <p className="text-sm font-medium text-muted-foreground">Churn this month</p>
+                            <p className="text-2xl font-bold">{churnThisMonth}</p>
+                            <p className="text-xs text-muted-foreground">Subscriptions ended</p>
+                        </div>
+                    </div>
+                </Card>
+                <Card className="rounded-2xl p-6">
+                    <div className="flex items-center gap-3">
+                        <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-sky-500/10 text-sky-600">
+                            <Target className="h-6 w-6" />
+                        </div>
+                        <div>
+                            <p className="text-sm font-medium text-muted-foreground">Projected ARR</p>
+                            <p className="text-2xl font-bold">₹{projectedArr.toLocaleString()}</p>
+                            <p className="text-xs text-muted-foreground">MRR × 12</p>
                         </div>
                     </div>
                 </Card>

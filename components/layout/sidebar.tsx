@@ -30,6 +30,8 @@ import {
     Lock,
     Bell,
     ArrowUpRight,
+    Megaphone,
+    Headphones,
 } from "lucide-react";
 import { usePlanLimits } from "@/context/plan-limits";
 
@@ -89,12 +91,24 @@ export function Sidebar({ className }: SidebarProps) {
             href: "/master/billing-overview",
             roles: [UserRole.SUPER_ADMIN],
         },
+        {
+            label: "Announcements",
+            icon: Megaphone,
+            href: "/master/announcements",
+            roles: [UserRole.SUPER_ADMIN],
+        },
+        {
+            label: "Support",
+            icon: Headphones,
+            href: "/master/support",
+            roles: [UserRole.SUPER_ADMIN],
+        },
     ];
 
     const schoolRoutes = [
         { label: "Students", icon: GraduationCap, href: "/students", roles: [UserRole.SCHOOL_ADMIN, UserRole.TEACHER, UserRole.ACCOUNTANT], featureKey: "students" },
         { label: "Classes", icon: BookOpen, href: "/classes", roles: [UserRole.SCHOOL_ADMIN, UserRole.TEACHER], featureKey: "classes" },
-        { label: "Staff", icon: Users, href: "/staff", roles: [UserRole.SUPER_ADMIN, UserRole.SCHOOL_ADMIN], featureKey: "staff" },
+        { label: "Staff", icon: Users, href: "/staff", roles: [UserRole.SCHOOL_ADMIN], featureKey: "staff" },
         { label: "Payroll", icon: Wallet, href: "/payroll", roles: [UserRole.SCHOOL_ADMIN, UserRole.ACCOUNTANT], featureKey: "staff" },
         { label: "Fee Structure", icon: Layers, href: "/fees/structure", roles: [UserRole.SCHOOL_ADMIN, UserRole.ACCOUNTANT], exact: true, featureKey: "fees" },
         { label: "Collect Fee", icon: Banknote, href: "/fees", roles: [UserRole.SCHOOL_ADMIN, UserRole.ACCOUNTANT], exact: true, featureKey: "fees" },
@@ -108,6 +122,7 @@ export function Sidebar({ className }: SidebarProps) {
         { label: "Notifications", icon: Bell, href: "/notifications", roles: [UserRole.SCHOOL_ADMIN], featureKey: "students" },
         { label: "Sessions", icon: CalendarDays, href: "/sessions", roles: [UserRole.SCHOOL_ADMIN], featureKey: "sessions" },
         { label: "Plan & Billing", icon: Sparkles, href: "/plan", roles: [UserRole.SCHOOL_ADMIN], featureKey: "plan_billing" },
+        { label: "Support", icon: Headphones, href: "/support", roles: [UserRole.SCHOOL_ADMIN] },
     ];
 
     const settingsRoutes = [
@@ -115,7 +130,7 @@ export function Sidebar({ className }: SidebarProps) {
             label: "Settings",
             icon: Settings,
             href: "/settings",
-            roles: [UserRole.SUPER_ADMIN, UserRole.SCHOOL_ADMIN],
+            roles: [UserRole.SCHOOL_ADMIN],
         },
     ];
 

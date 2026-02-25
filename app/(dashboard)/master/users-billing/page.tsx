@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Loader2, CreditCard, User as UserIcon, GraduationCap, Users } from "lucide-react";
+import { Loader2, CreditCard, User as UserIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -89,9 +89,8 @@ export default function MasterUsersBillingPage() {
                     <table className="w-full text-sm">
                         <thead>
                             <tr className="border-b bg-muted/50 text-left font-medium text-muted-foreground">
-                                <th className="p-4">User</th>
+                                <th className="p-4">School</th>
                                 <th className="p-4">Current plan</th>
-                                <th className="p-4">Usage</th>
                                 <th className="p-4">Subscription end</th>
                                 <th className="p-4 text-right">Actions</th>
                             </tr>
@@ -99,7 +98,7 @@ export default function MasterUsersBillingPage() {
                         <tbody>
                             {filtered.length === 0 ? (
                                 <tr>
-                                    <td colSpan={5} className="p-8 text-center text-muted-foreground">
+                                    <td colSpan={4} className="p-8 text-center text-muted-foreground">
                                         No schools found. Only registered schools are shown.
                                     </td>
                                 </tr>
@@ -115,12 +114,6 @@ export default function MasterUsersBillingPage() {
                                                 <CreditCard className="h-3.5 w-3.5" />
                                                 {row.plan ?? "—"}
                                             </span>
-                                        </td>
-                                        <td className="p-4">
-                                            <div className="flex flex-col gap-0.5 text-xs">
-                                                <span className="flex items-center gap-1"><GraduationCap className="h-3 w-3" /> {row.students ?? 0} students</span>
-                                                <span className="flex items-center gap-1"><Users className="h-3 w-3" /> {row.teachers ?? 0} teachers</span>
-                                            </div>
                                         </td>
                                         <td className="p-4">
                                             {row.subscriptionEnd

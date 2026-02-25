@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
     Building2,
@@ -9,8 +9,8 @@ import {
     CheckCircle2,
     XCircle,
     Loader2,
-    CreditCard,
     Calendar,
+    Download,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -24,9 +24,33 @@ import {
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
+function downloadCsv(rows: any[]) {
+    const headers = ["School Name", "Code", "Plan", "Status", "Expiry Date"];
+    const lines = [
+        headers.join(","),
+        ...rows.map((r) =>
+            [
+                `"${(r.schoolName ?? "").replace(/"/g, '""')}"`,
+                `"${(r.schoolCode ?? "").replace(/"/g, '""')}"`,
+                `"${(r.plan ?? "").replace(/"/g, '""')}"`,
+                r.status ?? "",
+                r.subscriptionEnd ? new Date(r.subscriptionEnd).toLocaleDateString() : "",
+            ].join(",")
+        ),
+    ];
+    const blob = new Blob([lines.join("\n")], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `schools-export-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+}
+
 export default function MasterSchoolsPage() {
     const [searchTerm, setSearchTerm] = useState("");
     const [page, setPage] = useState(1);
+    const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
     const queryClient = useQueryClient();
 
     const { data, isLoading } = useQuery({
@@ -61,6 +85,23 @@ export default function MasterSchoolsPage() {
         onError: () => toast.error("Failed to update subscription."),
     });
 
+    const bulkActionMutation = useMutation({
+        mutationFn: async ({ action, schoolIds }: { action: "activate" | "suspend"; schoolIds: string[] }) => {
+            const res = await api.post("/master/schools/bulk-action", { action, schoolIds });
+            return res.data;
+        },
+        onSuccess: (_, { schoolIds }) => {
+            queryClient.invalidateQueries({ queryKey: ["master-schools"] });
+            setSelectedIds((prev) => {
+                const next = new Set(prev);
+                schoolIds.forEach((id) => next.delete(id));
+                return next;
+            });
+            toast.success("Bulk action completed.");
+        },
+        onError: () => toast.error("Bulk action failed."),
+    });
+
     const rows = data?.rows ?? [];
     const pagination = data?.pagination ?? { page: 1, pages: 1, total: 0 };
     const filtered = searchTerm
@@ -70,6 +111,21 @@ export default function MasterSchoolsPage() {
                 s.schoolCode?.toLowerCase().includes(searchTerm.toLowerCase())
         )
         : rows;
+
+    const selectedRows = useMemo(() => filtered.filter((r: any) => selectedIds.has(r._id)), [filtered, selectedIds]);
+    const allSelected = filtered.length > 0 && selectedRows.length === filtered.length;
+    const toggleAll = () => {
+        if (allSelected) setSelectedIds(new Set());
+        else setSelectedIds(new Set(filtered.map((r: any) => r._id)));
+    };
+    const toggleOne = (id: string) => {
+        setSelectedIds((prev) => {
+            const next = new Set(prev);
+            if (next.has(id)) next.delete(id);
+            else next.add(id);
+            return next;
+        });
+    };
 
     if (isLoading) {
         return (
@@ -86,14 +142,51 @@ export default function MasterSchoolsPage() {
                 <p className="mt-1 text-sm text-gray-500">Plan, usage and subscription status. No student-level detail.</p>
             </div>
 
-            <div className="relative max-w-sm">
-                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-                <Input
-                    placeholder="Search by name or code..."
-                    className="pl-10"
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                />
+            <div className="flex flex-wrap items-center gap-4">
+                <div className="relative max-w-sm">
+                    <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+                    <Input
+                        placeholder="Search by name or code..."
+                        className="pl-10"
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                    />
+                </div>
+                {selectedIds.size > 0 && (
+                    <div className="flex flex-wrap items-center gap-2 rounded-lg border bg-gray-50 px-3 py-2">
+                        <span className="text-sm font-medium text-gray-700">{selectedIds.size} selected</span>
+                        <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => {
+                                bulkActionMutation.mutate({ action: "activate", schoolIds: Array.from(selectedIds) });
+                            }}
+                            disabled={bulkActionMutation.isPending}
+                        >
+                            <CheckCircle2 className="mr-1.5 h-4 w-4" /> Activate selected
+                        </Button>
+                        <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => {
+                                bulkActionMutation.mutate({ action: "suspend", schoolIds: Array.from(selectedIds) });
+                            }}
+                            disabled={bulkActionMutation.isPending}
+                        >
+                            <XCircle className="mr-1.5 h-4 w-4" /> Suspend selected
+                        </Button>
+                        <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => {
+                                downloadCsv(selectedRows);
+                                toast.success("CSV downloaded.");
+                            }}
+                        >
+                            <Download className="mr-1.5 h-4 w-4" /> Export CSV
+                        </Button>
+                    </div>
+                )}
             </div>
 
             <Card className="overflow-hidden">
@@ -101,31 +194,58 @@ export default function MasterSchoolsPage() {
                     <table className="w-full text-sm">
                         <thead>
                             <tr className="border-b bg-gray-50 text-left font-medium text-gray-600">
+                                <th className="w-10 p-3">
+                                    <input
+                                        type="checkbox"
+                                        checked={allSelected}
+                                        onChange={toggleAll}
+                                        className="h-4 w-4 rounded border-gray-300"
+                                    />
+                                </th>
                                 <th className="p-3">School Name</th>
                                 <th className="p-3">Plan</th>
-                                <th className="p-3">Students</th>
-                                <th className="p-3">Teachers</th>
+                                <th className="p-3">Health</th>
                                 <th className="p-3">Status</th>
+                                <th className="p-3">Expiry date</th>
                                 <th className="p-3 text-right">Actions</th>
                             </tr>
                         </thead>
                         <tbody>
                             {filtered.length === 0 ? (
                                 <tr>
-                                    <td colSpan={6} className="p-8 text-center text-gray-500">
+                                    <td colSpan={7} className="p-8 text-center text-gray-500">
                                         No schools found.
                                     </td>
                                 </tr>
                             ) : (
                                 filtered.map((row: any) => (
                                     <tr key={row._id} className="border-b hover:bg-gray-50">
+                                        <td className="p-3" onClick={(e) => e.stopPropagation()}>
+                                            <input
+                                                type="checkbox"
+                                                checked={selectedIds.has(row._id)}
+                                                onChange={() => toggleOne(row._id)}
+                                                className="h-4 w-4 rounded border-gray-300"
+                                            />
+                                        </td>
                                         <td className="p-3">
                                             <div className="font-medium text-gray-900">{row.schoolName}</div>
                                             <div className="text-xs text-gray-500">{row.schoolCode}</div>
                                         </td>
                                         <td className="p-3">{row.plan ?? "—"}</td>
-                                        <td className="p-3">{row.students ?? 0}</td>
-                                        <td className="p-3">{row.teachers ?? 0}</td>
+                                        <td className="p-3">
+                                            <span
+                                                className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
+                                                    row.healthLabel === "Good"
+                                                        ? "bg-emerald-100 text-emerald-700"
+                                                        : row.healthLabel === "Fair"
+                                                            ? "bg-amber-100 text-amber-700"
+                                                            : "bg-red-100 text-red-700"
+                                                }`}
+                                            >
+                                                {row.healthLabel ?? "—"}
+                                            </span>
+                                        </td>
                                         <td className="p-3">
                                             <span
                                                 className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
@@ -138,6 +258,9 @@ export default function MasterSchoolsPage() {
                                             >
                                                 {row.status ?? "none"}
                                             </span>
+                                        </td>
+                                        <td className="p-3 text-gray-600">
+                                            {row.subscriptionEnd ? new Date(row.subscriptionEnd).toLocaleDateString(undefined, { dateStyle: "medium" }) : "—"}
                                         </td>
                                         <td className="p-3 text-right">
                                             <DropdownMenu>

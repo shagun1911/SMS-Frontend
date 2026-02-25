@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { useAuthStore } from "@/store/authStore";
 import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
@@ -28,13 +29,41 @@ import {
     CalendarDays,
     Megaphone,
     Zap,
+    X,
+    Info,
+    AlertTriangle,
+    AlertCircle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 
+const ANNOUNCEMENT_PRIORITY_STYLES: Record<string, string> = {
+    info: "border-sky-200 bg-sky-50 text-sky-900",
+    warning: "border-amber-200 bg-amber-50 text-amber-900",
+    critical: "border-red-200 bg-red-50 text-red-900",
+};
+const ANNOUNCEMENT_ICONS: Record<string, typeof Info> = { info: Info, warning: AlertTriangle, critical: AlertCircle };
+
 export default function SchoolDashboardPage() {
     const { user } = useAuthStore();
     const { hasFeature } = usePlanLimits();
+    const [dismissedAnnouncementIds, setDismissedAnnouncementIds] = useState<string[]>([]);
+
+    const { data: activeAnnouncements } = useQuery({
+        queryKey: ["announcements-active"],
+        queryFn: async () => {
+            const res = await api.get("/announcements/active");
+            return res.data?.data ?? [];
+        },
+    });
+
+    const announcements = Array.isArray(activeAnnouncements)
+        ? activeAnnouncements.filter((a: { _id: string }) => !dismissedAnnouncementIds.includes(a._id))
+        : [];
+
+    const dismissAnnouncement = (id: string) => {
+        setDismissedAnnouncementIds((prev) => [...prev, id]);
+    };
 
     const { data: stats, isLoading } = useQuery({
         queryKey: ["school-stats"],
@@ -92,6 +121,37 @@ export default function SchoolDashboardPage() {
                         </Button>
                     </div>
                 </header>
+
+                {/* System announcements banner */}
+                {announcements.length > 0 && (
+                    <div className="animate-fade-in-up space-y-2" style={{ animationFillMode: "both" }}>
+                        {announcements.map((a: { _id: string; title: string; message: string; priority: string }) => {
+                            const style = ANNOUNCEMENT_PRIORITY_STYLES[a.priority] ?? ANNOUNCEMENT_PRIORITY_STYLES.info;
+                            const Icon = ANNOUNCEMENT_ICONS[a.priority] ?? Info;
+                            return (
+                                <div
+                                    key={a._id}
+                                    className={`flex items-start gap-3 rounded-xl border px-4 py-3 ${style}`}
+                                >
+                                    <Icon className="mt-0.5 h-5 w-5 shrink-0" />
+                                    <div className="min-w-0 flex-1">
+                                        <p className="font-medium">{a.title}</p>
+                                        {a.message && <p className="mt-0.5 text-sm opacity-90">{a.message}</p>}
+                                    </div>
+                                    <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        className="h-8 w-8 shrink-0 opacity-70 hover:opacity-100"
+                                        aria-label="Dismiss"
+                                        onClick={() => dismissAnnouncement(a._id)}
+                                    >
+                                        <X className="h-4 w-4" />
+                                    </Button>
+                                </div>
+                            );
+                        })}
+                    </div>
+                )}
 
                 {/* Plan warnings: compact */}
                 {(stats?.studentLimitWarning === "warning" ||
