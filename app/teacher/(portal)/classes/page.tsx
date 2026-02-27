@@ -3,11 +3,12 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import api from "@/lib/api";
-import { Users, Loader2, ChevronDown, ChevronUp } from "lucide-react";
+import { Users, Loader2, BookOpen, ChevronRight } from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { ClassDetailView } from "@/components/classes/class-detail-view";
 
 export default function TeacherClassesPage() {
-  const [expandedClass, setExpandedClass] = useState<string | null>(null);
-  const [selectedSection, setSelectedSection] = useState<string>("");
+  const [selectedClass, setSelectedClass] = useState<any>(null);
 
   const { data: classes = [], isLoading } = useQuery({
     queryKey: ["all-classes"],
@@ -17,19 +18,16 @@ export default function TeacherClassesPage() {
     },
   });
 
-  const { data: students = [], isLoading: studentsLoading } = useQuery({
-    queryKey: ["class-students", expandedClass, selectedSection],
-    queryFn: async () => {
-      if (!expandedClass) return [];
-      const cls = classes.find((c: any) => c._id === expandedClass);
-      if (!cls) return [];
-      const params = new URLSearchParams({ class: cls.className });
-      if (selectedSection) params.set("section", selectedSection);
-      const res = await api.get(`/students?${params}`);
-      return res.data.data ?? [];
-    },
-    enabled: !!expandedClass,
-  });
+  if (selectedClass) {
+    return (
+      <div className="space-y-5">
+        <ClassDetailView
+          classData={selectedClass}
+          onBack={() => setSelectedClass(null)}
+        />
+      </div>
+    );
+  }
 
   if (isLoading) {
     return (
@@ -44,108 +42,60 @@ export default function TeacherClassesPage() {
       <div>
         <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
           <Users className="w-6 h-6 text-emerald-600" />
-          All Classes
+          My Classes
         </h1>
-        <p className="text-gray-500 text-sm mt-1">Click on a class to view students</p>
+        <p className="text-gray-500 text-sm mt-1">
+          Click a class to view students and their details (no fee information).
+        </p>
       </div>
 
-      <div className="space-y-3">
-        {classes.map((cls: any) => {
-          const isExpanded = expandedClass === cls._id;
-          return (
-            <div key={cls._id} className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
-              <button
-                onClick={() => {
-                  if (isExpanded) {
-                    setExpandedClass(null);
-                    setSelectedSection("");
-                  } else {
-                    setExpandedClass(cls._id);
-                    setSelectedSection("");
-                  }
-                }}
-                className="w-full flex items-center justify-between px-5 py-4 hover:bg-slate-50 transition-colors"
+      {!Array.isArray(classes) || classes.length === 0 ? (
+        <div className="text-center py-16 bg-white rounded-2xl border border-gray-200">
+          <BookOpen className="w-14 h-14 mx-auto text-gray-300 mb-3" />
+          <p className="font-medium text-gray-600">No classes yet</p>
+          <p className="text-sm text-gray-400 mt-1">
+            Your school admin will add classes and sections.
+          </p>
+        </div>
+      ) : (
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          {classes.map((cls: any) => {
+            const sec = cls.section ?? cls.sections?.[0] ?? "A";
+            return (
+              <Card
+                key={cls._id}
+                className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm transition-all hover:shadow-md hover:border-emerald-200 cursor-pointer group"
+                onClick={() => setSelectedClass(cls)}
               >
-                <div className="flex items-center gap-4">
-                  <div className="w-10 h-10 bg-emerald-100 rounded-xl flex items-center justify-center">
-                    <span className="font-bold text-emerald-700 text-sm">{cls.className}</span>
-                  </div>
-                  <div className="text-left">
-                    <p className="font-semibold text-gray-900">Class {cls.className}</p>
-                    <p className="text-xs text-gray-500">
-                      Sections: {cls.sections?.join(", ") || "—"}
-                    </p>
-                  </div>
-                </div>
-                {isExpanded ? <ChevronUp className="w-5 h-5 text-gray-400" /> : <ChevronDown className="w-5 h-5 text-gray-400" />}
-              </button>
-
-              {isExpanded && (
-                <div className="border-t border-gray-100 p-5">
-                  {/* Section filter */}
-                  <div className="flex items-center gap-3 mb-4">
-                    <span className="text-sm text-gray-600">Section:</span>
-                    <div className="flex gap-2 flex-wrap">
-                      <button
-                        onClick={() => setSelectedSection("")}
-                        className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${!selectedSection ? "bg-emerald-600 text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"}`}
-                      >
-                        All
-                      </button>
-                      {cls.sections?.map((s: string) => (
-                        <button
-                          key={s}
-                          onClick={() => setSelectedSection(s)}
-                          className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${selectedSection === s ? "bg-emerald-600 text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"}`}
-                        >
-                          {s}
-                        </button>
-                      ))}
+                <CardHeader className="border-b border-gray-100 bg-gradient-to-br from-emerald-50 to-white p-5">
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-emerald-100 group-hover:bg-emerald-200 transition-colors">
+                      <BookOpen className="h-5 w-5 text-emerald-600" />
+                    </div>
+                    <div>
+                      <CardTitle className="text-lg font-bold text-gray-900">
+                        Class {cls.className} – {sec}
+                      </CardTitle>
+                      {cls.roomNumber && (
+                        <p className="text-xs text-gray-500">
+                          Room {cls.roomNumber}
+                        </p>
+                      )}
                     </div>
                   </div>
-
-                  {/* Students list */}
-                  {studentsLoading ? (
-                    <div className="flex justify-center py-8">
-                      <Loader2 className="w-6 h-6 animate-spin text-gray-400" />
-                    </div>
-                  ) : students.length === 0 ? (
-                    <p className="text-center text-gray-400 py-8 text-sm">No students in this class</p>
-                  ) : (
-                    <div className="overflow-hidden rounded-xl border border-gray-100">
-                      <table className="w-full text-sm">
-                        <thead className="bg-slate-50">
-                          <tr>
-                            <th className="text-left px-4 py-2.5 text-xs font-semibold text-gray-500">Name</th>
-                            <th className="text-left px-4 py-2.5 text-xs font-semibold text-gray-500">Adm. No.</th>
-                            <th className="text-left px-4 py-2.5 text-xs font-semibold text-gray-500">Section</th>
-                            <th className="text-left px-4 py-2.5 text-xs font-semibold text-gray-500">Roll</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {students.map((s: any) => (
-                            <tr key={s._id} className="border-t border-gray-50 hover:bg-slate-50">
-                              <td className="px-4 py-2.5 font-medium text-gray-900">
-                                {s.firstName} {s.lastName}
-                              </td>
-                              <td className="px-4 py-2.5 text-gray-500">{s.admissionNumber}</td>
-                              <td className="px-4 py-2.5 text-gray-500">{s.section}</td>
-                              <td className="px-4 py-2.5 text-gray-500">{s.rollNumber || "—"}</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                      <div className="px-4 py-2 bg-slate-50 border-t border-gray-100 text-xs text-gray-500">
-                        {students.length} student{students.length !== 1 ? "s" : ""}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-          );
-        })}
-      </div>
+                </CardHeader>
+                <CardContent className="p-4 flex items-center justify-between">
+                  <div className="flex items-center gap-2 text-sm text-gray-500">
+                    <Users className="h-4 w-4" />
+                    View students
+                  </div>
+                  <ChevronRight className="h-4 w-4 text-gray-400 group-hover:text-emerald-600 transition-colors" />
+                </CardContent>
+              </Card>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }

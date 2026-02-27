@@ -13,6 +13,7 @@ export interface IUser {
     role: UserRole;
     schoolId?: string;
     photo?: string;
+    subject?: string;
     isActive: boolean;
     mustChangePassword?: boolean;
     permissions?: string[];
