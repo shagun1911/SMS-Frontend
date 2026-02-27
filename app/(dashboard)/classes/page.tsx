@@ -19,6 +19,8 @@ import {
     Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger,
 } from "@/components/ui/dialog";
 import api from "@/lib/api";
+import { useAuthStore } from "@/store/authStore";
+import { UserRole } from "@/types";
 import { LockedFeatureGate } from "@/components/plan/locked-feature-gate";
 
 const SECTIONS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
@@ -228,6 +230,8 @@ function ClassDetailView({ classData, onBack }: { classData: any; onBack: () => 
     const [search, setSearch] = useState("");
     const [selectedStudent, setSelectedStudent] = useState<any>(null);
     const sec = classData.section ?? classData.sections?.[0] ?? "A";
+    const { user } = useAuthStore();
+    const isTeacher = user?.role === UserRole.TEACHER;
 
     const { data: students, isLoading } = useQuery({
         queryKey: ["class-students", classData._id],
@@ -309,17 +313,19 @@ function ClassDetailView({ classData, onBack }: { classData: any; onBack: () => 
                                         )}
                                     </div>
                                 </div>
-                                <div className="text-right shrink-0">
-                                    {s.dueAmount > 0 ? (
-                                        <Badge variant="outline" className="text-[10px] bg-rose-50 text-rose-600 border-rose-200">
-                                            Due {fmt(s.dueAmount)}
-                                        </Badge>
-                                    ) : (
-                                        <Badge variant="outline" className="text-[10px] bg-emerald-50 text-emerald-600 border-emerald-200">
-                                            Paid
-                                        </Badge>
-                                    )}
-                                </div>
+                                {!isTeacher && (
+                                    <div className="text-right shrink-0">
+                                        {s.dueAmount > 0 ? (
+                                            <Badge variant="outline" className="text-[10px] bg-rose-50 text-rose-600 border-rose-200">
+                                                Due {fmt(s.dueAmount)}
+                                            </Badge>
+                                        ) : (
+                                            <Badge variant="outline" className="text-[10px] bg-emerald-50 text-emerald-600 border-emerald-200">
+                                                Paid
+                                            </Badge>
+                                        )}
+                                    </div>
+                                )}
                             </div>
                         </Card>
                     ))}
@@ -333,6 +339,8 @@ function ClassDetailView({ classData, onBack }: { classData: any; onBack: () => 
    STUDENT PROFILE VIEW — Full history from class context
    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
 function StudentProfileView({ student, classData, onBack }: { student: any; classData: any; onBack: () => void }) {
+    const { user } = useAuthStore();
+    const isTeacher = user?.role === UserRole.TEACHER;
     const sec = classData.section ?? classData.sections?.[0] ?? "A";
 
     const { data: examResults, isLoading: resultsLoading } = useQuery({
@@ -364,11 +372,12 @@ function StudentProfileView({ student, classData, onBack }: { student: any; clas
             const res = await api.get("/fees/payments", { params: { studentId: student._id } });
             return res.data?.data ?? [];
         },
+        enabled: !isTeacher, // Teachers must not see fee data
     });
 
     const fmt = (n: number) => `₹${(n || 0).toLocaleString("en-IN")}`;
     const results = examResults ?? [];
-    const payments = feePayments ?? [];
+    const payments = isTeacher ? [] : (feePayments ?? []);
 
     const overallPercentage = results.length > 0
         ? (results.reduce((s: number, r: any) => s + (r.percentage || 0), 0) / results.length).toFixed(1)
@@ -441,11 +450,15 @@ function StudentProfileView({ student, classData, onBack }: { student: any; clas
                 </div>
             </div>
 
-            {/* Quick Stats */}
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-                <StatCard label="Total Fee" value={fmt(student.totalYearlyFee)} color="blue" />
-                <StatCard label="Paid" value={fmt(student.paidAmount)} color="emerald" />
-                <StatCard label="Due" value={fmt(student.dueAmount)} color={student.dueAmount > 0 ? "rose" : "emerald"} />
+            {/* Quick Stats — hide fee for teachers */}
+            <div className={`grid gap-3 ${isTeacher ? "grid-cols-1 sm:grid-cols-2" : "grid-cols-2 sm:grid-cols-4"}`}>
+                {!isTeacher && (
+                    <>
+                        <StatCard label="Total Fee" value={fmt(student.totalYearlyFee)} color="blue" />
+                        <StatCard label="Paid" value={fmt(student.paidAmount)} color="emerald" />
+                        <StatCard label="Due" value={fmt(student.dueAmount)} color={student.dueAmount > 0 ? "rose" : "emerald"} />
+                    </>
+                )}
                 <StatCard label="Avg. Score" value={overallPercentage ? `${overallPercentage}%` : "—"} color="purple" />
             </div>
 
@@ -513,44 +526,46 @@ function StudentProfileView({ student, classData, onBack }: { student: any; clas
                 )}
             </div>
 
-            {/* Fee Payments */}
-            <div>
-                <h3 className="text-base font-semibold text-gray-900 mb-3">Fee Payments</h3>
-                {paymentsLoading ? (
-                    <div className="flex h-24 items-center justify-center"><Loader2 className="h-5 w-5 animate-spin text-gray-400" /></div>
-                ) : payments.length === 0 ? (
-                    <Card className="p-8 text-center">
-                        <p className="text-sm text-gray-500">No payment records found.</p>
-                    </Card>
-                ) : (
-                    <Card className="overflow-hidden">
-                        <div className="overflow-x-auto">
-                        <table className="w-full text-sm min-w-[400px]">
-                            <thead>
-                                <tr className="border-b bg-gray-50 text-xs text-gray-500 uppercase tracking-wider">
-                                    <th className="px-4 py-2.5 text-left">Date</th>
-                                    <th className="px-4 py-2.5 text-right">Amount</th>
-                                    <th className="px-4 py-2.5 text-left">Mode</th>
-                                    <th className="px-4 py-2.5 text-left">Receipt</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {payments.slice(0, 20).map((p: any, i: number) => (
-                                    <tr key={i} className="border-b last:border-0 hover:bg-gray-50/50">
-                                        <td className="px-4 py-2.5 text-gray-600">
-                                            {p.paymentDate ? new Date(p.paymentDate).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) : "—"}
-                                        </td>
-                                        <td className="px-4 py-2.5 text-right font-semibold text-emerald-600">{fmt(p.amountPaid)}</td>
-                                        <td className="px-4 py-2.5 capitalize text-gray-500">{p.paymentMode || "—"}</td>
-                                        <td className="px-4 py-2.5 text-xs text-gray-400">{p.receiptNumber || "—"}</td>
+            {/* Fee Payments — hidden for teachers */}
+            {!isTeacher && (
+                <div>
+                    <h3 className="text-base font-semibold text-gray-900 mb-3">Fee Payments</h3>
+                    {paymentsLoading ? (
+                        <div className="flex h-24 items-center justify-center"><Loader2 className="h-5 w-5 animate-spin text-gray-400" /></div>
+                    ) : payments.length === 0 ? (
+                        <Card className="p-8 text-center">
+                            <p className="text-sm text-gray-500">No payment records found.</p>
+                        </Card>
+                    ) : (
+                        <Card className="overflow-hidden">
+                            <div className="overflow-x-auto">
+                            <table className="w-full text-sm min-w-[400px]">
+                                <thead>
+                                    <tr className="border-b bg-gray-50 text-xs text-gray-500 uppercase tracking-wider">
+                                        <th className="px-4 py-2.5 text-left">Date</th>
+                                        <th className="px-4 py-2.5 text-right">Amount</th>
+                                        <th className="px-4 py-2.5 text-left">Mode</th>
+                                        <th className="px-4 py-2.5 text-left">Receipt</th>
                                     </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                        </div>
-                    </Card>
-                )}
-            </div>
+                                </thead>
+                                <tbody>
+                                    {payments.slice(0, 20).map((p: any, i: number) => (
+                                        <tr key={i} className="border-b last:border-0 hover:bg-gray-50/50">
+                                            <td className="px-4 py-2.5 text-gray-600">
+                                                {p.paymentDate ? new Date(p.paymentDate).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) : "—"}
+                                            </td>
+                                            <td className="px-4 py-2.5 text-right font-semibold text-emerald-600">{fmt(p.amountPaid)}</td>
+                                            <td className="px-4 py-2.5 capitalize text-gray-500">{p.paymentMode || "—"}</td>
+                                            <td className="px-4 py-2.5 text-xs text-gray-400">{p.receiptNumber || "—"}</td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                            </div>
+                        </Card>
+                    )}
+                </div>
+            )}
         </div>
     );
 }

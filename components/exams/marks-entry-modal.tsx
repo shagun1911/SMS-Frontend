@@ -59,16 +59,26 @@ export function MarksEntryModal({ exam, open, onOpenChange }: MarksEntryModalPro
         },
     });
 
+    const parseMarks = (v: unknown): number => {
+        if (typeof v === "number" && !Number.isNaN(v)) return Math.max(0, v);
+        const n = parseFloat(String(v).replace(/[^0-9.-]/g, ""));
+        return Number.isNaN(n) ? 0 : Math.max(0, n);
+    };
+
     const handleMarksChange = (studentIndex: number, subjectIndex: number, value: string) => {
         const newMarks = [...studentMarks];
-        newMarks[studentIndex].subjects[subjectIndex].obtainedMarks = Number(value) || 0;
+        newMarks[studentIndex].subjects[subjectIndex].obtainedMarks = parseMarks(value);
         setStudentMarks(newMarks);
     };
 
     const handleSave = () => {
         const results = studentMarks.map(sm => ({
             studentId: sm.studentId,
-            subjects: sm.subjects,
+            subjects: sm.subjects.map((s: any) => ({
+                subject: s.subject,
+                maxMarks: parseMarks(s.maxMarks),
+                obtainedMarks: parseMarks(s.obtainedMarks),
+            })),
         }));
         saveMarks.mutate({ results });
     };
@@ -168,11 +178,12 @@ export function MarksEntryModal({ exam, open, onOpenChange }: MarksEntryModalPro
                                                             <Input
                                                                 type="number"
                                                                 className="h-8 w-16 text-center"
+                                                                min={0}
+                                                                max={subj.maxMarks || 100}
                                                                 value={subj.obtainedMarks}
                                                                 onChange={(e) =>
                                                                     handleMarksChange(sIdx, subIdx, e.target.value)
                                                                 }
-                                                                max={subj.maxMarks}
                                                             />
                                                         </td>
                                                     ))}

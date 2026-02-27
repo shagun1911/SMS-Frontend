@@ -4,7 +4,7 @@ import { useAuthStore } from "@/store/authStore";
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { useMobileMenu } from "@/components/layout/mobile-menu-context";
-import { LogOut, Bell, Calendar, ChevronDown, Menu, Info, AlertTriangle, AlertCircle, MessageSquare, Headphones, CheckCircle2, Clock, Megaphone } from "lucide-react";
+import { LogOut, Bell, Calendar, ChevronDown, Menu, Info, AlertTriangle, AlertCircle, MessageSquare, Headphones, CheckCircle2, Clock, Megaphone, Lock } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
@@ -339,20 +339,48 @@ export function Header() {
                                 {user?.role?.replace("_", " ") || "Admin"}
                             </span>
                         </div>
-                        <Avatar className="h-9 w-9 rounded-xl border-2 border-[hsl(var(--border))] ring-2 ring-[hsl(var(--primary))]/10">
-                            <AvatarImage src={user?.photo} alt={user?.name} />
-                            <AvatarFallback className="bg-[hsl(var(--primary))]/10 font-semibold text-sm text-primary rounded-xl">
-                                {user?.name?.charAt(0) || "A"}
-                            </AvatarFallback>
-                        </Avatar>
-                        <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={handleLogout}
-                            className="h-9 w-9 rounded-xl text-[hsl(var(--muted-foreground))] hover:bg-destructive/10 hover:text-destructive"
-                        >
-                            <LogOut className="h-4 w-4" />
-                        </Button>
+                        {user?.role === "teacher" ? (
+                            <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                    <button className="focus:outline-none">
+                                        <Avatar className="h-9 w-9 rounded-xl border-2 border-[hsl(var(--border))] ring-2 ring-[hsl(var(--primary))]/10 cursor-pointer hover:ring-4 transition-all">
+                                            <AvatarImage src={user?.photo} alt={user?.name} />
+                                            <AvatarFallback className="bg-[hsl(var(--primary))]/10 font-semibold text-sm text-primary rounded-xl">
+                                                {user?.name?.charAt(0) || "T"}
+                                            </AvatarFallback>
+                                        </Avatar>
+                                    </button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end" className="w-44 rounded-xl">
+                                    <DropdownMenuItem asChild>
+                                        <Link href="/teacher/profile" className="flex items-center gap-2">
+                                            <Lock className="h-4 w-4" /> Change Password
+                                        </Link>
+                                    </DropdownMenuItem>
+                                    <DropdownMenuSeparator />
+                                    <DropdownMenuItem onClick={handleLogout} className="text-destructive focus:text-destructive focus:bg-destructive/10">
+                                        <LogOut className="mr-2 h-4 w-4" /> Logout
+                                    </DropdownMenuItem>
+                                </DropdownMenuContent>
+                            </DropdownMenu>
+                        ) : (
+                            <Avatar className="h-9 w-9 rounded-xl border-2 border-[hsl(var(--border))] ring-2 ring-[hsl(var(--primary))]/10">
+                                <AvatarImage src={user?.photo} alt={user?.name} />
+                                <AvatarFallback className="bg-[hsl(var(--primary))]/10 font-semibold text-sm text-primary rounded-xl">
+                                    {user?.name?.charAt(0) || "A"}
+                                </AvatarFallback>
+                            </Avatar>
+                        )}
+                        {user?.role !== "teacher" && (
+                            <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={handleLogout}
+                                className="h-9 w-9 rounded-xl text-[hsl(var(--muted-foreground))] hover:bg-destructive/10 hover:text-destructive"
+                            >
+                                <LogOut className="h-4 w-4" />
+                            </Button>
+                        )}
                     </div>
                 </div>
             </div>

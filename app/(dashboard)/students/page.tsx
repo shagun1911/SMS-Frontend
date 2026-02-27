@@ -18,12 +18,14 @@ import {
     Plus,
     Search,
     Filter,
-    MoreHorizontal,
     FileEdit,
     Trash2,
     Loader2,
     Upload,
-    Download
+    Download,
+    KeyRound,
+    X,
+    Copy,
 } from "lucide-react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -46,12 +48,118 @@ function parseCSV(text: string): Record<string, string>[] {
     });
 }
 
+function SetPasswordModal({ student, onClose }: { student: any; onClose: () => void }) {
+    const [newPassword, setNewPassword] = useState("");
+    const [done, setDone] = useState(false);
+
+    const mutation = useMutation({
+        mutationFn: async () => {
+            await api.post(`/students/${student._id}/set-password`, { password: newPassword });
+        },
+        onSuccess: () => {
+            setDone(true);
+            toast.success("Password updated successfully");
+        },
+        onError: (err: any) => toast.error(err.response?.data?.message || "Failed to update password"),
+    });
+
+    const handleCopy = (text: string) => {
+        navigator.clipboard.writeText(text).then(() => toast.success("Copied!"));
+    };
+
+    const defaultDobPw = student?.dateOfBirth
+        ? (() => {
+            const d = new Date(student.dateOfBirth);
+            const dd = String(d.getDate()).padStart(2, "0");
+            const mm = String(d.getMonth() + 1).padStart(2, "0");
+            const yyyy = d.getFullYear();
+            return `${dd}${mm}${yyyy}`;
+        })()
+        : "—";
+
+    return (
+        <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
+            <div className="bg-white rounded-2xl shadow-xl p-6 w-full max-w-md">
+                <div className="flex items-center justify-between mb-4">
+                    <h2 className="font-bold text-gray-900 flex items-center gap-2">
+                        <KeyRound className="w-5 h-5 text-indigo-600" />
+                        Student Credentials
+                    </h2>
+                    <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
+                        <X className="w-5 h-5" />
+                    </button>
+                </div>
+
+                {/* Credential summary */}
+                <div className="bg-indigo-50 rounded-xl p-4 mb-5 space-y-2">
+                    <p className="text-xs font-semibold text-indigo-800 uppercase tracking-wide mb-3">Login Credentials</p>
+                    {[
+                        ["Admission No.", student.admissionNumber],
+                        ["Default Password", defaultDobPw],
+                    ].map(([label, value]) => (
+                        <div key={label} className="flex items-center justify-between">
+                            <span className="text-xs text-indigo-600">{label}</span>
+                            <div className="flex items-center gap-2">
+                                <span className="text-sm font-bold text-indigo-900 font-mono">{value}</span>
+                                <button
+                                    onClick={() => handleCopy(value)}
+                                    className="text-indigo-400 hover:text-indigo-600"
+                                >
+                                    <Copy className="w-3.5 h-3.5" />
+                                </button>
+                            </div>
+                        </div>
+                    ))}
+                    <p className="text-xs text-indigo-500 mt-2">
+                        Student logs in at: <span className="font-medium">/student/login</span>
+                    </p>
+                </div>
+
+                {!done ? (
+                    <div className="space-y-3">
+                        <p className="text-sm font-medium text-gray-700">Set new password for this student:</p>
+                        <input
+                            type="text"
+                            value={newPassword}
+                            onChange={(e) => setNewPassword(e.target.value)}
+                            placeholder="New password (min 6 chars)"
+                            className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
+                        />
+                        <div className="flex gap-3">
+                            <button
+                                onClick={() => mutation.mutate()}
+                                disabled={mutation.isPending || newPassword.length < 6}
+                                className="px-4 py-2.5 bg-indigo-600 text-white rounded-xl text-sm font-semibold hover:bg-indigo-700 disabled:opacity-50 flex items-center gap-2"
+                            >
+                                {mutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
+                                Set Password
+                            </button>
+                            <button onClick={onClose} className="px-4 py-2.5 bg-gray-100 text-gray-700 rounded-xl text-sm hover:bg-gray-200">
+                                Close
+                            </button>
+                        </div>
+                    </div>
+                ) : (
+                    <div className="text-center py-4">
+                        <p className="text-green-600 font-semibold">Password updated!</p>
+                        <p className="text-sm text-gray-500 mt-1">Student must log in with the new password.</p>
+                        <button onClick={onClose} className="mt-4 px-4 py-2.5 bg-indigo-600 text-white rounded-xl text-sm font-semibold hover:bg-indigo-700">
+                            Done
+                        </button>
+                    </div>
+                )}
+            </div>
+        </div>
+    );
+}
+
 export default function StudentsPage() {
     const queryClient = useQueryClient();
     const [search, setSearch] = useState("");
     const [page, setPage] = useState(1);
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
     const [editStudent, setEditStudent] = useState<any | null>(null);
+    const [passwordStudent, setPasswordStudent] = useState<any | null>(null);
 
     const deleteMutation = useMutation({
         mutationFn: async (id: string) => {
@@ -361,6 +469,15 @@ export default function StudentsPage() {
                                                 <Button
                                                     variant="ghost"
                                                     size="icon"
+                                                    className="h-9 w-9 rounded-lg hover:bg-indigo-50 text-gray-500 hover:text-indigo-600"
+                                                    title="Set/View Password"
+                                                    onClick={(e) => { e.stopPropagation(); setPasswordStudent(student); }}
+                                                >
+                                                    <KeyRound className="h-4 w-4" />
+                                                </Button>
+                                                <Button
+                                                    variant="ghost"
+                                                    size="icon"
                                                     className="h-9 w-9 rounded-lg hover:bg-gray-100 text-gray-500 hover:text-gray-900"
                                                     onClick={(e) => { e.stopPropagation(); setEditStudent(student); }}
                                                 >
@@ -424,6 +541,12 @@ export default function StudentsPage() {
                 onClose={() => setEditStudent(null)}
                 student={editStudent}
             />
+            {passwordStudent && (
+                <SetPasswordModal
+                    student={passwordStudent}
+                    onClose={() => setPasswordStudent(null)}
+                />
+            )}
         </div>
         </LockedFeatureGate>
     );

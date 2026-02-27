@@ -12,6 +12,7 @@ interface AuthState {
     logout: () => void;
     setSchoolContext: (schoolId: string) => void;
     setTokens: (token: string, refreshToken: string) => void;
+    clearMustChangePassword: () => void;
 }
 
 export const useAuthStore = create<AuthState>()(
@@ -44,6 +45,13 @@ export const useAuthStore = create<AuthState>()(
             setSchoolContext: (schoolId) => set({ schoolId }),
 
             setTokens: (token, refreshToken) => set({ token, refreshToken }),
+
+            clearMustChangePassword: () =>
+                set((state) =>
+                    state.user
+                        ? { user: { ...state.user, mustChangePassword: false } }
+                        : state
+                ),
         }),
         {
             name: 'ssms-auth-storage', // Key in localStorage

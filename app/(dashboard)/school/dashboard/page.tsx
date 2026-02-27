@@ -36,6 +36,8 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
+import { UserRole } from "@/types";
+import { BookOpen, FileText } from "lucide-react";
 
 const ANNOUNCEMENT_PRIORITY_STYLES: Record<string, string> = {
     info: "border-sky-200 bg-sky-50 text-sky-900",
@@ -44,10 +46,100 @@ const ANNOUNCEMENT_PRIORITY_STYLES: Record<string, string> = {
 };
 const ANNOUNCEMENT_ICONS: Record<string, typeof Info> = { info: Info, warning: AlertTriangle, critical: AlertCircle };
 
+function TeacherDashboard({ user }: { user: any }) {
+    const { data: classes = [] } = useQuery({
+        queryKey: ["all-classes"],
+        queryFn: async () => {
+            const res = await api.get("/classes");
+            return res.data.data ?? [];
+        },
+    });
+
+    const { data: myHomework = [] } = useQuery({
+        queryKey: ["teacher-homework"],
+        queryFn: async () => {
+            const res = await api.get("/homework");
+            return res.data.data ?? [];
+        },
+    });
+
+    return (
+        <div className="space-y-6 max-w-4xl">
+            <header>
+                <h1 className="text-2xl font-bold tracking-tight text-[hsl(var(--foreground))] sm:text-3xl">Dashboard</h1>
+                <p className="mt-1 text-[hsl(var(--muted-foreground))]">
+                    Welcome back, <span className="font-medium text-[hsl(var(--foreground))]">{user?.name}</span>
+                </p>
+            </header>
+
+            <div className="grid gap-4 sm:grid-cols-3">
+                <Link href="/classes">
+                    <Card className="p-5 hover:shadow-md transition-shadow cursor-pointer rounded-2xl">
+                        <div className="flex items-center gap-3 mb-3">
+                            <div className="w-10 h-10 bg-emerald-100 rounded-xl flex items-center justify-center">
+                                <Users className="w-5 h-5 text-emerald-600" />
+                            </div>
+                            <span className="text-sm font-medium text-[hsl(var(--muted-foreground))]">Classes</span>
+                        </div>
+                        <p className="text-3xl font-bold">{classes.length}</p>
+                        <p className="text-xs text-[hsl(var(--muted-foreground))] mt-1">available</p>
+                    </Card>
+                </Link>
+                <Link href="/teacher/homework">
+                    <Card className="p-5 hover:shadow-md transition-shadow cursor-pointer rounded-2xl">
+                        <div className="flex items-center gap-3 mb-3">
+                            <div className="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center">
+                                <BookOpen className="w-5 h-5 text-blue-600" />
+                            </div>
+                            <span className="text-sm font-medium text-[hsl(var(--muted-foreground))]">Homework Given</span>
+                        </div>
+                        <p className="text-3xl font-bold">{myHomework.length}</p>
+                        <p className="text-xs text-[hsl(var(--muted-foreground))] mt-1">total assignments</p>
+                    </Card>
+                </Link>
+                <Link href="/exams">
+                    <Card className="p-5 hover:shadow-md transition-shadow cursor-pointer rounded-2xl">
+                        <div className="flex items-center gap-3 mb-3">
+                            <div className="w-10 h-10 bg-purple-100 rounded-xl flex items-center justify-center">
+                                <FileText className="w-5 h-5 text-purple-600" />
+                            </div>
+                            <span className="text-sm font-medium text-[hsl(var(--muted-foreground))]">Exams</span>
+                        </div>
+                        <p className="text-sm text-[hsl(var(--muted-foreground))] mt-2">View & enter marks →</p>
+                    </Card>
+                </Link>
+            </div>
+
+            <Card className="rounded-2xl p-6">
+                <div className="flex items-center justify-between mb-4">
+                    <h2 className="font-semibold flex items-center gap-2">
+                        <BookOpen className="w-4 h-4" /> Quick actions
+                    </h2>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                    <Button asChild variant="outline" size="sm" className="rounded-xl">
+                        <Link href="/teacher/homework"><BookOpen className="mr-1.5 h-4 w-4" /> Assign Homework</Link>
+                    </Button>
+                    <Button asChild variant="outline" size="sm" className="rounded-xl">
+                        <Link href="/exams"><FileText className="mr-1.5 h-4 w-4" /> Enter Marks</Link>
+                    </Button>
+                    <Button asChild variant="outline" size="sm" className="rounded-xl">
+                        <Link href="/timetable"><CalendarDays className="mr-1.5 h-4 w-4" /> Timetable</Link>
+                    </Button>
+                    <Button asChild variant="outline" size="sm" className="rounded-xl">
+                        <Link href="/classes"><GraduationCap className="mr-1.5 h-4 w-4" /> My Classes</Link>
+                    </Button>
+                </div>
+            </Card>
+        </div>
+    );
+}
+
 export default function SchoolDashboardPage() {
     const { user } = useAuthStore();
     const { hasFeature } = usePlanLimits();
     const [dismissedAnnouncementIds, setDismissedAnnouncementIds] = useState<string[]>([]);
+    const isTeacher = user?.role === UserRole.TEACHER;
 
     const { data: activeAnnouncements } = useQuery({
         queryKey: ["announcements-active"],
@@ -71,6 +163,7 @@ export default function SchoolDashboardPage() {
             const res = await api.get("/schools/stats");
             return res.data.data;
         },
+        enabled: !isTeacher,
     });
 
     const { data: feeStats } = useQuery({
@@ -79,14 +172,20 @@ export default function SchoolDashboardPage() {
             const res = await api.get("/fees/stats");
             return res.data.data;
         },
+        enabled: !isTeacher,
     });
 
-    if (isLoading) {
+    if (!isTeacher && isLoading) {
         return (
             <div className="flex h-[80vh] w-full items-center justify-center">
                 <Loader2 className="h-10 w-10 animate-spin text-primary" />
             </div>
         );
+    }
+
+    // Teachers see a clean simplified dashboard
+    if (isTeacher) {
+        return <TeacherDashboard user={user} />;
     }
 
     return (

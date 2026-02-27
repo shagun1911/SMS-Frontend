@@ -24,8 +24,12 @@ import { MarksEntryModal } from "@/components/exams/marks-entry-modal";
 import { MeritListModal } from "@/components/exams/merit-list-modal";
 import { LockedFeatureGate } from "@/components/plan/locked-feature-gate";
 import api from "@/lib/api";
+import { useAuthStore } from "@/store/authStore";
+import { UserRole } from "@/types";
 
 export default function ExamsPage() {
+    const { user } = useAuthStore();
+    const isTeacher = user?.role === UserRole.TEACHER;
     const [isNewExamOpen, setIsNewExamOpen] = useState(false);
     const [isMarksEntryOpen, setIsMarksEntryOpen] = useState(false);
     const [isMeritListOpen, setIsMeritListOpen] = useState(false);
@@ -53,12 +57,14 @@ export default function ExamsPage() {
                         Schedule assessments, manage date-sheets, and publish results.
                     </p>
                 </div>
-                <Button 
-                    className="bg-indigo-600 hover:bg-indigo-500 gap-2 h-10 rounded-xl w-full sm:w-auto"
-                    onClick={() => setIsNewExamOpen(true)}
-                >
-                    <Plus className="h-4 w-4" /> New Examination
-                </Button>
+                {!isTeacher && (
+                    <Button
+                        className="bg-indigo-600 hover:bg-indigo-500 gap-2 h-10 rounded-xl w-full sm:w-auto"
+                        onClick={() => setIsNewExamOpen(true)}
+                    >
+                        <Plus className="h-4 w-4" /> New Examination
+                    </Button>
+                )}
             </div>
 
             <div className="grid gap-6 md:grid-cols-3">
@@ -173,7 +179,7 @@ export default function ExamsPage() {
                 </TabsContent>
             </Tabs>
 
-            <NewExamModal open={isNewExamOpen} onOpenChange={setIsNewExamOpen} />
+            {!isTeacher && <NewExamModal open={isNewExamOpen} onOpenChange={setIsNewExamOpen} />}
             {selectedExam && (
                 <>
                     <MarksEntryModal 

@@ -3,11 +3,8 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
-
-const tabs = [
-    { label: "Timetable", href: "/timetable" },
-    { label: "Settings", href: "/timetable/settings" },
-];
+import { useAuthStore } from "@/store/authStore";
+import { UserRole } from "@/types";
 
 export default function TimetableLayout({
     children,
@@ -15,6 +12,15 @@ export default function TimetableLayout({
     children: React.ReactNode;
 }) {
     const pathname = usePathname();
+    const { user } = useAuthStore();
+    const isTeacher = user?.role === UserRole.TEACHER;
+    const canEdit = !isTeacher || (user?.permissions ?? []).includes("edit_timetable");
+
+    const tabs = [
+        { label: "Timetable", href: "/timetable" },
+        ...(canEdit ? [{ label: "Settings", href: "/timetable/settings" }] : []),
+    ];
+
     return (
         <div className="flex-1 space-y-6">
             <div className="flex flex-wrap items-center gap-2 border-b border-gray-200 pb-3">

@@ -14,6 +14,8 @@ export interface IUser {
     schoolId?: string;
     photo?: string;
     isActive: boolean;
+    mustChangePassword?: boolean;
+    permissions?: string[];
     createdAt: string;
     updatedAt: string;
 }

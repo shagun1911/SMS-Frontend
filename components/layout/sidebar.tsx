@@ -32,6 +32,7 @@ import {
     ArrowUpRight,
     Megaphone,
     Headphones,
+    Activity,
 } from "lucide-react";
 import { usePlanLimits } from "@/context/plan-limits";
 
@@ -48,7 +49,9 @@ export function Sidebar({ className }: SidebarProps) {
 
     const dashboardHref = role === UserRole.SUPER_ADMIN
         ? "/master/dashboard"
-        : "/school/dashboard";
+        : role === UserRole.TEACHER
+            ? "/teacher/dashboard"
+            : "/school/dashboard";
 
     const commonRoutes = [
         {
@@ -101,6 +104,12 @@ export function Sidebar({ className }: SidebarProps) {
             label: "Support",
             icon: Headphones,
             href: "/master/support",
+            roles: [UserRole.SUPER_ADMIN],
+        },
+        {
+            label: "System Health",
+            icon: Activity,
+            href: "/master/system-health",
             roles: [UserRole.SUPER_ADMIN],
         },
     ];

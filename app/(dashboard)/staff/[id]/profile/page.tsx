@@ -10,9 +10,117 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, ArrowLeft, Mail, Phone, Calendar, Save } from "lucide-react";
+import { Loader2, ArrowLeft, Mail, Phone, Calendar, Save, KeyRound, X, Copy, CalendarDays, Megaphone, Bus, Shield } from "lucide-react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
+
+function SetCredentialsModal({ staff, onClose }: { staff: { _id: string; name: string; email: string; role?: string }; onClose: () => void }) {
+  const [password, setPassword] = useState("");
+  const [done, setDone] = useState(false);
+
+  const mutation = useMutation({
+    mutationFn: async () => {
+      await api.post(`/users/${staff._id}/set-password`, { password });
+    },
+    onSuccess: () => {
+      setDone(true);
+      toast.success("Password set successfully");
+    },
+    onError: (err: any) => toast.error(err.response?.data?.message ?? "Failed to set password"),
+  });
+
+  const handleCopy = (text: string) => {
+    navigator.clipboard.writeText(text).then(() => toast.success("Copied!"));
+  };
+
+  const isTeacher = (staff.role || "").toLowerCase() === "teacher";
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+      <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
+        <div className="mb-4 flex items-center justify-between">
+          <h2 className="flex items-center gap-2 font-bold text-gray-900">
+            <KeyRound className="h-5 w-5 text-emerald-600" />
+            Teacher / Staff Login Credentials
+          </h2>
+          <button type="button" onClick={onClose} className="text-gray-400 hover:text-gray-600">
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+
+        <div className="mb-5 rounded-xl bg-emerald-50 p-4 space-y-2">
+          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-emerald-800">Portal login</p>
+          <div className="flex items-center justify-between">
+            <span className="text-xs text-emerald-600">Email</span>
+            <div className="flex items-center gap-2">
+              <span className="font-mono text-sm font-bold text-emerald-900">{staff.email}</span>
+              <button type="button" onClick={() => handleCopy(staff.email)} className="text-emerald-500 hover:text-emerald-700">
+                <Copy className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          </div>
+          <p className="mt-2 text-xs text-emerald-600">
+            {isTeacher ? "Teacher logs in at: " : "Staff logs in at: "}
+            <span className="font-medium">/teacher/login</span> or School Login with this email
+          </p>
+        </div>
+
+        {!done ? (
+          <div className="space-y-3">
+            <Label className="text-gray-700">Set password for this {isTeacher ? "teacher" : "staff member"}</Label>
+            <Input
+              type="text"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="Min 6 characters"
+              className="rounded-xl border-gray-200"
+            />
+            <div className="flex gap-3 pt-2">
+              <Button
+                onClick={() => mutation.mutate()}
+                disabled={mutation.isPending || password.length < 6}
+                className="rounded-xl bg-emerald-600 font-semibold hover:bg-emerald-700"
+              >
+                {mutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                Set Password
+              </Button>
+              <Button type="button" variant="outline" onClick={onClose} className="rounded-xl">
+                Cancel
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <div className="space-y-4 py-2">
+            <p className="text-sm font-medium text-emerald-700">Password has been set. Share with {staff.name} securely:</p>
+            <div className="rounded-xl border border-emerald-200 bg-white p-3 space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-xs text-gray-500">Email</span>
+                <div className="flex items-center gap-2">
+                  <span className="font-mono text-sm font-bold">{staff.email}</span>
+                  <button type="button" onClick={() => handleCopy(staff.email)} className="text-emerald-500 hover:text-emerald-700">
+                    <Copy className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-xs text-gray-500">Password</span>
+                <div className="flex items-center gap-2">
+                  <span className="font-mono text-sm font-bold">{password}</span>
+                  <button type="button" onClick={() => handleCopy(password)} className="text-emerald-500 hover:text-emerald-700">
+                    <Copy className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              </div>
+            </div>
+            <Button onClick={onClose} className="w-full rounded-xl bg-emerald-600 hover:bg-emerald-700">
+              Done
+            </Button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
 
 export default function StaffProfilePage() {
   const router = useRouter();
@@ -23,6 +131,8 @@ export default function StaffProfilePage() {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
+  const [showCredentialsModal, setShowCredentialsModal] = useState(false);
+  const [permissions, setPermissions] = useState<string[]>([]);
 
   const { data: staff, isLoading } = useQuery({
     queryKey: ["staff-profile", staffId],
@@ -38,11 +148,12 @@ export default function StaffProfilePage() {
       setName(staff.name ?? "");
       setEmail(staff.email ?? "");
       setPhone(staff.phone ?? "");
+      setPermissions(Array.isArray(staff.permissions) ? [...staff.permissions] : []);
     }
   }, [staff]);
 
   const updateMutation = useMutation({
-    mutationFn: async (payload: { name?: string; email?: string; phone?: string }) => {
+    mutationFn: async (payload: { name?: string; email?: string; phone?: string; permissions?: string[] }) => {
       await api.put(`/users/${staffId}`, payload);
     },
     onSuccess: () => {
@@ -69,6 +180,24 @@ export default function StaffProfilePage() {
   const handleSave = () => {
     updateMutation.mutate({ name, email, phone });
   };
+
+  const permissionsList = [
+    { key: "edit_timetable", label: "Edit timetable / change schedule", icon: CalendarDays },
+    { key: "manage_announcements", label: "Manage announcements", icon: Megaphone },
+    { key: "view_transport", label: "View bus routes (transport)", icon: Bus },
+  ];
+
+  const togglePermission = (key: string) => {
+    const next = permissions.includes(key) ? permissions.filter((p) => p !== key) : [...permissions, key];
+    setPermissions(next);
+    api.put(`/users/${staffId}`, { permissions: next }).then(() => {
+      queryClient.invalidateQueries({ queryKey: ["staff-profile", staffId] });
+      queryClient.invalidateQueries({ queryKey: ["staff-list"] });
+      toast.success("Access updated");
+    }).catch((err: any) => toast.error(err.response?.data?.message ?? "Failed to update"));
+  };
+
+  const isTeacher = (staff.role || "").toLowerCase() === "teacher";
 
   return (
     <div className="space-y-6">
@@ -162,6 +291,51 @@ export default function StaffProfilePage() {
                   : "—"}
               </p>
             </div>
+            <div className="space-y-2 sm:col-span-2">
+              <Label className="text-gray-500 flex items-center gap-2">
+                <KeyRound className="h-4 w-4" />
+                Login credentials
+              </Label>
+              <p className="text-sm text-gray-600 mb-2">
+                Set or reset the password for Teacher Portal / School login.
+              </p>
+              <Button
+                type="button"
+                variant="outline"
+                className="rounded-xl border-emerald-200 text-emerald-700 hover:bg-emerald-50 hover:border-emerald-300"
+                onClick={() => setShowCredentialsModal(true)}
+              >
+                <KeyRound className="h-4 w-4 mr-2" />
+                Set login credentials
+              </Button>
+            </div>
+
+            {isTeacher && (
+              <div className="space-y-3 sm:col-span-2">
+                <Label className="text-gray-700 font-medium flex items-center gap-2">
+                  <Shield className="h-4 w-4" />
+                  Access permissions
+                </Label>
+                <p className="text-sm text-gray-500">
+                  Grant this teacher access to extra features. By default teachers can only view the timetable.
+                </p>
+                <div className="flex flex-wrap gap-4 pt-2">
+                  {permissionsList.map(({ key, label, icon: Icon }) => (
+                    <label key={key} className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={permissions.includes(key)}
+                        onChange={() => togglePermission(key)}
+                        className="rounded border-gray-300 text-emerald-600 focus:ring-emerald-500"
+                      />
+                      <Icon className="h-4 w-4 text-gray-500" />
+                      <span className="text-sm text-gray-700">{label}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {editing && (
               <div className="space-y-2 sm:col-span-2">
                 <Label className="text-gray-500">Full name</Label>
@@ -175,6 +349,13 @@ export default function StaffProfilePage() {
           </div>
         </CardContent>
       </Card>
+
+      {showCredentialsModal && (
+        <SetCredentialsModal
+          staff={{ _id: staff._id, name: staff.name, email: staff.email, role: staff.role }}
+          onClose={() => setShowCredentialsModal(false)}
+        />
+      )}
     </div>
   );
 }

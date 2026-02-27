@@ -13,6 +13,8 @@ import {
   School,
   ShieldCheck,
   Play,
+  BookOpen,
+  BookOpenCheck,
 } from "lucide-react";
 import { AnimatedDashboardMock } from "@/components/landing/animated-dashboard-mock";
 import { AnimatedFeesMock } from "@/components/landing/animated-fees-mock";
@@ -89,16 +91,28 @@ export default function LandingPage() {
             </div>
             <span className="font-semibold tracking-tight">SMS</span>
           </Link>
-          <nav className="flex items-center gap-6 text-sm font-medium text-[hsl(var(--muted-foreground))]">
-            <Link href="#features" className="transition-smooth hover:text-[hsl(var(--foreground))]">Features</Link>
-            <Link href="#demos" className="transition-smooth hover:text-[hsl(var(--foreground))]">Demos</Link>
-            <Link href="#how-it-works" className="transition-smooth hover:text-[hsl(var(--foreground))]">How it works</Link>
-            <Link href="#dashboard-guide" className="transition-smooth hover:text-[hsl(var(--foreground))]">Dashboard guide</Link>
+          <nav className="flex items-center gap-3 text-sm font-medium text-[hsl(var(--muted-foreground))]">
+            <Link href="#features" className="transition-smooth hover:text-[hsl(var(--foreground))] hidden md:block">Features</Link>
+            <Link href="#demos" className="transition-smooth hover:text-[hsl(var(--foreground))] hidden md:block">Demos</Link>
             <Link
-              href="/login"
+              href="/student/login"
+              className="inline-flex items-center gap-1.5 rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-2 text-sm font-medium text-indigo-700 transition-smooth hover:bg-indigo-100 hidden sm:inline-flex"
+            >
+              <GraduationCap className="h-4 w-4" />
+              Student
+            </Link>
+            <Link
+              href="/teacher/login"
+              className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-medium text-emerald-700 transition-smooth hover:bg-emerald-100 hidden sm:inline-flex"
+            >
+              <BookOpenCheck className="h-4 w-4" />
+              Teacher
+            </Link>
+            <Link
+              href="/login?portal=school"
               className="rounded-lg bg-[hsl(var(--primary))] px-4 py-2 text-sm font-medium text-white transition-smooth hover:opacity-90"
             >
-              Login
+              School Login
             </Link>
           </nav>
         </div>
@@ -121,17 +135,31 @@ export default function LandingPage() {
             <p className="animate-fade-in-up animation-delay-300 mx-auto mt-6 max-w-lg text-base text-[hsl(var(--muted-foreground))] leading-relaxed">
               Admissions, fees, payroll, transport, and exams—built for clarity and control.
             </p>
-            <div className="animate-fade-in-up animation-delay-400 mt-12 flex flex-wrap items-center justify-center gap-4">
+            <div className="animate-fade-in-up animation-delay-400 mt-12 flex flex-wrap items-center justify-center gap-3">
               <Link
                 href="/login?portal=school"
                 className="group inline-flex items-center gap-2 rounded-xl bg-[hsl(var(--primary))] px-6 py-3.5 text-sm font-semibold text-white transition-smooth hover:opacity-90"
               >
-                Login as School
+                School Login
                 <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
               </Link>
               <Link
+                href="/student/login"
+                className="group inline-flex items-center gap-2 rounded-xl border-2 border-indigo-200 bg-indigo-50 px-6 py-3.5 text-sm font-semibold text-indigo-700 transition-smooth hover:bg-indigo-100 hover:border-indigo-300"
+              >
+                <GraduationCap className="h-4 w-4" />
+                Student Login
+              </Link>
+              <Link
+                href="/teacher/login"
+                className="group inline-flex items-center gap-2 rounded-xl border-2 border-emerald-200 bg-emerald-50 px-6 py-3.5 text-sm font-semibold text-emerald-700 transition-smooth hover:bg-emerald-100 hover:border-emerald-300"
+              >
+                <BookOpenCheck className="h-4 w-4" />
+                Teacher Login
+              </Link>
+              <Link
                 href="/login?portal=master"
-                className="inline-flex items-center gap-2 rounded-xl border border-[hsl(var(--border))] bg-[hsl(var(--card))] px-6 py-3.5 text-sm font-medium text-[hsl(var(--foreground))] transition-smooth hover:bg-[hsl(var(--muted))] shadow-card"
+                className="inline-flex items-center gap-2 rounded-xl border border-[hsl(var(--border))] bg-[hsl(var(--card))] px-5 py-3.5 text-sm font-medium text-[hsl(var(--muted-foreground))] transition-smooth hover:bg-[hsl(var(--muted))] shadow-card"
               >
                 <ShieldCheck className="h-4 w-4" />
                 Master Admin
@@ -318,7 +346,7 @@ export default function LandingPage() {
             <p className="mt-6 text-base text-[hsl(var(--muted-foreground))]">
               Log in or register your institution.
             </p>
-            <div className="mt-10 flex flex-wrap items-center justify-center gap-4">
+            <div className="mt-10 flex flex-wrap items-center justify-center gap-3">
               <Link
                 href="/login?portal=school"
                 className="inline-flex items-center gap-2 rounded-lg bg-[hsl(var(--primary))] px-5 py-2.5 text-sm font-medium text-white transition-smooth hover:opacity-90"
@@ -327,16 +355,24 @@ export default function LandingPage() {
                 School Login
               </Link>
               <Link
+                href="/student/login"
+                className="inline-flex items-center gap-2 rounded-lg border-2 border-indigo-200 bg-indigo-50 px-5 py-2.5 text-sm font-medium text-indigo-700 transition-smooth hover:bg-indigo-100"
+              >
+                <GraduationCap className="h-4 w-4" />
+                Student Login
+              </Link>
+              <Link
+                href="/teacher/login"
+                className="inline-flex items-center gap-2 rounded-lg border-2 border-emerald-200 bg-emerald-50 px-5 py-2.5 text-sm font-medium text-emerald-700 transition-smooth hover:bg-emerald-100"
+              >
+                <BookOpenCheck className="h-4 w-4" />
+                Teacher Login
+              </Link>
+              <Link
                 href="/register"
                 className="inline-flex items-center gap-2 rounded-lg border border-[hsl(var(--border))] bg-[hsl(var(--card))] px-5 py-2.5 text-sm font-medium text-[hsl(var(--foreground))] transition-smooth hover:bg-[hsl(var(--muted))]"
               >
                 Register school
-              </Link>
-              <Link
-                href="/login?portal=master"
-                className="inline-flex items-center gap-2 rounded-lg border border-[hsl(var(--border))] bg-[hsl(var(--card))] px-5 py-2.5 text-sm font-medium text-[hsl(var(--foreground))] transition-smooth hover:bg-[hsl(var(--muted))]"
-              >
-                Master Admin
               </Link>
             </div>
           </div>

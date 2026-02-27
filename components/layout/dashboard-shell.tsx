@@ -7,6 +7,8 @@ import { Header } from "@/components/layout/header";
 import { MobileMenuProvider, useMobileMenu } from "@/components/layout/mobile-menu-context";
 import { PlanLimitsProvider } from "@/context/plan-limits";
 import { AiChat } from "@/components/ai/ai-chat";
+import { useAuthStore } from "@/store/authStore";
+import { UserRole } from "@/types";
 import { X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -66,6 +68,9 @@ function MobileDrawer() {
 }
 
 function ShellContent({ children }: { children: React.ReactNode }) {
+    const { user } = useAuthStore();
+    const showAiAssistant = user?.role === UserRole.SCHOOL_ADMIN || user?.role === UserRole.SUPER_ADMIN;
+
     return (
         <>
             <div className="flex h-screen overflow-hidden bg-[hsl(var(--background))]">
@@ -81,7 +86,7 @@ function ShellContent({ children }: { children: React.ReactNode }) {
                 </div>
             </div>
             <MobileDrawer />
-            <AiChat />
+            {showAiAssistant && <AiChat />}
         </>
     );
 }

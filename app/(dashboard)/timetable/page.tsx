@@ -9,6 +9,8 @@ import { CalendarDays, Loader2, Download, Printer, Eye, Save, Settings } from "l
 import { LockedFeatureGate } from "@/components/plan/locked-feature-gate";
 import api from "@/lib/api";
 import { toast } from "sonner";
+import { useAuthStore } from "@/store/authStore";
+import { UserRole } from "@/types";
 
 function parseTime(s: string): number {
     const [h, m] = (s || "08:00").split(":").map(Number);
@@ -22,6 +24,9 @@ function formatTime(mins: number): string {
 
 export default function TimetablePage() {
     const queryClient = useQueryClient();
+    const { user } = useAuthStore();
+    const isTeacher = user?.role === UserRole.TEACHER;
+    const canEdit = !isTeacher || (user?.permissions ?? []).includes("edit_timetable");
     const [pdfAction, setPdfAction] = useState<"preview" | "download" | "print" | null>(null);
 
     const { data: gridData, isLoading } = useQuery({
@@ -162,21 +167,30 @@ export default function TimetablePage() {
                         One schedule for all classes, Monday–Saturday. Vertical = classes, horizontal = periods.
                     </p>
                 </div>
-                <div className="flex flex-wrap gap-2">
-                    <Link href="/timetable/settings">
-                        <Button variant="outline" size="sm">
-                            <Settings className="mr-1 h-4 w-4" /> Settings
+                <div className="flex flex-wrap gap-2 items-center">
+                    {!canEdit && (
+                        <span className="text-xs font-medium bg-amber-100 text-amber-700 border border-amber-200 rounded-lg px-3 py-1.5">
+                            View only — ask your admin for edit access
+                        </span>
+                    )}
+                    {canEdit && (
+                        <Link href="/timetable/settings">
+                            <Button variant="outline" size="sm">
+                                <Settings className="mr-1 h-4 w-4" /> Settings
+                            </Button>
+                        </Link>
+                    )}
+                    {canEdit && (
+                        <Button
+                            size="sm"
+                            className="bg-indigo-600 hover:bg-indigo-500"
+                            onClick={() => saveGridMutation.mutate()}
+                            disabled={saveGridMutation.isPending}
+                        >
+                            {saveGridMutation.isPending ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <Save className="mr-1 h-4 w-4" />}
+                            Save Timetable
                         </Button>
-                    </Link>
-                    <Button
-                        size="sm"
-                        className="bg-indigo-600 hover:bg-indigo-500"
-                        onClick={() => saveGridMutation.mutate()}
-                        disabled={saveGridMutation.isPending}
-                    >
-                        {saveGridMutation.isPending ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <Save className="mr-1 h-4 w-4" />}
-                        Save Timetable
-                    </Button>
+                    )}
                     <Button variant="outline" size="sm" onClick={() => handlePdf("preview")} disabled={!!pdfAction}>
                         {pdfAction === "preview" ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <Eye className="mr-1 h-4 w-4" />}
                         Preview
@@ -236,33 +250,41 @@ export default function TimetablePage() {
                                             }
                                             const key = `${rowIdx}-${colIdx}`;
                                             const val = grid[key] ?? { subject: row.cells?.[colIdx]?.subject ?? "", teacherId: row.cells?.[colIdx]?.teacherId?._id ?? row.cells?.[colIdx]?.teacherId ?? "" };
+                                            const assignedTeacher = (teachers as any[]).find((t: any) => t._id === val.teacherId);
                                             return (
                                                 <td key={p.label} className="border border-gray-200 p-1 align-top">
-                                                    <div className="space-y-1">
-                                                        <input
-                                                            type="text"
-                                                            list={`subjects-${colIdx}`}
-                                                            value={val.subject}
-                                                            onChange={(e) => updateCell(rowIdx, colIdx, "subject", e.target.value)}
-                                                            placeholder="Subject"
-                                                            className="w-full rounded border border-gray-200 px-2 py-1 text-xs"
-                                                        />
-                                                        <datalist id={`subjects-${colIdx}`}>
-                                                            {subjects.map((s) => (
-                                                                <option key={s} value={s} />
-                                                            ))}
-                                                        </datalist>
-                                                        <select
-                                                            value={val.teacherId}
-                                                            onChange={(e) => updateCell(rowIdx, colIdx, "teacherId", e.target.value)}
-                                                            className="w-full rounded border border-gray-200 px-2 py-1 text-xs bg-white"
-                                                        >
-                                                            <option value="">– Teacher –</option>
-                                                            {(teachers as any[]).map((t: any) => (
-                                                                <option key={t._id} value={t._id}>{t.name}</option>
-                                                            ))}
-                                                        </select>
-                                                    </div>
+                                                    {canEdit ? (
+                                                        <div className="space-y-1">
+                                                            <input
+                                                                type="text"
+                                                                list={`subjects-${colIdx}`}
+                                                                value={val.subject}
+                                                                onChange={(e) => updateCell(rowIdx, colIdx, "subject", e.target.value)}
+                                                                placeholder="Subject"
+                                                                className="w-full rounded border border-gray-200 px-2 py-1 text-xs"
+                                                            />
+                                                            <datalist id={`subjects-${colIdx}`}>
+                                                                {subjects.map((s) => (
+                                                                    <option key={s} value={s} />
+                                                                ))}
+                                                            </datalist>
+                                                            <select
+                                                                value={val.teacherId}
+                                                                onChange={(e) => updateCell(rowIdx, colIdx, "teacherId", e.target.value)}
+                                                                className="w-full rounded border border-gray-200 px-2 py-1 text-xs bg-white"
+                                                            >
+                                                                <option value="">– Teacher –</option>
+                                                                {(teachers as any[]).map((t: any) => (
+                                                                    <option key={t._id} value={t._id}>{t.name}</option>
+                                                                ))}
+                                                            </select>
+                                                        </div>
+                                                    ) : (
+                                                        <div className="p-1 space-y-0.5">
+                                                            <p className="text-xs font-medium text-gray-800">{val.subject || <span className="text-gray-300">—</span>}</p>
+                                                            {assignedTeacher && <p className="text-[10px] text-gray-500">{assignedTeacher.name}</p>}
+                                                        </div>
+                                                    )}
                                                 </td>
                                             );
                                         })}
