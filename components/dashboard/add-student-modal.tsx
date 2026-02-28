@@ -55,37 +55,6 @@ export function AddStudentModal({ isOpen, onClose }: AddStudentModalProps) {
     const queryClient = useQueryClient();
     const [photoPreview, setPhotoPreview] = useState<string | null>(null);
     const [isUploading, setIsUploading] = useState(false);
-    const [selectedClass, setSelectedClass] = useState("");
-
-    const { data: classes } = useQuery({
-        queryKey: ["classes-list"],
-        queryFn: async () => {
-            const res = await api.get("/classes");
-            return res.data.data ?? [];
-        },
-        enabled: isOpen,
-    });
-
-    const distinctClasses = useMemo(() => {
-        if (!Array.isArray(classes)) return [];
-        const uniqueNames = Array.from(new Set(classes.map((c: any) => c.className)));
-        return uniqueNames.sort((a, b) => {
-            // Basic numeric sort if possible, otherwise string sort
-            const na = parseInt(a);
-            const nb = parseInt(b);
-            if (!isNaN(na) && !isNaN(nb)) return na - nb;
-            return a.localeCompare(b);
-        });
-    }, [classes]);
-
-    const availableSections = useMemo(() => {
-        if (!Array.isArray(classes) || !selectedClass) return [];
-        return classes
-            .filter((c: any) => c.className === selectedClass)
-            .map((c: any) => c.section)
-            .sort();
-    }, [classes, selectedClass]);
-
     const {
         register,
         handleSubmit,
@@ -106,6 +75,48 @@ export function AddStudentModal({ isOpen, onClose }: AddStudentModalProps) {
             }
         }
     });
+
+    const selectedClass = watch("class");
+
+    const { data: classes } = useQuery({
+        queryKey: ["classes-list"],
+        queryFn: async () => {
+            const res = await api.get("/classes");
+            return res.data.data ?? [];
+        },
+        enabled: isOpen,
+    });
+
+    const distinctClasses = useMemo(() => {
+        if (!Array.isArray(classes)) return [];
+        const uniqueNames = Array.from(new Set(classes.map((c: any) => String(c.className || "").trim())));
+        return uniqueNames.filter(Boolean).sort((a, b) => {
+            const na = parseInt(a);
+            const nb = parseInt(b);
+            if (!isNaN(na) && !isNaN(nb)) return na - nb;
+            return a.localeCompare(b);
+        });
+    }, [classes]);
+
+    const availableSections = useMemo(() => {
+        if (!Array.isArray(classes) || !selectedClass) return [];
+        const sectionsSet = new Set<string>();
+        const targetClass = String(selectedClass).trim();
+
+        classes.forEach((c: any) => {
+            const cName = String(c.className || "").trim();
+            if (cName === targetClass) {
+                if (c.section) sectionsSet.add(String(c.section).trim().toUpperCase());
+                if (Array.isArray(c.sections)) {
+                    c.sections.forEach((s: any) => {
+                        if (s) sectionsSet.add(String(s).trim().toUpperCase());
+                    });
+                }
+            }
+        });
+
+        return Array.from(sectionsSet).sort();
+    }, [classes, selectedClass]);
 
     const isTcChecked = watch("tcSubmitted");
     const isMigrationChecked = watch("migrationSubmitted");
@@ -278,42 +289,33 @@ export function AddStudentModal({ isOpen, onClose }: AddStudentModalProps) {
                         <h3 className="text-xs font-bold uppercase tracking-[0.2em] text-zinc-500">Academic Scope</h3>
                     </div>
                     <div className="grid grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                            <label className="text-[10px] font-bold uppercase tracking-widest text-zinc-500 ml-1">Target Class</label>
-                            <select
-                                className="h-10 w-full rounded-xl border-gray-200 bg-white px-3 text-sm focus:ring-2 focus:ring-purple-500/20 outline-none"
-                                {...register("class", {
-                                    onChange: (e) => {
-                                        setSelectedClass(e.target.value);
-                                        setValue("section", "");
-                                    }
-                                })}
-                            >
-                                <option value="">Select Class</option>
-                                {distinctClasses.map((className: string) => (
-                                    <option key={className} value={className}>
-                                        Class {className}
-                                    </option>
-                                ))}
-                            </select>
-                            {errors.class && <p className="text-[10px] text-red-400 ml-1">{errors.class.message}</p>}
-                        </div>
-                        <div className="space-y-2">
-                            <label className="text-[10px] font-bold uppercase tracking-widest text-zinc-500 ml-1">Assigned Section</label>
-                            <select
-                                className="h-10 w-full rounded-xl border-gray-200 bg-white px-3 text-sm"
-                                {...register("section")}
-                                disabled={!selectedClass}
-                            >
-                                <option value="">Select Section</option>
-                                {availableSections.map((sec: string) => (
-                                    <option key={sec} value={sec}>
-                                        Section {sec}
-                                    </option>
-                                ))}
-                            </select>
-                            {errors.section && <p className="text-[10px] text-red-400 ml-1">{errors.section.message}</p>}
-                        </div>
+                        <Select
+                            label="Target Class"
+                            options={[
+                                { label: "Select Class", value: "" },
+                                ...distinctClasses.map((className: string) => ({
+                                    label: `Class ${className}`,
+                                    value: className
+                                }))
+                            ]}
+                            {...register("class", {
+                                onChange: () => setValue("section", "")
+                            })}
+                            error={errors.class?.message}
+                        />
+                        <Select
+                            label="Assigned Section"
+                            options={[
+                                { label: "Select Section", value: "" },
+                                ...availableSections.map((secByC: string) => ({
+                                    label: `Section ${secByC}`,
+                                    value: secByC
+                                }))
+                            ]}
+                            {...register("section")}
+                            disabled={!selectedClass}
+                            error={errors.section?.message}
+                        />
                     </div>
                 </div>
 

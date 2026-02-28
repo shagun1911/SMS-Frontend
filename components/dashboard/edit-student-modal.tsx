@@ -50,7 +50,18 @@ export function EditStudentModal({ isOpen, onClose, student }: EditStudentModalP
     const queryClient = useQueryClient();
     const [photoPreview, setPhotoPreview] = useState<string | null>(null);
     const [isUploading, setIsUploading] = useState(false);
-    const [selectedClass, setSelectedClass] = useState("");
+    const {
+        register,
+        handleSubmit,
+        reset,
+        setValue,
+        watch,
+        formState: { errors },
+    } = useForm<StudentValues>({
+        resolver: zodResolver(studentSchema) as Resolver<StudentValues>,
+    });
+
+    const selectedClass = watch("class");
 
     const { data: classes } = useQuery({
         queryKey: ["classes-list"],
@@ -63,8 +74,8 @@ export function EditStudentModal({ isOpen, onClose, student }: EditStudentModalP
 
     const distinctClasses = useMemo(() => {
         if (!Array.isArray(classes)) return [];
-        const uniqueNames = Array.from(new Set(classes.map((c: any) => c.className)));
-        return uniqueNames.sort((a, b) => {
+        const uniqueNames = Array.from(new Set(classes.map((c: any) => String(c.className || "").trim())));
+        return uniqueNames.filter(Boolean).sort((a, b) => {
             const na = parseInt(a);
             const nb = parseInt(b);
             if (!isNaN(na) && !isNaN(nb)) return na - nb;
@@ -74,22 +85,23 @@ export function EditStudentModal({ isOpen, onClose, student }: EditStudentModalP
 
     const availableSections = useMemo(() => {
         if (!Array.isArray(classes) || !selectedClass) return [];
-        return classes
-            .filter((c: any) => c.className === selectedClass)
-            .map((c: any) => c.section)
-            .sort();
-    }, [classes, selectedClass]);
+        const sectionsSet = new Set<string>();
+        const targetClass = String(selectedClass).trim();
 
-    const {
-        register,
-        handleSubmit,
-        reset,
-        setValue,
-        watch,
-        formState: { errors },
-    } = useForm<StudentValues>({
-        resolver: zodResolver(studentSchema) as Resolver<StudentValues>,
-    });
+        classes.forEach((c: any) => {
+            const cName = String(c.className || "").trim();
+            if (cName === targetClass) {
+                if (c.section) sectionsSet.add(String(c.section).trim().toUpperCase());
+                if (Array.isArray(c.sections)) {
+                    c.sections.forEach((s: any) => {
+                        if (s) sectionsSet.add(String(s).trim().toUpperCase());
+                    });
+                }
+            }
+        });
+
+        return Array.from(sectionsSet).sort();
+    }, [classes, selectedClass]);
 
     useEffect(() => {
         if (student && isOpen) {
@@ -117,7 +129,6 @@ export function EditStudentModal({ isOpen, onClose, student }: EditStudentModalP
                     pincode: student.address?.pincode || "",
                 },
             });
-            setSelectedClass(student.class || "");
             setPhotoPreview(student.photo && student.photo !== "default-student.png" ? student.photo : null);
         }
     }, [student, isOpen, reset]);
@@ -258,38 +269,33 @@ export function EditStudentModal({ isOpen, onClose, student }: EditStudentModalP
                         <h3 className="text-xs font-bold uppercase tracking-[0.2em] text-zinc-500">Academic Scope</h3>
                     </div>
                     <div className="grid grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                            <label className="text-[10px] font-bold uppercase tracking-widest text-zinc-500 ml-1">Target Class</label>
-                            <select
-                                className="h-10 w-full rounded-xl border-gray-200 bg-white px-3 text-sm"
-                                {...register("class")}
-                                onChange={(e) => {
-                                    setSelectedClass(e.target.value);
-                                    setValue("class", e.target.value);
-                                    setValue("section", "");
-                                }}
-                            >
-                                <option value="">Select Class</option>
-                                {distinctClasses.map((className: string) => (
-                                    <option key={className} value={className}>Class {className}</option>
-                                ))}
-                            </select>
-                            {errors.class && <p className="text-[10px] text-red-400 ml-1">{errors.class.message}</p>}
-                        </div>
-                        <div className="space-y-2">
-                            <label className="text-[10px] font-bold uppercase tracking-widest text-zinc-500 ml-1">Assigned Section</label>
-                            <select
-                                className="h-10 w-full rounded-xl border-gray-200 bg-white px-3 text-sm"
-                                {...register("section")}
-                                disabled={!selectedClass}
-                            >
-                                <option value="">Select Section</option>
-                                {availableSections.map((sec: string) => (
-                                    <option key={sec} value={sec}>Section {sec}</option>
-                                ))}
-                            </select>
-                            {errors.section && <p className="text-[10px] text-red-400 ml-1">{errors.section.message}</p>}
-                        </div>
+                        <Select
+                            label="Target Class"
+                            options={[
+                                { label: "Select Class", value: "" },
+                                ...distinctClasses.map((className: string) => ({
+                                    label: `Class ${className}`,
+                                    value: className
+                                }))
+                            ]}
+                            {...register("class", {
+                                onChange: () => setValue("section", "")
+                            })}
+                            error={errors.class?.message}
+                        />
+                        <Select
+                            label="Assigned Section"
+                            options={[
+                                { label: "Select Section", value: "" },
+                                ...availableSections.map((secByC: string) => ({
+                                    label: `Section ${secByC}`,
+                                    value: secByC
+                                }))
+                            ]}
+                            {...register("section")}
+                            disabled={!selectedClass}
+                            error={errors.section?.message}
+                        />
                     </div>
                 </div>
 
