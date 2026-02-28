@@ -39,9 +39,15 @@ import { LockedFeatureGate } from "@/components/plan/locked-feature-gate";
 function parseCSV(text: string): Record<string, string>[] {
     const lines = text.trim().split(/\r?\n/);
     if (lines.length < 2) return [];
-    const headers = lines[0].split(",").map((h) => h.trim().toLowerCase().replace(/\s+/g, "_"));
+
+    // Improved header parsing to handle potential quotes
+    const headers = lines[0].split(",").map((h) =>
+        h.trim().replace(/^"|"$/g, "").toLowerCase().replace(/\s+/g, "_")
+    );
+
     return lines.slice(1).map((line) => {
-        const values = line.split(",").map((v) => v.trim());
+        // Basic CSV split that handles quotes at the start/end of values
+        const values = line.split(",").map((v) => v.trim().replace(/^"|"$/g, ""));
         const row: Record<string, string> = {};
         headers.forEach((h, i) => { row[h] = values[i] ?? ""; });
         return row;
@@ -49,6 +55,7 @@ function parseCSV(text: string): Record<string, string>[] {
 }
 
 function SetPasswordModal({ student, onClose }: { student: any; onClose: () => void }) {
+    const queryClient = useQueryClient();
     const [newPassword, setNewPassword] = useState("");
     const [done, setDone] = useState(false);
 
@@ -59,6 +66,7 @@ function SetPasswordModal({ student, onClose }: { student: any; onClose: () => v
         onSuccess: () => {
             setDone(true);
             toast.success("Password updated successfully");
+            queryClient.invalidateQueries({ queryKey: ["students"] });
         },
         onError: (err: any) => toast.error(err.response?.data?.message || "Failed to update password"),
     });
@@ -94,8 +102,8 @@ function SetPasswordModal({ student, onClose }: { student: any; onClose: () => v
                 <div className="bg-indigo-50 rounded-xl p-4 mb-5 space-y-2">
                     <p className="text-xs font-semibold text-indigo-800 uppercase tracking-wide mb-3">Login Credentials</p>
                     {[
-                        ["Admission No.", student.admissionNumber],
-                        ["Default Password", defaultDobPw],
+                        ["Username", student.username || student.firstName],
+                        ["Password", done ? newPassword : (student.plainPassword || defaultDobPw)],
                     ].map(([label, value]) => (
                         <div key={label} className="flex items-center justify-between">
                             <span className="text-xs text-indigo-600">{label}</span>
@@ -157,9 +165,11 @@ export default function StudentsPage() {
     const queryClient = useQueryClient();
     const [search, setSearch] = useState("");
     const [page, setPage] = useState(1);
+    const [limit, setLimit] = useState(10);
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
     const [editStudent, setEditStudent] = useState<any | null>(null);
     const [passwordStudent, setPasswordStudent] = useState<any | null>(null);
+    const [selectedClass, setSelectedClass] = useState("");
 
     const deleteMutation = useMutation({
         mutationFn: async (id: string) => {
@@ -178,7 +188,7 @@ export default function StudentsPage() {
                 // Capitalize gender value to match backend enum (Male, Female, Other)
                 const gender = r.gender || "Male";
                 const capitalizedGender = gender.charAt(0).toUpperCase() + gender.slice(1).toLowerCase();
-                
+
                 return {
                     firstName: r.firstname || r.first_name,
                     lastName: r.lastname || r.last_name,
@@ -263,291 +273,345 @@ export default function StudentsPage() {
 
     // Fetch students
     const { data, isLoading } = useQuery({
-        queryKey: ["students", page, search],
+        queryKey: ["students", page, search, limit, selectedClass],
         queryFn: async () => {
-            const res = await api.get(`/students?page=${page}&limit=10&search=${search}`);
+            const url = `/students?page=${page}&limit=${limit}&search=${search}${selectedClass ? `&class=${encodeURIComponent(selectedClass)}` : ""}`;
+            const res = await api.get(url);
             return res.data;
         },
     });
+
+    // Fetch classes for the filter
+    const { data: classesData } = useQuery({
+        queryKey: ["classes-list"],
+        queryFn: async () => {
+            const res = await api.get("/classes");
+            return res.data.data ?? [];
+        },
+    });
+
+    const uniqueClasses = Array.from(new Set((classesData ?? []).map((c: any) => c.className))).sort();
 
     const students = data?.data || [];
 
     return (
         <LockedFeatureGate featureKey="students" featureLabel="Students">
-        <div className="flex-1 space-y-4 sm:space-y-6">
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <div>
-                    <h2 className="text-xl sm:text-3xl font-bold tracking-tight text-gray-900">
-                        Student Directory
-                    </h2>
-                    <p className="text-gray-500 mt-1 text-sm">
-                        Manage enrollments, academic records and student profiles.
-                    </p>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                    <input
-                        type="file"
-                        accept=".csv"
-                        className="hidden"
-                        id="csv-import"
-                        onChange={handleFileChange}
-                    />
-                    <Button
-                        variant="outline"
-                        size="sm"
-                        className="gap-2 border-gray-200 text-xs sm:text-sm"
-                        onClick={handleExportCSV}
-                    >
-                        <Download className="h-4 w-4" /> <span className="hidden sm:inline">Export</span> CSV
-                    </Button>
-                    <Button
-                        variant="outline"
-                        size="sm"
-                        className="gap-2 border-gray-200 text-xs sm:text-sm"
-                        onClick={handleDownloadSampleCSV}
-                    >
-                        <Download className="h-4 w-4" />
-                        <span className="hidden sm:inline">Download</span> Sample CSV
-                    </Button>
-                    <Button
-                        variant="outline"
-                        size="sm"
-                        className="gap-2 border-gray-200 text-xs sm:text-sm"
-                        onClick={() => document.getElementById("csv-import")?.click()}
-                        disabled={importMutation.isPending}
-                    >
-                        {importMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
-                        <span className="hidden sm:inline">Import</span> CSV
-                    </Button>
-                    <Button
-                        onClick={() => setIsAddModalOpen(true)}
-                        size="sm"
-                        className="bg-indigo-600 hover:bg-indigo-500 gap-2 font-bold shadow-sm text-xs sm:text-sm"
-                    >
-                        <Plus className="h-4 w-4" /> Add Student
-                    </Button>
-                </div>
-            </div>
-
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
-                <div className="relative flex-1 sm:max-w-sm">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-500" />
-                    <Input
-                        placeholder="Search by name or admission no..."
-                        className="pl-10 bg-white border-gray-200 h-10 sm:h-12 rounded-xl focus:ring-indigo-500/20"
-                        value={search}
-                        onChange={(e) => setSearch(e.target.value)}
-                    />
-                </div>
-                <Button variant="outline" className="gap-2 border-gray-200 h-10 sm:h-12 rounded-xl bg-white w-full sm:w-auto">
-                    <Filter className="h-4 w-4" /> Filter
-                </Button>
-            </div>
-
-            {/* Mobile card view */}
-            <div className="block sm:hidden space-y-3">
-                {isLoading ? (
-                    <div className="flex h-48 items-center justify-center">
-                        <Loader2 className="h-8 w-8 animate-spin text-indigo-500" />
+            <div className="flex-1 space-y-4 sm:space-y-6">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                        <h2 className="text-xl sm:text-3xl font-bold tracking-tight text-gray-900">
+                            Student Directory
+                        </h2>
+                        <p className="text-gray-500 mt-1 text-sm">
+                            Manage enrollments, academic records and student profiles.
+                        </p>
                     </div>
-                ) : students.length === 0 ? (
-                    <p className="py-12 text-center text-sm text-gray-500">No students found.</p>
-                ) : (
-                    students.map((student: any) => (
-                        <Card key={student._id} className="p-4 border-gray-200">
-                            <div className="flex items-start gap-3">
-                                <Avatar className="h-10 w-10 border border-gray-200 shrink-0">
-                                    <AvatarImage src={student.photo} />
-                                    <AvatarFallback className="bg-indigo-100 text-indigo-600">{student.firstName?.charAt(0)}</AvatarFallback>
-                                </Avatar>
-                                <div className="flex-1 min-w-0">
-                                    <p className="font-semibold text-sm text-gray-900 truncate">{student.firstName} {student.lastName}</p>
-                                    <p className="text-xs text-gray-500">{student.admissionNumber} · {student.phone}</p>
-                                    <div className="flex items-center gap-2 mt-2 flex-wrap">
-                                        <Badge variant="outline" className="border-gray-200 bg-gray-50 text-gray-600 text-[10px]">Class {student.class}</Badge>
-                                        <Badge variant="outline" className="border-purple-500/20 bg-purple-500/5 text-purple-400 text-[10px]">Sec {student.section}</Badge>
-                                        <Badge className={cn(
-                                            "capitalize px-2 py-0.5 rounded-full text-[10px] font-bold",
-                                            student.status === "active" ? "bg-emerald-500/10 text-emerald-500 border border-emerald-500/20"
-                                                : student.status === "pending_fees" ? "bg-amber-500/10 text-amber-500 border border-amber-500/20"
-                                                : "bg-red-500/10 text-red-500 border border-red-500/20"
-                                        )}>{student.status?.replace("_", " ")}</Badge>
+                    <div className="flex flex-wrap gap-2">
+                        <input
+                            type="file"
+                            accept=".csv"
+                            className="hidden"
+                            id="csv-import"
+                            onChange={handleFileChange}
+                        />
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            className="gap-2 border-gray-200 text-xs sm:text-sm"
+                            onClick={handleExportCSV}
+                        >
+                            <Download className="h-4 w-4" /> <span className="hidden sm:inline">Export</span> CSV
+                        </Button>
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            className="gap-2 border-gray-200 text-xs sm:text-sm"
+                            onClick={handleDownloadSampleCSV}
+                        >
+                            <Download className="h-4 w-4" />
+                            <span className="hidden sm:inline">Download</span> Sample CSV
+                        </Button>
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            className="gap-2 border-gray-200 text-xs sm:text-sm"
+                            onClick={() => document.getElementById("csv-import")?.click()}
+                            disabled={importMutation.isPending}
+                        >
+                            {importMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
+                            <span className="hidden sm:inline">Import</span> CSV
+                        </Button>
+                        <Button
+                            onClick={() => setIsAddModalOpen(true)}
+                            size="sm"
+                            className="bg-indigo-600 hover:bg-indigo-500 gap-2 font-bold shadow-sm text-xs sm:text-sm"
+                        >
+                            <Plus className="h-4 w-4" /> Add Student
+                        </Button>
+                    </div>
+                </div>
+
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
+                    <div className="relative flex-1 sm:max-w-sm">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-500" />
+                        <Input
+                            placeholder="Search by name or admission no..."
+                            className="pl-10 bg-white border-gray-200 h-10 sm:h-12 rounded-xl focus:ring-indigo-500/20"
+                            value={search}
+                            onChange={(e) => setSearch(e.target.value)}
+                        />
+                    </div>
+                    <div className="flex-shrink-0 w-full sm:w-40">
+                        <select
+                            value={selectedClass}
+                            onChange={(e) => {
+                                setSelectedClass(e.target.value);
+                                setPage(1);
+                            }}
+                            className="h-10 sm:h-12 w-full px-3 bg-white border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500/20 outline-none appearance-none"
+                            style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%236b7280'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E")`, backgroundRepeat: 'no-repeat', backgroundPosition: 'right 0.75rem center', backgroundSize: '1rem' }}
+                        >
+                            <option value="">All Classes</option>
+                            {uniqueClasses.map((c) => (
+                                <option key={c as string} value={c as string}>Class {c as string}</option>
+                            ))}
+                        </select>
+                    </div>
+                    <Button variant="outline" className="gap-2 border-gray-200 h-10 sm:h-12 rounded-xl bg-white w-full sm:w-auto">
+                        <Filter className="h-4 w-4" /> Filter
+                    </Button>
+                </div>
+
+                {/* Mobile card view */}
+                <div className="block sm:hidden space-y-3">
+                    {isLoading ? (
+                        <div className="flex h-48 items-center justify-center">
+                            <Loader2 className="h-8 w-8 animate-spin text-indigo-500" />
+                        </div>
+                    ) : students.length === 0 ? (
+                        <p className="py-12 text-center text-sm text-gray-500">No students found.</p>
+                    ) : (
+                        students.map((student: any) => (
+                            <Card key={student._id} className="p-4 border-gray-200">
+                                <div className="flex items-start gap-3">
+                                    <Avatar className="h-10 w-10 border border-gray-200 shrink-0">
+                                        {student.photo && student.photo !== "default-student.png" && (
+                                            <AvatarImage src={student.photo} className="object-cover" />
+                                        )}
+                                        <AvatarFallback className="bg-indigo-100 text-indigo-600">
+                                            {student.firstName?.charAt(0)}
+                                        </AvatarFallback>
+                                    </Avatar>
+                                    <div className="flex-1 min-w-0">
+                                        <p className="font-semibold text-sm text-gray-900 truncate">{student.firstName} {student.lastName}</p>
+                                        <p className="text-xs text-gray-500">{student.admissionNumber} · {student.phone}</p>
+                                        <div className="flex items-center gap-2 mt-2 flex-wrap">
+                                            <Badge variant="outline" className="border-gray-200 bg-gray-50 text-gray-600 text-[10px]">Class {student.class}</Badge>
+                                            <Badge variant="outline" className="border-purple-500/20 bg-purple-500/5 text-purple-400 text-[10px]">Sec {student.section}</Badge>
+                                            <Badge className={cn(
+                                                "capitalize px-2 py-0.5 rounded-full text-[10px] font-bold",
+                                                student.status === "active" ? "bg-emerald-500/10 text-emerald-500 border border-emerald-500/20"
+                                                    : student.status === "passed_out" ? "bg-blue-500/10 text-blue-500 border border-blue-500/20"
+                                                        : student.status === "pending_fees" ? "bg-amber-500/10 text-amber-500 border border-amber-500/20"
+                                                            : "bg-red-500/10 text-red-500 border border-red-500/20"
+                                            )}>{student.status?.replace("_", " ")}</Badge>
+                                        </div>
+                                    </div>
+                                    <div className="flex gap-1 shrink-0">
+                                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setEditStudent(student)}>
+                                            <FileEdit className="h-3.5 w-3.5 text-gray-500" />
+                                        </Button>
+                                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => { if (confirm(`Delete ${student.firstName}?`)) deleteMutation.mutate(student._id); }}>
+                                            <Trash2 className="h-3.5 w-3.5 text-gray-500" />
+                                        </Button>
                                     </div>
                                 </div>
-                                <div className="flex gap-1 shrink-0">
-                                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setEditStudent(student)}>
-                                        <FileEdit className="h-3.5 w-3.5 text-gray-500" />
-                                    </Button>
-                                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => { if (confirm(`Delete ${student.firstName}?`)) deleteMutation.mutate(student._id); }}>
-                                        <Trash2 className="h-3.5 w-3.5 text-gray-500" />
-                                    </Button>
-                                </div>
-                            </div>
-                        </Card>
-                    ))
+                            </Card>
+                        ))
+                    )}
+                </div>
+
+                {/* Desktop table view */}
+                <Card className="border border-gray-200 bg-white rounded-2xl overflow-hidden shadow-sm hidden sm:block">
+                    <CardContent className="p-0">
+                        <div className="overflow-x-auto">
+                            <Table>
+                                <TableHeader className="bg-gray-50">
+                                    <TableRow className="border-gray-100 hover:bg-transparent">
+                                        <TableHead className="py-4 pl-6 font-semibold text-gray-500 text-xs">Admission No</TableHead>
+                                        <TableHead className="py-4 font-semibold text-gray-500 text-xs">Student Details</TableHead>
+                                        <TableHead className="py-4 font-semibold text-gray-500 text-xs">Class & Section</TableHead>
+                                        <TableHead className="py-4 font-semibold text-gray-500 text-xs">Academic Status</TableHead>
+                                        <TableHead className="py-4 pr-6 text-right font-semibold text-gray-500 text-xs">Action</TableHead>
+                                    </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                    {isLoading ? (
+                                        <TableRow>
+                                            <TableCell colSpan={5} className="h-64 text-center">
+                                                <div className="flex flex-col items-center gap-2">
+                                                    <Loader2 className="h-8 w-8 animate-spin text-indigo-500" />
+                                                    <span className="text-sm text-gray-500">Retrieving student records...</span>
+                                                </div>
+                                            </TableCell>
+                                        </TableRow>
+                                    ) : students.length === 0 ? (
+                                        <TableRow>
+                                            <TableCell colSpan={5} className="h-64 text-center text-gray-500">
+                                                No students found matching your criteria.
+                                            </TableCell>
+                                        </TableRow>
+                                    ) : (
+                                        students.map((student: any) => (
+                                            <TableRow key={student._id} className="border-gray-100 hover:bg-gray-50/50 transition-colors group">
+                                                <TableCell className="pl-6 font-mono text-gray-500 text-xs">
+                                                    {student.admissionNumber}
+                                                </TableCell>
+                                                <TableCell>
+                                                    <div className="flex items-center gap-4 py-2">
+                                                        <Avatar className="h-10 w-10 border border-gray-200">
+                                                            {student.photo && student.photo !== "default-student.png" && (
+                                                                <AvatarImage src={student.photo} className="object-cover" />
+                                                            )}
+                                                            <AvatarFallback className="bg-indigo-100 text-indigo-600">
+                                                                {student.firstName?.charAt(0)}
+                                                            </AvatarFallback>
+                                                        </Avatar>
+                                                        <div className="flex flex-col">
+                                                            <span className="font-bold text-gray-900 group-hover:text-indigo-600 transition-colors">
+                                                                {student.firstName} {student.lastName}
+                                                            </span>
+                                                            <span className="text-xs text-gray-500">{student.phone}</span>
+                                                        </div>
+                                                    </div>
+                                                </TableCell>
+                                                <TableCell>
+                                                    <div className="flex items-center gap-2">
+                                                        <Badge variant="outline" className="border-gray-200 bg-gray-50 text-gray-600">
+                                                            Class {student.class}
+                                                        </Badge>
+                                                        <Badge variant="outline" className="border-purple-500/20 bg-purple-500/5 text-purple-400">
+                                                            Sec {student.section}
+                                                        </Badge>
+                                                    </div>
+                                                </TableCell>
+                                                <TableCell>
+                                                    <Badge
+                                                        className={cn(
+                                                            "capitalize px-3 py-1 rounded-full text-[10px] font-bold tracking-wider",
+                                                            student.status === "active"
+                                                                ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
+                                                                : student.status === "passed_out"
+                                                                    ? "bg-blue-500/10 text-blue-400 border border-blue-500/20"
+                                                                    : student.status === "pending_fees"
+                                                                        ? "bg-amber-500/10 text-amber-400 border border-amber-500/20"
+                                                                        : "bg-red-500/10 text-red-400 border border-red-500/20"
+                                                        )}
+                                                    >
+                                                        {student.status?.replace("_", " ")}
+                                                    </Badge>
+                                                </TableCell>
+                                                <TableCell className="pr-8 text-right">
+                                                    <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="icon"
+                                                            className="h-9 w-9 rounded-lg hover:bg-indigo-50 text-gray-500 hover:text-indigo-600"
+                                                            title="Set/View Password"
+                                                            onClick={(e) => { e.stopPropagation(); setPasswordStudent(student); }}
+                                                        >
+                                                            <KeyRound className="h-4 w-4" />
+                                                        </Button>
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="icon"
+                                                            className="h-9 w-9 rounded-lg hover:bg-gray-100 text-gray-500 hover:text-gray-900"
+                                                            onClick={(e) => { e.stopPropagation(); setEditStudent(student); }}
+                                                        >
+                                                            <FileEdit className="h-4 w-4" />
+                                                        </Button>
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="icon"
+                                                            className="h-9 w-9 rounded-lg hover:bg-red-50 text-gray-500 hover:text-red-600"
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                if (confirm(`Delete ${student.firstName} ${student.lastName}?`)) {
+                                                                    deleteMutation.mutate(student._id);
+                                                                }
+                                                            }}
+                                                        >
+                                                            <Trash2 className="h-4 w-4" />
+                                                        </Button>
+                                                    </div>
+                                                </TableCell>
+                                            </TableRow>
+                                        ))
+                                    )}
+                                </TableBody>
+                            </Table>
+                        </div>
+                    </CardContent>
+                </Card>
+
+                {/* Pagination */}
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between px-2 text-gray-500">
+                    <div className="flex flex-col sm:flex-row items-center gap-4">
+                        <p className="text-xs sm:text-sm text-center sm:text-left">Showing {students.length} of {data?.pagination?.total || 0} students</p>
+                        <div className="flex items-center gap-2">
+                            <span className="text-xs font-bold uppercase tracking-widest text-zinc-400">Rows per page:</span>
+                            <select
+                                value={limit}
+                                onChange={(e) => {
+                                    setLimit(Number(e.target.value));
+                                    setPage(1);
+                                }}
+                                className="h-8 rounded-lg border-gray-200 bg-white text-xs px-2 outline-none focus:ring-2 focus:ring-indigo-500/20"
+                            >
+                                {[10, 20, 50, 100].map((v) => (
+                                    <option key={v} value={v}>{v}</option>
+                                ))}
+                            </select>
+                        </div>
+                    </div>
+                    <div className="flex items-center justify-center gap-2">
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            className="rounded-lg border-gray-200 bg-white"
+                            onClick={() => setPage((p) => Math.max(1, p - 1))}
+                            disabled={page === 1}
+                        >
+                            Previous
+                        </Button>
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            className="rounded-lg border-gray-200 bg-white"
+                            onClick={() => setPage((p) => p + 1)}
+                            disabled={!data?.pagination || page >= data.pagination.pages}
+                        >
+                            Next
+                        </Button>
+                    </div>
+                </div>
+
+                <AddStudentModal
+                    isOpen={isAddModalOpen}
+                    onClose={() => setIsAddModalOpen(false)}
+                />
+                <EditStudentModal
+                    isOpen={!!editStudent}
+                    onClose={() => setEditStudent(null)}
+                    student={editStudent}
+                />
+                {passwordStudent && (
+                    <SetPasswordModal
+                        student={passwordStudent}
+                        onClose={() => setPasswordStudent(null)}
+                    />
                 )}
             </div>
-
-            {/* Desktop table view */}
-            <Card className="border border-gray-200 bg-white rounded-2xl overflow-hidden shadow-sm hidden sm:block">
-                <CardContent className="p-0">
-                    <div className="overflow-x-auto">
-                    <Table>
-                        <TableHeader className="bg-gray-50">
-                            <TableRow className="border-gray-100 hover:bg-transparent">
-                                <TableHead className="py-4 pl-6 font-semibold text-gray-500 text-xs">Admission No</TableHead>
-                                <TableHead className="py-4 font-semibold text-gray-500 text-xs">Student Details</TableHead>
-                                <TableHead className="py-4 font-semibold text-gray-500 text-xs">Class & Section</TableHead>
-                                <TableHead className="py-4 font-semibold text-gray-500 text-xs">Academic Status</TableHead>
-                                <TableHead className="py-4 pr-6 text-right font-semibold text-gray-500 text-xs">Action</TableHead>
-                            </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                            {isLoading ? (
-                                <TableRow>
-                                    <TableCell colSpan={5} className="h-64 text-center">
-                                        <div className="flex flex-col items-center gap-2">
-                                            <Loader2 className="h-8 w-8 animate-spin text-indigo-500" />
-                                            <span className="text-sm text-gray-500">Retrieving student records...</span>
-                                        </div>
-                                    </TableCell>
-                                </TableRow>
-                            ) : students.length === 0 ? (
-                                <TableRow>
-                                    <TableCell colSpan={5} className="h-64 text-center text-gray-500">
-                                        No students found matching your criteria.
-                                    </TableCell>
-                                </TableRow>
-                            ) : (
-                                students.map((student: any) => (
-                                    <TableRow key={student._id} className="border-gray-100 hover:bg-gray-50/50 transition-colors group">
-                                        <TableCell className="pl-6 font-mono text-gray-500 text-xs">
-                                            {student.admissionNumber}
-                                        </TableCell>
-                                        <TableCell>
-                                            <div className="flex items-center gap-4 py-2">
-                                                <Avatar className="h-10 w-10 border border-gray-200">
-                                                    <AvatarImage src={student.photo} />
-                                                    <AvatarFallback className="bg-indigo-100 text-indigo-600">
-                                                        {student.firstName?.charAt(0)}
-                                                    </AvatarFallback>
-                                                </Avatar>
-                                                <div className="flex flex-col">
-                                                    <span className="font-bold text-gray-900 group-hover:text-indigo-600 transition-colors">
-                                                        {student.firstName} {student.lastName}
-                                                    </span>
-                                                    <span className="text-xs text-gray-500">{student.phone}</span>
-                                                </div>
-                                            </div>
-                                        </TableCell>
-                                        <TableCell>
-                                            <div className="flex items-center gap-2">
-                                                <Badge variant="outline" className="border-gray-200 bg-gray-50 text-gray-600">
-                                                    Class {student.class}
-                                                </Badge>
-                                                <Badge variant="outline" className="border-purple-500/20 bg-purple-500/5 text-purple-400">
-                                                    Sec {student.section}
-                                                </Badge>
-                                            </div>
-                                        </TableCell>
-                                        <TableCell>
-                                            <Badge
-                                                className={cn(
-                                                    "capitalize px-3 py-1 rounded-full text-[10px] font-bold tracking-wider",
-                                                    student.status === "active"
-                                                        ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
-                                                        : student.status === "pending_fees"
-                                                            ? "bg-amber-500/10 text-amber-400 border border-amber-500/20"
-                                                            : "bg-red-500/10 text-red-400 border border-red-500/20"
-                                                )}
-                                            >
-                                                {student.status?.replace("_", " ")}
-                                            </Badge>
-                                        </TableCell>
-                                        <TableCell className="pr-8 text-right">
-                                            <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                                <Button
-                                                    variant="ghost"
-                                                    size="icon"
-                                                    className="h-9 w-9 rounded-lg hover:bg-indigo-50 text-gray-500 hover:text-indigo-600"
-                                                    title="Set/View Password"
-                                                    onClick={(e) => { e.stopPropagation(); setPasswordStudent(student); }}
-                                                >
-                                                    <KeyRound className="h-4 w-4" />
-                                                </Button>
-                                                <Button
-                                                    variant="ghost"
-                                                    size="icon"
-                                                    className="h-9 w-9 rounded-lg hover:bg-gray-100 text-gray-500 hover:text-gray-900"
-                                                    onClick={(e) => { e.stopPropagation(); setEditStudent(student); }}
-                                                >
-                                                    <FileEdit className="h-4 w-4" />
-                                                </Button>
-                                                <Button
-                                                    variant="ghost"
-                                                    size="icon"
-                                                    className="h-9 w-9 rounded-lg hover:bg-red-50 text-gray-500 hover:text-red-600"
-                                                    onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        if (confirm(`Delete ${student.firstName} ${student.lastName}?`)) {
-                                                            deleteMutation.mutate(student._id);
-                                                        }
-                                                    }}
-                                                >
-                                                    <Trash2 className="h-4 w-4" />
-                                                </Button>
-                                            </div>
-                                        </TableCell>
-                                    </TableRow>
-                                ))
-                            )}
-                        </TableBody>
-                    </Table>
-                    </div>
-                </CardContent>
-            </Card>
-
-            {/* Pagination */}
-            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between px-2 text-gray-500">
-                <p className="text-xs sm:text-sm text-center sm:text-left">Showing {students.length} of {data?.pagination?.total || 0} students</p>
-                <div className="flex items-center justify-center gap-2">
-                    <Button
-                        variant="outline"
-                        size="sm"
-                        className="rounded-lg border-gray-200 bg-white"
-                        onClick={() => setPage((p) => Math.max(1, p - 1))}
-                        disabled={page === 1}
-                    >
-                        Previous
-                    </Button>
-                    <Button
-                        variant="outline"
-                        size="sm"
-                        className="rounded-lg border-gray-200 bg-white"
-                        onClick={() => setPage((p) => p + 1)}
-                        disabled={!data?.pagination || page >= data.pagination.pages}
-                    >
-                        Next
-                    </Button>
-                </div>
-            </div>
-
-            <AddStudentModal
-                isOpen={isAddModalOpen}
-                onClose={() => setIsAddModalOpen(false)}
-            />
-            <EditStudentModal
-                isOpen={!!editStudent}
-                onClose={() => setEditStudent(null)}
-                student={editStudent}
-            />
-            {passwordStudent && (
-                <SetPasswordModal
-                    student={passwordStudent}
-                    onClose={() => setPasswordStudent(null)}
-                />
-            )}
-        </div>
         </LockedFeatureGate>
     );
 }

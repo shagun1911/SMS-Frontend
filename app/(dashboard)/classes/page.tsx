@@ -29,7 +29,6 @@ export default function ClassesPage() {
     const [className, setClassName] = useState("");
     const [section, setSection] = useState("A");
     const [roomNumber, setRoomNumber] = useState("");
-    const [capacity, setCapacity] = useState("");
     const [selectedClass, setSelectedClass] = useState<any>(null);
 
     const { data: classes, isLoading } = useQuery({
@@ -71,7 +70,7 @@ export default function ClassesPage() {
         onError: (err: any) => toast.error(err.response?.data?.message ?? "Failed to delete class"),
     });
 
-    const resetForm = () => { setClassName(""); setSection("A"); setRoomNumber(""); setCapacity(""); setEditingClass(null); };
+    const resetForm = () => { setClassName(""); setSection("A"); setRoomNumber(""); setEditingClass(null); };
 
     const handleOpenModal = (cls?: any) => {
         if (cls) {
@@ -79,7 +78,6 @@ export default function ClassesPage() {
             setClassName(cls.className ?? "");
             setSection(cls.section ?? "A");
             setRoomNumber(cls.roomNumber ?? "");
-            setCapacity(cls.capacity?.toString() ?? "");
         } else { resetForm(); }
         setIsModalOpen(true);
     };
@@ -88,7 +86,6 @@ export default function ClassesPage() {
         const payload = {
             className, section,
             roomNumber: roomNumber || undefined,
-            capacity: capacity ? Number(capacity) : undefined,
         };
         if (editingClass) updateClass.mutate({ id: editingClass._id, data: payload });
         else createClass.mutate(payload);
@@ -114,48 +111,42 @@ export default function ClassesPage() {
                         <p className="mt-1 text-sm text-gray-500">Manage classes, sections, and view student rosters.</p>
                     </div>
                     {!isTeacher && (
-                    <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
-                        <DialogTrigger asChild>
-                            <Button className="gap-2 bg-indigo-600 hover:bg-indigo-500 w-full sm:w-auto" onClick={() => handleOpenModal()}>
-                                <Plus className="h-4 w-4" /> Add Class & Section
-                            </Button>
-                        </DialogTrigger>
-                        <DialogContent className="max-w-lg">
-                            <DialogHeader>
-                                <DialogTitle>{editingClass ? "Edit Class" : "Add New Class & Section"}</DialogTitle>
-                            </DialogHeader>
-                            <div className="space-y-4 py-4">
-                                <div className="space-y-2">
-                                    <Label>Class Name</Label>
-                                    <Input placeholder="e.g. 4, V, X" value={className} onChange={(e) => setClassName(e.target.value)} />
-                                </div>
-                                <div className="space-y-2">
-                                    <Label>Section</Label>
-                                    <select value={section} onChange={(e) => setSection(e.target.value)}
-                                        className="h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm">
-                                        {SECTIONS.map((s) => (<option key={s} value={s}>Section {s}</option>))}
-                                    </select>
-                                </div>
-                                <div className="grid grid-cols-2 gap-4">
+                        <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
+                            <DialogTrigger asChild>
+                                <Button className="gap-2 bg-indigo-600 hover:bg-indigo-500 w-full sm:w-auto" onClick={() => handleOpenModal()}>
+                                    <Plus className="h-4 w-4" /> Add Class & Section
+                                </Button>
+                            </DialogTrigger>
+                            <DialogContent className="max-w-lg">
+                                <DialogHeader>
+                                    <DialogTitle>{editingClass ? "Edit Class" : "Add New Class & Section"}</DialogTitle>
+                                </DialogHeader>
+                                <div className="space-y-4 py-4">
+                                    <div className="space-y-2">
+                                        <Label>Class Name</Label>
+                                        <Input placeholder="e.g. 4, V, X" value={className} onChange={(e) => setClassName(e.target.value)} />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label>Section</Label>
+                                        <select value={section} onChange={(e) => setSection(e.target.value)}
+                                            className="h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm">
+                                            {SECTIONS.map((s) => (<option key={s} value={s}>Section {s}</option>))}
+                                        </select>
+                                    </div>
                                     <div className="space-y-2">
                                         <Label>Room Number (Optional)</Label>
                                         <Input placeholder="e.g. 101" value={roomNumber} onChange={(e) => setRoomNumber(e.target.value)} />
                                     </div>
-                                    <div className="space-y-2">
-                                        <Label>Capacity (Optional)</Label>
-                                        <Input type="number" placeholder="e.g. 40" value={capacity} onChange={(e) => setCapacity(e.target.value)} />
-                                    </div>
                                 </div>
-                            </div>
-                            <div className="flex gap-2">
-                                <Button variant="outline" className="flex-1" onClick={() => setIsModalOpen(false)}>Cancel</Button>
-                                <Button className="flex-1 bg-indigo-600 hover:bg-indigo-500" onClick={handleSubmit}
-                                    disabled={!className.trim() || createClass.isPending || updateClass.isPending}>
-                                    {createClass.isPending || updateClass.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : editingClass ? "Update" : "Create"}
-                                </Button>
-                            </div>
-                        </DialogContent>
-                    </Dialog>
+                                <div className="flex gap-2">
+                                    <Button variant="outline" className="flex-1" onClick={() => setIsModalOpen(false)}>Cancel</Button>
+                                    <Button className="flex-1 bg-indigo-600 hover:bg-indigo-500" onClick={handleSubmit}
+                                        disabled={!className.trim() || createClass.isPending || updateClass.isPending}>
+                                        {createClass.isPending || updateClass.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : editingClass ? "Update" : "Create"}
+                                    </Button>
+                                </div>
+                            </DialogContent>
+                        </Dialog>
                     )}
                 </div>
 
@@ -188,22 +179,22 @@ export default function ClassesPage() {
                                                     </div>
                                                 </div>
                                                 {!isTeacher && (
-                                                <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity" onClick={(e) => e.stopPropagation()}>
-                                                    <Button variant="ghost" size="icon" className="h-8 w-8 text-gray-400 hover:text-indigo-600" onClick={() => handleOpenModal(cls)}>
-                                                        <Edit2 className="h-3.5 w-3.5" />
-                                                    </Button>
-                                                    <Button variant="ghost" size="icon" className="h-8 w-8 text-gray-400 hover:text-red-600"
-                                                        onClick={() => { if (confirm(`Delete Class ${cls.className} Section ${sec}?`)) deleteClass.mutate(cls._id); }}>
-                                                        <Trash2 className="h-3.5 w-3.5" />
-                                                    </Button>
-                                                </div>
+                                                    <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity" onClick={(e) => e.stopPropagation()}>
+                                                        <Button variant="ghost" size="icon" className="h-8 w-8 text-gray-400 hover:text-indigo-600" onClick={() => handleOpenModal(cls)}>
+                                                            <Edit2 className="h-3.5 w-3.5" />
+                                                        </Button>
+                                                        <Button variant="ghost" size="icon" className="h-8 w-8 text-gray-400 hover:text-red-600"
+                                                            onClick={() => { if (confirm(`Delete Class ${cls.className} Section ${sec}?`)) deleteClass.mutate(cls._id); }}>
+                                                            <Trash2 className="h-3.5 w-3.5" />
+                                                        </Button>
+                                                    </div>
                                                 )}
                                             </div>
                                         </CardHeader>
                                         <CardContent className="p-4 flex items-center justify-between">
                                             <div className="flex items-center gap-2 text-sm text-gray-500">
                                                 <Users className="h-4 w-4" />
-                                                {cls.capacity ? `Capacity: ${cls.capacity}` : "View students"}
+                                                View students
                                             </div>
                                             <ChevronRight className="h-4 w-4 text-gray-400 group-hover:text-indigo-500 transition-colors" />
                                         </CardContent>

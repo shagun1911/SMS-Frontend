@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useForm, SubmitHandler, Resolver } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -61,9 +61,24 @@ export function EditStudentModal({ isOpen, onClose, student }: EditStudentModalP
         enabled: isOpen,
     });
 
-    const selectedClassData = Array.isArray(classes)
-        ? classes.find((c: any) => c.className === selectedClass)
-        : null;
+    const distinctClasses = useMemo(() => {
+        if (!Array.isArray(classes)) return [];
+        const uniqueNames = Array.from(new Set(classes.map((c: any) => c.className)));
+        return uniqueNames.sort((a, b) => {
+            const na = parseInt(a);
+            const nb = parseInt(b);
+            if (!isNaN(na) && !isNaN(nb)) return na - nb;
+            return a.localeCompare(b);
+        });
+    }, [classes]);
+
+    const availableSections = useMemo(() => {
+        if (!Array.isArray(classes) || !selectedClass) return [];
+        return classes
+            .filter((c: any) => c.className === selectedClass)
+            .map((c: any) => c.section)
+            .sort();
+    }, [classes, selectedClass]);
 
     const {
         register,
@@ -255,8 +270,8 @@ export function EditStudentModal({ isOpen, onClose, student }: EditStudentModalP
                                 }}
                             >
                                 <option value="">Select Class</option>
-                                {Array.isArray(classes) && classes.map((cls: any) => (
-                                    <option key={cls._id} value={cls.className}>Class {cls.className}</option>
+                                {distinctClasses.map((className: string) => (
+                                    <option key={className} value={className}>Class {className}</option>
                                 ))}
                             </select>
                             {errors.class && <p className="text-[10px] text-red-400 ml-1">{errors.class.message}</p>}
@@ -269,7 +284,7 @@ export function EditStudentModal({ isOpen, onClose, student }: EditStudentModalP
                                 disabled={!selectedClass}
                             >
                                 <option value="">Select Section</option>
-                                {selectedClassData?.sections?.map((sec: string) => (
+                                {availableSections.map((sec: string) => (
                                     <option key={sec} value={sec}>Section {sec}</option>
                                 ))}
                             </select>

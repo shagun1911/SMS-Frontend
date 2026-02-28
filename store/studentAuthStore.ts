@@ -5,6 +5,7 @@ interface StudentUser {
     _id: string;
     firstName: string;
     lastName: string;
+    username: string;
     admissionNumber: string;
     class: string;
     section: string;

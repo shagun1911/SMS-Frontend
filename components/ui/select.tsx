@@ -23,22 +23,22 @@ export const Select = React.forwardRef<HTMLSelectElement, SelectProps>(
                     <select
                         ref={ref}
                         className={cn(
-                            "w-full h-14 bg-white/[0.05] border border-white/10 rounded-2xl px-4 text-sm appearance-none outline-none focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500/50 transition-all text-white",
+                            "flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 appearance-none",
                             className
                         )}
                         {...props}
                     >
                         {options.map((opt) => (
-                            <option key={opt.value} value={opt.value} className="bg-neutral-900 text-white">
+                            <option key={opt.value} value={opt.value}>
                                 {opt.label}
                             </option>
                         ))}
                     </select>
-                    <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-zinc-500 group-hover:text-white transition-colors">
+                    <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-muted-foreground transition-colors group-hover:text-foreground">
                         <ChevronDown className="h-4 w-4" />
                     </div>
                 </div>
-                {error && <p className="text-[10px] text-red-400 ml-1">{error}</p>}
+                {error && <p className="text-[10px] text-destructive ml-1">{error}</p>}
             </div>
         );
     }

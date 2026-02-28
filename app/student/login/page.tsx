@@ -15,21 +15,21 @@ export default function StudentLoginPage() {
   const router = useRouter();
   const { login } = useStudentAuthStore();
 
-  const [admissionNumber, setAdmissionNumber] = useState("");
+  const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!admissionNumber || !password) {
+    if (!identifier || !password) {
       toast.error("Please fill all fields");
       return;
     }
     setLoading(true);
     try {
       const { data } = await axios.post(`${baseURL}/auth/student/login`, {
-        admissionNumber: admissionNumber.trim().toUpperCase(),
+        identifier: identifier.trim(),
         password,
       });
 
@@ -61,12 +61,12 @@ export default function StudentLoginPage() {
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Admission Number</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Username</label>
               <input
                 type="text"
-                value={admissionNumber}
-                onChange={(e) => setAdmissionNumber(e.target.value.toUpperCase())}
-                placeholder="e.g. DPS260001"
+                value={identifier}
+                onChange={(e) => setIdentifier(e.target.value)}
+                placeholder="e.g. Rahul"
                 className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none text-sm"
                 required
               />

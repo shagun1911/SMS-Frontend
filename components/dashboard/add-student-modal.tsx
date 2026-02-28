@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useForm, SubmitHandler, Resolver } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -66,9 +66,25 @@ export function AddStudentModal({ isOpen, onClose }: AddStudentModalProps) {
         enabled: isOpen,
     });
 
-    const selectedClassData = Array.isArray(classes)
-        ? classes.find((c: any) => c.className === selectedClass)
-        : null;
+    const distinctClasses = useMemo(() => {
+        if (!Array.isArray(classes)) return [];
+        const uniqueNames = Array.from(new Set(classes.map((c: any) => c.className)));
+        return uniqueNames.sort((a, b) => {
+            // Basic numeric sort if possible, otherwise string sort
+            const na = parseInt(a);
+            const nb = parseInt(b);
+            if (!isNaN(na) && !isNaN(nb)) return na - nb;
+            return a.localeCompare(b);
+        });
+    }, [classes]);
+
+    const availableSections = useMemo(() => {
+        if (!Array.isArray(classes) || !selectedClass) return [];
+        return classes
+            .filter((c: any) => c.className === selectedClass)
+            .map((c: any) => c.section)
+            .sort();
+    }, [classes, selectedClass]);
 
     const {
         register,
@@ -81,6 +97,7 @@ export function AddStudentModal({ isOpen, onClose }: AddStudentModalProps) {
         resolver: zodResolver(studentSchema) as Resolver<StudentValues>,
         defaultValues: {
             gender: "Male",
+            photo: "",
             tcSubmitted: false,
             migrationSubmitted: false,
             address: {
@@ -263,19 +280,19 @@ export function AddStudentModal({ isOpen, onClose }: AddStudentModalProps) {
                     <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-2">
                             <label className="text-[10px] font-bold uppercase tracking-widest text-zinc-500 ml-1">Target Class</label>
-                            <select 
-                                className="h-10 w-full rounded-xl border-gray-200 bg-white px-3 text-sm"
-                                {...register("class")}
-                                onChange={(e) => {
-                                    setSelectedClass(e.target.value);
-                                    setValue("class", e.target.value);
-                                    setValue("section", "");
-                                }}
+                            <select
+                                className="h-10 w-full rounded-xl border-gray-200 bg-white px-3 text-sm focus:ring-2 focus:ring-purple-500/20 outline-none"
+                                {...register("class", {
+                                    onChange: (e) => {
+                                        setSelectedClass(e.target.value);
+                                        setValue("section", "");
+                                    }
+                                })}
                             >
                                 <option value="">Select Class</option>
-                                {Array.isArray(classes) && classes.map((cls: any) => (
-                                    <option key={cls._id} value={cls.className}>
-                                        Class {cls.className}
+                                {distinctClasses.map((className: string) => (
+                                    <option key={className} value={className}>
+                                        Class {className}
                                     </option>
                                 ))}
                             </select>
@@ -283,13 +300,13 @@ export function AddStudentModal({ isOpen, onClose }: AddStudentModalProps) {
                         </div>
                         <div className="space-y-2">
                             <label className="text-[10px] font-bold uppercase tracking-widest text-zinc-500 ml-1">Assigned Section</label>
-                            <select 
+                            <select
                                 className="h-10 w-full rounded-xl border-gray-200 bg-white px-3 text-sm"
                                 {...register("section")}
                                 disabled={!selectedClass}
                             >
                                 <option value="">Select Section</option>
-                                {selectedClassData?.sections?.map((sec: string) => (
+                                {availableSections.map((sec: string) => (
                                     <option key={sec} value={sec}>
                                         Section {sec}
                                     </option>

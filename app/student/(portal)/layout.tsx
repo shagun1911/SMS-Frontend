@@ -5,6 +5,7 @@ import { useRouter, usePathname } from "next/navigation";
 import Link from "next/link";
 import { useStudentAuthStore } from "@/store/studentAuthStore";
 import {
+  GraduationCap,
   LayoutDashboard,
   BookOpen,
   Banknote,
@@ -12,9 +13,9 @@ import {
   Calendar,
   User,
   LogOut,
-  GraduationCap,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 const navItems = [
   { href: "/student/dashboard", icon: LayoutDashboard, label: "Dashboard" },
@@ -50,9 +51,12 @@ export default function StudentLayout({ children }: { children: React.ReactNode 
         {/* Brand */}
         <div className="px-5 py-5 border-b border-slate-100">
           <div className="flex items-center gap-3 bg-indigo-50 rounded-xl px-3 py-2.5">
-            <div className="w-9 h-9 bg-indigo-600 rounded-xl flex items-center justify-center shrink-0">
-              <GraduationCap className="w-5 h-5 text-white" />
-            </div>
+            <Avatar className="w-10 h-10 border-2 border-white shadow-sm shrink-0">
+              <AvatarImage src={student.photo} alt={`${student.firstName} ${student.lastName}`} />
+              <AvatarFallback className="bg-indigo-600 text-white text-xs font-bold">
+                {student.firstName[0]}{student.lastName[0]}
+              </AvatarFallback>
+            </Avatar>
             <div className="min-w-0">
               <p className="font-bold text-slate-900 text-sm truncate">{student.firstName} {student.lastName}</p>
               <p className="text-xs text-slate-500 truncate">Class {student.class}-{student.section}</p>

@@ -257,29 +257,29 @@ export default function SchoolDashboardPage() {
                     stats?.studentLimitWarning === "exceeded" ||
                     stats?.teacherLimitWarning === "warning" ||
                     stats?.teacherLimitWarning === "exceeded") && (
-                    <div className="animate-fade-in-up animation-delay-100 space-y-2" style={{ animationFillMode: "both" }}>
-                        {stats?.studentLimitWarning === "exceeded" && (
-                            <div className="rounded-xl border border-destructive/20 bg-destructive/5 px-4 py-3 text-sm text-destructive">
-                                Student limit exceeded ({stats?.usage?.totalStudents}/{stats?.planLimits?.maxStudents}). Upgrade to add more.
-                            </div>
-                        )}
-                        {stats?.studentLimitWarning === "warning" && stats?.studentLimitWarning !== "exceeded" && (
-                            <div className="rounded-xl border border-[hsl(var(--border))] bg-[hsl(var(--muted))]/50 px-4 py-3 text-sm text-[hsl(var(--foreground))]">
-                                Using {stats?.usage?.totalStudents} of {stats?.planLimits?.maxStudents} student slots.
-                            </div>
-                        )}
-                        {stats?.teacherLimitWarning === "exceeded" && (
-                            <div className="rounded-xl border border-destructive/20 bg-destructive/5 px-4 py-3 text-sm text-destructive">
-                                Teacher limit exceeded ({stats?.usage?.totalTeachers}/{stats?.planLimits?.maxTeachers}). Upgrade to add more.
-                            </div>
-                        )}
-                        {stats?.teacherLimitWarning === "warning" && stats?.teacherLimitWarning !== "exceeded" && (
-                            <div className="rounded-xl border border-[hsl(var(--border))] bg-[hsl(var(--muted))]/50 px-4 py-3 text-sm text-[hsl(var(--foreground))]">
-                                Using {stats?.usage?.totalTeachers} of {stats?.planLimits?.maxTeachers} teacher slots.
-                            </div>
-                        )}
-                    </div>
-                )}
+                        <div className="animate-fade-in-up animation-delay-100 space-y-2" style={{ animationFillMode: "both" }}>
+                            {stats?.studentLimitWarning === "exceeded" && (
+                                <div className="rounded-xl border border-destructive/20 bg-destructive/5 px-4 py-3 text-sm text-destructive">
+                                    Student limit exceeded ({stats?.usage?.totalStudents}/{stats?.planLimits?.maxStudents}). Upgrade to add more.
+                                </div>
+                            )}
+                            {stats?.studentLimitWarning === "warning" && stats?.studentLimitWarning !== "exceeded" && (
+                                <div className="rounded-xl border border-[hsl(var(--border))] bg-[hsl(var(--muted))]/50 px-4 py-3 text-sm text-[hsl(var(--foreground))]">
+                                    Using {stats?.usage?.totalStudents} of {stats?.planLimits?.maxStudents} student slots.
+                                </div>
+                            )}
+                            {stats?.teacherLimitWarning === "exceeded" && (
+                                <div className="rounded-xl border border-destructive/20 bg-destructive/5 px-4 py-3 text-sm text-destructive">
+                                    Teacher limit exceeded ({stats?.usage?.totalTeachers}/{stats?.planLimits?.maxTeachers}). Upgrade to add more.
+                                </div>
+                            )}
+                            {stats?.teacherLimitWarning === "warning" && stats?.teacherLimitWarning !== "exceeded" && (
+                                <div className="rounded-xl border border-[hsl(var(--border))] bg-[hsl(var(--muted))]/50 px-4 py-3 text-sm text-[hsl(var(--foreground))]">
+                                    Using {stats?.usage?.totalTeachers} of {stats?.planLimits?.maxTeachers} teacher slots.
+                                </div>
+                            )}
+                        </div>
+                    )}
 
                 {/* Quick actions: single row, subtle style */}
                 <Card className="animate-fade-in-up animation-delay-100 rounded-2xl border border-[hsl(var(--border))] bg-[hsl(var(--card))] shadow-card" style={{ animationFillMode: "both" }}>
@@ -351,7 +351,7 @@ export default function SchoolDashboardPage() {
                             <CardTitle className="text-sm font-semibold text-[hsl(var(--foreground))]">Student gender ratio</CardTitle>
                         </CardHeader>
                         <CardContent>
-                            <GenderRatioChart male={stats?.genderRatio?.male ?? 0} female={stats?.genderRatio?.female ?? 0} />
+                            <GenderRatioChart data={stats?.genderRatio} />
                         </CardContent>
                     </Card>
                 </div>

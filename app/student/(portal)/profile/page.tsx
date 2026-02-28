@@ -5,8 +5,9 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { useSearchParams } from "next/navigation";
 import { useStudentAuthStore } from "@/store/studentAuthStore";
 import studentApi from "@/lib/studentApi";
-import { User, Lock, Eye, EyeOff, Loader2, CheckCircle } from "lucide-react";
+import { User, Lock, Eye, EyeOff, Loader2, CheckCircle, GraduationCap } from "lucide-react";
 import { toast } from "sonner";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 export default function StudentProfilePage() {
   const searchParams = useSearchParams();
@@ -15,6 +16,7 @@ export default function StudentProfilePage() {
 
   const [showChangePassword, setShowChangePassword] = useState(forceChange);
   const [currentPassword, setCurrentPassword] = useState("");
+  const [newUsername, setNewUsername] = useState(student?.username || student?.firstName || "");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showCurrent, setShowCurrent] = useState(false);
@@ -34,14 +36,15 @@ export default function StudentProfilePage() {
 
   const changePwMutation = useMutation({
     mutationFn: async () => {
-      const res = await studentApi.post("/auth/student/change-password", {
+      const res = await studentApi.post("/auth/student/update-credentials", {
         currentPassword,
+        newUsername,
         newPassword,
       });
       return res.data;
     },
     onSuccess: () => {
-      toast.success("Password changed successfully!");
+      toast.success("Credentials updated successfully!");
       clearMustChange();
       setShowChangePassword(false);
       setCurrentPassword("");
@@ -49,7 +52,7 @@ export default function StudentProfilePage() {
       setConfirmPassword("");
     },
     onError: (err: any) => {
-      toast.error(err.response?.data?.message || "Failed to change password");
+      toast.error(err.response?.data?.message || "Failed to update credentials");
     },
   });
 
@@ -78,20 +81,28 @@ export default function StudentProfilePage() {
 
   return (
     <div className="space-y-6 max-w-2xl">
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-          <User className="w-6 h-6 text-indigo-600" />
-          My Profile
-        </h1>
+      <div className="flex items-center gap-5 items-end">
+        <Avatar className="w-24 h-24 border-4 border-white shadow-lg shrink-0">
+          <AvatarImage src={data?.photo} alt={`${data?.firstName} ${data?.lastName}`} />
+          <AvatarFallback className="bg-indigo-600 text-white text-3xl font-bold">
+            {data?.firstName ? data.firstName[0] : ""}{data?.lastName ? data.lastName[0] : ""}
+          </AvatarFallback>
+        </Avatar>
+        <div className="pb-1">
+          <h1 className="text-3xl font-bold text-gray-900 tracking-tight">
+            {data?.firstName} {data?.lastName}
+          </h1>
+          <p className="text-gray-500 font-medium">Student Profile</p>
+        </div>
       </div>
 
       {forceChange && (
-        <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 flex items-start gap-3">
+        <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 flex items-start gap-3 animate-in fade-in slide-in-from-top-4 duration-500">
           <Lock className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
           <div>
-            <p className="font-semibold text-amber-800">Change your password</p>
+            <p className="font-semibold text-amber-800">Complete your profile</p>
             <p className="text-sm text-amber-600 mt-0.5">
-              You are using the default password. Please change it for security.
+              Please choose a new <strong>username</strong> and <strong>password</strong> for your account. This is required for your first login.
             </p>
           </div>
         </div>
@@ -103,6 +114,7 @@ export default function StudentProfilePage() {
         <div className="grid grid-cols-2 gap-4 text-sm">
           {[
             ["Full Name", `${data?.firstName} ${data?.lastName}`],
+            ["Username", data?.username || data?.firstName],
             ["Admission Number", data?.admissionNumber],
             ["Class", `${data?.class} — Section ${data?.section}`],
             ["Roll Number", data?.rollNumber || "—"],
@@ -139,6 +151,18 @@ export default function StudentProfilePage() {
 
         {showChangePassword ? (
           <form onSubmit={handleChangePassword} className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">New Username</label>
+              <input
+                type="text"
+                value={newUsername}
+                onChange={(e) => setNewUsername(e.target.value)}
+                className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
+                placeholder="Choose a username"
+                required
+              />
+              <p className="text-[10px] text-gray-400 mt-1">Initially your first name. Please change it to something unique.</p>
+            </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Current Password</label>
               <div className="relative">
@@ -186,7 +210,7 @@ export default function StudentProfilePage() {
                 className="px-5 py-2.5 bg-indigo-600 text-white rounded-xl text-sm font-semibold hover:bg-indigo-700 flex items-center gap-2"
               >
                 {changePwMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle className="w-4 h-4" />}
-                Save Password
+                Save Credentials
               </button>
               {!forceChange && (
                 <button type="button" onClick={() => setShowChangePassword(false)} className="px-5 py-2.5 bg-gray-100 text-gray-700 rounded-xl text-sm font-medium hover:bg-gray-200">
