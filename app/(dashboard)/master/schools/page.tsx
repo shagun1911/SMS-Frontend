@@ -11,6 +11,7 @@ import {
     Loader2,
     Calendar,
     Download,
+    Eye,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -21,6 +22,7 @@ import {
     DropdownMenu,
     DropdownMenuContent,
     DropdownMenuItem,
+    DropdownMenuSeparator,
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
@@ -48,11 +50,13 @@ function downloadCsv(rows: any[]) {
 }
 
 import { AddSchoolModal } from "@/components/master/add-school-modal";
+import { SchoolDetailModal } from "@/components/master/school-detail-modal";
 
 export default function MasterSchoolsPage() {
     const [searchTerm, setSearchTerm] = useState("");
     const [page, setPage] = useState(1);
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+    const [viewSchool, setViewSchool] = useState<{ id: string; name: string } | null>(null);
     const queryClient = useQueryClient();
 
     const { data, isLoading } = useQuery({
@@ -138,206 +142,225 @@ export default function MasterSchoolsPage() {
     }
 
     return (
-        <div className="flex-1 space-y-6">
-            <div className="flex items-center justify-between">
-                <div>
-                    <h2 className="text-2xl font-bold tracking-tight text-gray-900">Schools</h2>
-                    <p className="mt-1 text-sm text-gray-500">Plan, usage and subscription status. No student-level detail.</p>
-                </div>
-                <AddSchoolModal onSuccess={() => queryClient.invalidateQueries({ queryKey: ["master-schools"] })} />
-            </div>
-
-            <div className="flex flex-wrap items-center gap-4">
-                <div className="relative max-w-sm">
-                    <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-                    <Input
-                        placeholder="Search by name or code..."
-                        className="pl-10"
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                    />
-                </div>
-                {selectedIds.size > 0 && (
-                    <div className="flex flex-wrap items-center gap-2 rounded-lg border bg-gray-50 px-3 py-2">
-                        <span className="text-sm font-medium text-gray-700">{selectedIds.size} selected</span>
-                        <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => {
-                                bulkActionMutation.mutate({ action: "activate", schoolIds: Array.from(selectedIds) });
-                            }}
-                            disabled={bulkActionMutation.isPending}
-                        >
-                            <CheckCircle2 className="mr-1.5 h-4 w-4" /> Activate selected
-                        </Button>
-                        <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => {
-                                bulkActionMutation.mutate({ action: "suspend", schoolIds: Array.from(selectedIds) });
-                            }}
-                            disabled={bulkActionMutation.isPending}
-                        >
-                            <XCircle className="mr-1.5 h-4 w-4" /> Suspend selected
-                        </Button>
-                        <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => {
-                                downloadCsv(selectedRows);
-                                toast.success("CSV downloaded.");
-                            }}
-                        >
-                            <Download className="mr-1.5 h-4 w-4" /> Export CSV
-                        </Button>
+        <>
+            <div className="flex-1 space-y-6">
+                <div className="flex items-center justify-between">
+                    <div>
+                        <h2 className="text-2xl font-bold tracking-tight text-gray-900">Schools</h2>
+                        <p className="mt-1 text-sm text-gray-500">Plan, usage and subscription status. No student-level detail.</p>
                     </div>
-                )}
-            </div>
+                    <AddSchoolModal onSuccess={() => queryClient.invalidateQueries({ queryKey: ["master-schools"] })} />
+                </div>
 
-            <Card className="overflow-hidden">
-                <div className="overflow-x-auto">
-                    <table className="w-full text-sm">
-                        <thead>
-                            <tr className="border-b bg-gray-50 text-left font-medium text-gray-600">
-                                <th className="w-10 p-3">
-                                    <input
-                                        type="checkbox"
-                                        checked={allSelected}
-                                        onChange={toggleAll}
-                                        className="h-4 w-4 rounded border-gray-300"
-                                    />
-                                </th>
-                                <th className="p-3">School Name</th>
-                                <th className="p-3">Plan</th>
-                                <th className="p-3">Health</th>
-                                <th className="p-3">Status</th>
-                                <th className="p-3">Expiry date</th>
-                                <th className="p-3 text-right">Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {filtered.length === 0 ? (
-                                <tr>
-                                    <td colSpan={7} className="p-8 text-center text-gray-500">
-                                        No schools found.
-                                    </td>
+                <div className="flex flex-wrap items-center gap-4">
+                    <div className="relative max-w-sm">
+                        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+                        <Input
+                            placeholder="Search by name or code..."
+                            className="pl-10"
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                        />
+                    </div>
+                    {selectedIds.size > 0 && (
+                        <div className="flex flex-wrap items-center gap-2 rounded-lg border bg-gray-50 px-3 py-2">
+                            <span className="text-sm font-medium text-gray-700">{selectedIds.size} selected</span>
+                            <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => {
+                                    bulkActionMutation.mutate({ action: "activate", schoolIds: Array.from(selectedIds) });
+                                }}
+                                disabled={bulkActionMutation.isPending}
+                            >
+                                <CheckCircle2 className="mr-1.5 h-4 w-4" /> Activate selected
+                            </Button>
+                            <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => {
+                                    bulkActionMutation.mutate({ action: "suspend", schoolIds: Array.from(selectedIds) });
+                                }}
+                                disabled={bulkActionMutation.isPending}
+                            >
+                                <XCircle className="mr-1.5 h-4 w-4" /> Suspend selected
+                            </Button>
+                            <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => {
+                                    downloadCsv(selectedRows);
+                                    toast.success("CSV downloaded.");
+                                }}
+                            >
+                                <Download className="mr-1.5 h-4 w-4" /> Export CSV
+                            </Button>
+                        </div>
+                    )}
+                </div>
+
+                <Card className="overflow-hidden">
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-sm">
+                            <thead>
+                                <tr className="border-b bg-gray-50 text-left font-medium text-gray-600">
+                                    <th className="w-10 p-3">
+                                        <input
+                                            type="checkbox"
+                                            checked={allSelected}
+                                            onChange={toggleAll}
+                                            className="h-4 w-4 rounded border-gray-300"
+                                        />
+                                    </th>
+                                    <th className="p-3">School Name</th>
+                                    <th className="p-3">Plan</th>
+                                    <th className="p-3">Health</th>
+                                    <th className="p-3">Status</th>
+                                    <th className="p-3">Expiry date</th>
+                                    <th className="p-3 text-right">Actions</th>
                                 </tr>
-                            ) : (
-                                filtered.map((row: any) => (
-                                    <tr key={row._id} className="border-b hover:bg-gray-50">
-                                        <td className="p-3" onClick={(e) => e.stopPropagation()}>
-                                            <input
-                                                type="checkbox"
-                                                checked={selectedIds.has(row._id)}
-                                                onChange={() => toggleOne(row._id)}
-                                                className="h-4 w-4 rounded border-gray-300"
-                                            />
+                            </thead>
+                            <tbody>
+                                {filtered.length === 0 ? (
+                                    <tr>
+                                        <td colSpan={7} className="p-8 text-center text-gray-500">
+                                            No schools found.
                                         </td>
-                                        <td className="p-3">
-                                            <div className="font-medium text-gray-900">{row.schoolName}</div>
-                                            <div className="text-xs text-gray-500">{row.schoolCode}</div>
-                                        </td>
-                                        <td className="p-3">{row.plan ?? "—"}</td>
-                                        <td className="p-3">
-                                            <span
-                                                className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${row.healthLabel === "Good"
+                                    </tr>
+                                ) : (
+                                    filtered.map((row: any) => (
+                                        <tr key={row._id} className="border-b hover:bg-gray-50">
+                                            <td className="p-3" onClick={(e) => e.stopPropagation()}>
+                                                <input
+                                                    type="checkbox"
+                                                    checked={selectedIds.has(row._id)}
+                                                    onChange={() => toggleOne(row._id)}
+                                                    className="h-4 w-4 rounded border-gray-300"
+                                                />
+                                            </td>
+                                            <td className="p-3">
+                                                <div className="font-medium text-gray-900">{row.schoolName}</div>
+                                                <div className="text-xs text-gray-500">{row.schoolCode}</div>
+                                            </td>
+                                            <td className="p-3">{row.plan ?? "—"}</td>
+                                            <td className="p-3">
+                                                <span
+                                                    className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${row.healthLabel === "Good"
                                                         ? "bg-emerald-100 text-emerald-700"
                                                         : row.healthLabel === "Fair"
                                                             ? "bg-amber-100 text-amber-700"
                                                             : "bg-red-100 text-red-700"
-                                                    }`}
-                                            >
-                                                {row.healthLabel ?? "—"}
-                                            </span>
-                                        </td>
-                                        <td className="p-3">
-                                            <span
-                                                className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${row.status === "active"
+                                                        }`}
+                                                >
+                                                    {row.healthLabel ?? "—"}
+                                                </span>
+                                            </td>
+                                            <td className="p-3">
+                                                <span
+                                                    className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${row.status === "active"
                                                         ? "bg-emerald-100 text-emerald-700"
                                                         : row.status === "expired"
                                                             ? "bg-red-100 text-red-700"
                                                             : "bg-gray-100 text-gray-600"
-                                                    }`}
-                                            >
-                                                {row.status ?? "none"}
-                                            </span>
-                                        </td>
-                                        <td className="p-3 text-gray-600">
-                                            {row.subscriptionEnd ? new Date(row.subscriptionEnd).toLocaleDateString(undefined, { dateStyle: "medium" }) : "—"}
-                                        </td>
-                                        <td className="p-3 text-right">
-                                            <DropdownMenu>
-                                                <DropdownMenuTrigger asChild>
-                                                    <Button variant="ghost" size="icon" className="h-8 w-8">
-                                                        <MoreVertical className="h-4 w-4" />
-                                                    </Button>
-                                                </DropdownMenuTrigger>
-                                                <DropdownMenuContent align="end">
-                                                    <DropdownMenuItem
-                                                        onClick={() =>
-                                                            putSubscriptionMutation.mutate({
-                                                                schoolId: row._id,
-                                                                body: { status: "active" },
-                                                            })
-                                                        }
-                                                    >
-                                                        <CheckCircle2 className="mr-2 h-4 w-4" /> Activate
-                                                    </DropdownMenuItem>
-                                                    <DropdownMenuItem
-                                                        onClick={() =>
-                                                            putSubscriptionMutation.mutate({
-                                                                schoolId: row._id,
-                                                                body: { status: "suspended" },
-                                                            })
-                                                        }
-                                                    >
-                                                        <XCircle className="mr-2 h-4 w-4" /> Suspend
-                                                    </DropdownMenuItem>
-                                                    <DropdownMenuItem
-                                                        onClick={() =>
-                                                            updateSchoolMutation.mutate({
-                                                                id: row._id,
-                                                                data: { isActive: !row.isActive },
-                                                            })
-                                                        }
-                                                    >
-                                                        <Building2 className="mr-2 h-4 w-4" /> Toggle active
-                                                    </DropdownMenuItem>
-                                                </DropdownMenuContent>
-                                            </DropdownMenu>
-                                        </td>
-                                    </tr>
-                                ))
-                            )}
-                        </tbody>
-                    </table>
-                </div>
-                {pagination.pages > 1 && (
-                    <div className="flex items-center justify-between border-t px-3 py-2 text-sm text-gray-500">
-                        <span>
-                            Total {pagination.total} • Page {pagination.page} of {pagination.pages}
-                        </span>
-                        <div className="flex gap-2">
-                            <Button
-                                variant="outline"
-                                size="sm"
-                                disabled={pagination.page <= 1}
-                                onClick={() => setPage((p) => p - 1)}
-                            >
-                                Previous
-                            </Button>
-                            <Button
-                                variant="outline"
-                                size="sm"
-                                disabled={pagination.page >= pagination.pages}
-                                onClick={() => setPage((p) => p + 1)}
-                            >
-                                Next
-                            </Button>
-                        </div>
+                                                        }`}
+                                                >
+                                                    {row.status ?? "none"}
+                                                </span>
+                                            </td>
+                                            <td className="p-3 text-gray-600">
+                                                {row.subscriptionEnd ? new Date(row.subscriptionEnd).toLocaleDateString(undefined, { dateStyle: "medium" }) : "—"}
+                                            </td>
+                                            <td className="p-3 text-right">
+                                                <DropdownMenu>
+                                                    <DropdownMenuTrigger asChild>
+                                                        <Button variant="ghost" size="icon" className="h-8 w-8">
+                                                            <MoreVertical className="h-4 w-4" />
+                                                        </Button>
+                                                    </DropdownMenuTrigger>
+                                                    <DropdownMenuContent align="end">
+                                                        <DropdownMenuItem
+                                                            onClick={() => setViewSchool({ id: row._id, name: row.schoolName })}
+                                                        >
+                                                            <Eye className="mr-2 h-4 w-4 text-indigo-500" /> View Details
+                                                        </DropdownMenuItem>
+                                                        <DropdownMenuSeparator />
+                                                        <DropdownMenuItem
+                                                            onClick={() =>
+                                                                putSubscriptionMutation.mutate({
+                                                                    schoolId: row._id,
+                                                                    body: { status: "active" },
+                                                                })
+                                                            }
+                                                        >
+                                                            <CheckCircle2 className="mr-2 h-4 w-4" /> Activate
+                                                        </DropdownMenuItem>
+                                                        <DropdownMenuItem
+                                                            onClick={() =>
+                                                                putSubscriptionMutation.mutate({
+                                                                    schoolId: row._id,
+                                                                    body: { status: "suspended" },
+                                                                })
+                                                            }
+                                                        >
+                                                            <XCircle className="mr-2 h-4 w-4" /> Suspend
+                                                        </DropdownMenuItem>
+                                                        <DropdownMenuItem
+                                                            onClick={() =>
+                                                                updateSchoolMutation.mutate({
+                                                                    id: row._id,
+                                                                    data: { isActive: !row.isActive },
+                                                                })
+                                                            }
+                                                        >
+                                                            <Building2 className="mr-2 h-4 w-4" /> Toggle active
+                                                        </DropdownMenuItem>
+                                                    </DropdownMenuContent>
+                                                </DropdownMenu>
+                                            </td>
+                                        </tr>
+                                    ))
+                                )}
+                            </tbody>
+                        </table>
                     </div>
-                )}
-            </Card>
-        </div>
+                    {pagination.pages > 1 && (
+                        <div className="flex items-center justify-between border-t px-3 py-2 text-sm text-gray-500">
+                            <span>
+                                Total {pagination.total} • Page {pagination.page} of {pagination.pages}
+                            </span>
+                            <div className="flex gap-2">
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    disabled={pagination.page <= 1}
+                                    onClick={() => setPage((p) => p - 1)}
+                                >
+                                    Previous
+                                </Button>
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    disabled={pagination.page >= pagination.pages}
+                                    onClick={() => setPage((p) => p + 1)}
+                                >
+                                    Next
+                                </Button>
+                            </div>
+                        </div>
+                    )}
+                </Card>
+            </div>
+
+            {
+                viewSchool && (
+                    <SchoolDetailModal
+                        schoolId={viewSchool.id}
+                        schoolName={viewSchool.name}
+                        open={!!viewSchool}
+                        onOpenChange={(val) => { if (!val) setViewSchool(null); }}
+                    />
+                )
+            }
+        </>
     );
 }

@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
@@ -13,11 +14,14 @@ import { Loader2, ArrowLeft, User, Wallet, IndianRupee, TrendingUp, TrendingDown
 import SalaryStructureTab from "@/components/staff/salary-structure-tab";
 import SalaryPaymentsTab from "@/components/staff/salary-payments-tab";
 import OtherPaymentsTab from "@/components/staff/other-payments-tab";
+import { GeneratePayrollModal } from "@/components/staff/generate-payroll-modal";
 
 export default function StaffDetailPage() {
   const router = useRouter();
   const params = useParams<{ id: string }>();
   const staffId = params?.id;
+
+  const [showGenerateModal, setShowGenerateModal] = useState(false);
 
   const { data: staff, isLoading } = useQuery({
     queryKey: ["staff-detail", staffId],
@@ -86,12 +90,16 @@ export default function StaffDetailPage() {
               </div>
             </div>
           </div>
-          <div className="flex gap-2">
-            <Link href="/payroll">
-              <Button variant="outline" size="sm" className="gap-1.5">
-                <Wallet className="h-4 w-4" /> Payroll
-              </Button>
-            </Link>
+          <div className="flex gap-2 flex-wrap justify-end">
+            <Button
+              variant="default"
+              size="sm"
+              className="gap-1.5 bg-indigo-600 hover:bg-indigo-700"
+              onClick={() => setShowGenerateModal(true)}
+            >
+              <Wallet className="h-4 w-4" /> Generate Payroll
+            </Button>
+
             <Button
               variant="outline"
               size="sm"
@@ -130,6 +138,15 @@ export default function StaffDetailPage() {
           <OtherPaymentsTab staffId={staffId} />
         </TabsContent>
       </Tabs>
+
+      {showGenerateModal && (
+        <GeneratePayrollModal
+          staffId={staffId}
+          staffName={staff.name}
+          open={showGenerateModal}
+          onOpenChange={setShowGenerateModal}
+        />
+      )}
     </div>
   );
 }

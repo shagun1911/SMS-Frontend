@@ -25,7 +25,7 @@ export default function RootLayout({
       <body className="font-sans antialiased">
         <QueryProvider>
           {children}
-          <Toaster richColors position="top-right" />
+          <Toaster richColors position="top-right" closeButton duration={2500} />
         </QueryProvider>
       </body>
     </html>

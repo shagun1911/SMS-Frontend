@@ -18,6 +18,7 @@ import {
     Mail,
     Sparkles,
 } from "lucide-react";
+import { useQueryClient } from "@tanstack/react-query";
 
 const loginSchema = z.object({
     email: z.string().email({ message: "Invalid email address" }),
@@ -32,6 +33,7 @@ function LoginContent() {
     const portal = searchParams.get("portal") || "school";
     const { login } = useAuthStore();
     const [isLoading, setIsLoading] = useState(false);
+    const qc = useQueryClient(); // Initialized qc
 
     const isMaster = portal === "master";
 
@@ -64,7 +66,8 @@ function LoginContent() {
             }
 
             login(user, accessToken, refreshToken);
-            toast.success("Welcome back!", { description: `Logged in as ${user.name}` });
+            qc.invalidateQueries();
+            toast.success(`Welcome back, ${user.name}!`);
             router.push(redirectTo);
         } catch (error: any) {
             const msg = error.response?.data?.message || "Invalid credentials";

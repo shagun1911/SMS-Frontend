@@ -6,6 +6,7 @@ import { useAuthStore } from "@/store/authStore";
 import api from "@/lib/api";
 import { toast } from "sonner";
 import Link from "next/link";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   GraduationCap,
   Eye,
@@ -19,6 +20,7 @@ import {
 
 export default function TeacherLoginPage() {
   const router = useRouter();
+  const qc = useQueryClient();
   const { login } = useAuthStore();
 
   const [email, setEmail] = useState("");
@@ -54,6 +56,10 @@ export default function TeacherLoginPage() {
         accessToken,
         refreshToken
       );
+
+      // Invalidate queries to fetch fresh data (like notifications) immediately
+      qc.invalidateQueries();
+
       toast.success(`Welcome back, ${user.name}!`);
       if (mustChangePassword || user.mustChangePassword) {
         router.push("/teacher/profile?changePassword=1");

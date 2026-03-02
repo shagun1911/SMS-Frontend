@@ -17,6 +17,7 @@ import {
   Bus,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { TeacherHeader } from "@/components/layout/teacher-header";
 
 const baseNavItems = [
   { href: "/teacher/dashboard", icon: LayoutDashboard, label: "Dashboard" },
@@ -101,9 +102,12 @@ export default function TeacherLayout({ children }: { children: React.ReactNode 
         </div>
       </aside>
 
-      <main className="flex-1 p-6 overflow-auto">
-        {children}
-      </main>
+      <div className="flex-1 flex flex-col min-w-0 h-screen">
+        <TeacherHeader />
+        <main className="flex-1 p-6 overflow-auto">
+          {children}
+        </main>
+      </div>
     </div>
   );
 }

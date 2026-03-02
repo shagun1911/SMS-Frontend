@@ -1,7 +1,7 @@
 "use client";
 
 import { useAuthStore } from "@/store/authStore";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { useMobileMenu } from "@/components/layout/mobile-menu-context";
 import { LogOut, Bell, Calendar, ChevronDown, Menu, Info, AlertTriangle, AlertCircle, MessageSquare, Headphones, CheckCircle2, Clock, Megaphone, Lock } from "lucide-react";
@@ -39,6 +39,36 @@ export function Header() {
     const { logout, user } = useAuthStore();
     const router = useRouter();
     const isMaster = user?.role === "superadmin";
+    const qc = useQueryClient();
+
+    // Personal user notifications (for ALL roles)
+    const { data: userNotificationsData } = useQuery({
+        queryKey: ["user-notifications"],
+        queryFn: async () => {
+            const res = await api.get("/user-notifications");
+            return res.data?.data ?? [];
+        },
+        enabled: !!user,
+        refetchInterval: 30_000,
+    });
+
+    const markAsReadMut = useMutation({
+        mutationFn: async (id: string) => {
+            return api.patch(`/user-notifications/${id}/read`);
+        },
+        onSuccess: () => {
+            qc.invalidateQueries({ queryKey: ["user-notifications"] });
+        }
+    });
+
+    const markAllAsReadMut = useMutation({
+        mutationFn: async () => {
+            return api.patch(`/user-notifications/read-all`);
+        },
+        onSuccess: () => {
+            qc.invalidateQueries({ queryKey: ["user-notifications"] });
+        }
+    });
 
     const { data: sessions } = useQuery({
         queryKey: ["sessions-list"],
@@ -96,14 +126,16 @@ export function Header() {
     const announcements: any[] = Array.isArray(announcementsData) ? announcementsData : [];
     const myTickets: any[] = Array.isArray(myTicketsData) ? myTicketsData : [];
     const masterTickets: any[] = Array.isArray(masterTicketsData) ? masterTicketsData : [];
+    const userNotifications: any[] = Array.isArray(userNotificationsData) ? userNotificationsData : [];
     const masterAnnouncements: any[] = Array.isArray(masterAnnouncementsData)
         ? masterAnnouncementsData.filter((a: any) => a.isActive)
         : [];
 
     // Unread count
     const openMasterTickets = masterTickets.filter((t: any) => t.status !== "resolved");
-    const schoolUnread = announcements.length + myTickets.filter((t: any) => t.status === "resolved").length;
-    const masterUnread = openMasterTickets.length;
+    const personalUnread = userNotifications.filter((n: any) => !n.isRead).length;
+    const schoolUnread = announcements.length + myTickets.filter((t: any) => t.status === "resolved").length + personalUnread;
+    const masterUnread = openMasterTickets.length + personalUnread;
     const unreadCount = isMaster ? masterUnread : schoolUnread;
 
     const activeSess = Array.isArray(sessions)
@@ -178,14 +210,64 @@ export function Header() {
                         <DropdownMenuContent align="end" className="w-80 rounded-xl p-0" sideOffset={8}>
                             <div className="flex items-center justify-between border-b px-4 py-3">
                                 <span className="font-semibold text-sm">Notifications</span>
-                                {unreadCount > 0 && (
-                                    <span className="rounded-full bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary">
-                                        {unreadCount} new
-                                    </span>
-                                )}
+                                <div className="flex items-center gap-2">
+                                    {personalUnread > 0 && (
+                                        <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            onClick={(e) => {
+                                                e.preventDefault();
+                                                markAllAsReadMut.mutate();
+                                            }}
+                                            className="h-6 px-2 text-xs text-primary font-medium hover:bg-primary/10"
+                                            disabled={markAllAsReadMut.isPending}
+                                        >
+                                            Mark all read
+                                        </Button>
+                                    )}
+                                    {unreadCount > 0 && (
+                                        <span className="rounded-full bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary">
+                                            {unreadCount} new
+                                        </span>
+                                    )}
+                                </div>
                             </div>
 
-                            <div className="max-h-[400px] overflow-y-auto">
+                            <div className="max-h-[400px] overflow-y-auto scrollbar-thin">
+                                {/* ── PERSONAL ALERTS ── */}
+                                {userNotifications.length > 0 && (
+                                    <>
+                                        <DropdownMenuLabel className="px-4 pt-3 pb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                                            Personal Alerts
+                                        </DropdownMenuLabel>
+                                        {userNotifications.map((n: any) => {
+                                            const isUnread = !n.isRead;
+                                            return (
+                                                <DropdownMenuItem
+                                                    key={n._id}
+                                                    className={`flex items-start gap-3 px-4 py-3 cursor-pointer rounded-none focus:bg-muted/50 ${isUnread ? 'bg-primary/5' : ''}`}
+                                                    onClick={(e) => {
+                                                        e.preventDefault();
+                                                        if (isUnread) markAsReadMut.mutate(n._id);
+                                                    }}
+                                                >
+                                                    <div className="relative mt-0.5 shrink-0">
+                                                        <Bell className={`h-4 w-4 ${isUnread ? "text-primary" : "text-muted-foreground"}`} />
+                                                        {isUnread && <span className="absolute -right-0.5 -top-0.5 h-1.5 w-1.5 rounded-full bg-primary ring-1 ring-white" />}
+                                                    </div>
+                                                    <div className="min-w-0 flex-1">
+                                                        <p className={`text-sm leading-snug ${isUnread ? "font-semibold text-primary" : "font-medium"}`}>{n.title}</p>
+                                                        {n.message && (
+                                                            <p className={`mt-0.5 text-xs line-clamp-3 leading-relaxed ${isUnread ? "text-foreground" : "text-muted-foreground"}`}>{n.message}</p>
+                                                        )}
+                                                    </div>
+                                                </DropdownMenuItem>
+                                            );
+                                        })}
+                                        <DropdownMenuSeparator />
+                                    </>
+                                )}
+
                                 {/* ── SCHOOL ADMIN VIEW ── */}
                                 {!isMaster && (
                                     <>
@@ -240,9 +322,10 @@ export function Header() {
                                             </>
                                         )}
 
-                                        {announcements.length === 0 && myTickets.length === 0 && (
-                                            <div className="px-4 py-8 text-center text-sm text-muted-foreground">
-                                                No notifications right now.
+                                        {announcements.length === 0 && myTickets.length === 0 && userNotifications.length === 0 && (
+                                            <div className="px-4 py-8 text-center flex flex-col items-center justify-center gap-2">
+                                                <Bell className="h-8 w-8 text-muted-foreground/30" />
+                                                <p className="text-sm text-muted-foreground">No notifications right now.</p>
                                             </div>
                                         )}
 

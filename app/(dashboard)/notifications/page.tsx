@@ -34,12 +34,12 @@ const SMS_TEMPLATES = [
 const EMAIL_TEMPLATES = [
     {
         label: "Fee Reminder",
-        subject: "Fee Payment Reminder – {school}",
+        subject: "Fee Payment Reminder - {school}",
         body: "<p>Dear Parent,</p><p>This is a reminder that your ward <b>{name}</b> (Class {class}, Section {section}) has a pending fee of <b>{amount}</b>.</p><p>Please clear the dues before <b>{dueDate}</b> to avoid any late charges.</p><p>For any queries, please contact the school office.</p><p>Regards,<br/>{school}</p>",
     },
     {
         label: "Payment Received",
-        subject: "Payment Confirmation – {school}",
+        subject: "Payment Confirmation - {school}",
         body: "<p>Dear Parent,</p><p>We confirm receipt of your payment towards <b>{name}</b>'s fees (Class {class}).</p><p>Thank you for your timely payment.</p><p>Regards,<br/>{school}</p>",
     },
     {
@@ -49,7 +49,7 @@ const EMAIL_TEMPLATES = [
     },
     {
         label: "Report Card",
-        subject: "Academic Report – {name} | {school}",
+        subject: "Academic Report - {name} | {school}",
         body: "<p>Dear Parent,</p><p>The academic report for <b>{name}</b> (Class {class}, Section {section}) is now available.</p><p>Please visit the school portal or contact the class teacher for detailed results.</p><p>Regards,<br/>{school}</p>",
     },
 ];
@@ -82,11 +82,10 @@ export default function NotificationsPage() {
                         <button
                             key={t.id}
                             onClick={() => setTab(t.id)}
-                            className={`flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-all ${
-                                tab === t.id
+                            className={`flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-all ${tab === t.id
                                     ? "bg-white shadow-sm text-foreground"
                                     : "text-muted-foreground hover:text-foreground"
-                            }`}
+                                }`}
                         >
                             <t.icon className="h-4 w-4" />
                             {t.label}
@@ -195,11 +194,10 @@ function SmsTab() {
                                 <button
                                     key={opt.value}
                                     onClick={() => { setTarget(opt.value); setSelectedIds([]); }}
-                                    className={`flex items-start gap-3 rounded-xl border p-3.5 text-left transition-all ${
-                                        target === opt.value
+                                    className={`flex items-start gap-3 rounded-xl border p-3.5 text-left transition-all ${target === opt.value
                                             ? "border-primary bg-primary/5 ring-1 ring-primary/20"
                                             : "border-border hover:border-primary/30 hover:bg-muted/30"
-                                    }`}
+                                        }`}
                                 >
                                     <opt.icon className={`h-4.5 w-4.5 mt-0.5 shrink-0 ${target === opt.value ? "text-primary" : "text-muted-foreground"}`} />
                                     <div>
@@ -297,13 +295,12 @@ function SmsTab() {
                             {(target === "custom" ? filteredRecipients : recipients.slice(0, 50)).map((r: any) => (
                                 <div
                                     key={r._id}
-                                    className={`flex items-center justify-between rounded-lg px-3 py-2 text-xs transition-colors ${
-                                        target === "custom"
+                                    className={`flex items-center justify-between rounded-lg px-3 py-2 text-xs transition-colors ${target === "custom"
                                             ? selectedIds.includes(r._id)
                                                 ? "bg-primary/5 border border-primary/20"
                                                 : "hover:bg-muted/40 border border-transparent"
                                             : "hover:bg-muted/40"
-                                    }`}
+                                        }`}
                                     onClick={() => {
                                         if (target !== "custom") return;
                                         setSelectedIds((prev) =>
@@ -324,9 +321,8 @@ function SmsTab() {
                                         <span className="text-rose-500 font-medium shrink-0 ml-2">₹{r.dueAmount.toLocaleString("en-IN")}</span>
                                     )}
                                     {target === "custom" && (
-                                        <div className={`h-4 w-4 rounded border shrink-0 ml-2 flex items-center justify-center ${
-                                            selectedIds.includes(r._id) ? "bg-primary border-primary" : "border-border"
-                                        }`}>
+                                        <div className={`h-4 w-4 rounded border shrink-0 ml-2 flex items-center justify-center ${selectedIds.includes(r._id) ? "bg-primary border-primary" : "border-border"
+                                            }`}>
                                             {selectedIds.includes(r._id) && <CheckCircle2 className="h-3 w-3 text-white" />}
                                         </div>
                                     )}
@@ -541,11 +537,10 @@ function EmailTab() {
                                 <button
                                     key={opt.value}
                                     onClick={() => { setTarget(opt.value); setSelectedIds([]); }}
-                                    className={`flex items-start gap-3 rounded-xl border p-3.5 text-left transition-all ${
-                                        target === opt.value
+                                    className={`flex items-start gap-3 rounded-xl border p-3.5 text-left transition-all ${target === opt.value
                                             ? "border-primary bg-primary/5 ring-1 ring-primary/20"
                                             : "border-border hover:border-primary/30 hover:bg-muted/30"
-                                    }`}
+                                        }`}
                                 >
                                     <opt.icon className={`h-4.5 w-4.5 mt-0.5 shrink-0 ${target === opt.value ? "text-primary" : "text-muted-foreground"}`} />
                                     <div>
@@ -635,13 +630,12 @@ function EmailTab() {
                         {(target === "custom" ? filteredRecipients : recipients.slice(0, 50)).map((r: any) => (
                             <div
                                 key={r._id}
-                                className={`flex items-center justify-between rounded-lg px-3 py-2 text-xs transition-colors ${
-                                    target === "custom"
+                                className={`flex items-center justify-between rounded-lg px-3 py-2 text-xs transition-colors ${target === "custom"
                                         ? selectedIds.includes(r._id)
                                             ? "bg-primary/5 border border-primary/20"
                                             : "hover:bg-muted/40 border border-transparent"
                                         : "hover:bg-muted/40"
-                                }`}
+                                    }`}
                                 onClick={() => {
                                     if (target !== "custom") return;
                                     setSelectedIds((prev) =>
@@ -657,9 +651,8 @@ function EmailTab() {
                                     </p>
                                 </div>
                                 {target === "custom" && (
-                                    <div className={`h-4 w-4 rounded border shrink-0 ml-2 flex items-center justify-center ${
-                                        selectedIds.includes(r._id) ? "bg-primary border-primary" : "border-border"
-                                    }`}>
+                                    <div className={`h-4 w-4 rounded border shrink-0 ml-2 flex items-center justify-center ${selectedIds.includes(r._id) ? "bg-primary border-primary" : "border-border"
+                                        }`}>
                                         {selectedIds.includes(r._id) && <CheckCircle2 className="h-3 w-3 text-white" />}
                                     </div>
                                 )}
@@ -756,11 +749,10 @@ function HistoryTab() {
                                 {rows.map((n: any) => (
                                     <tr key={n._id} className="border-b last:border-0 hover:bg-muted/20 transition-colors">
                                         <td className="px-4 py-3">
-                                            <Badge variant="outline" className={`text-[11px] ${
-                                                n.type === "sms"
+                                            <Badge variant="outline" className={`text-[11px] ${n.type === "sms"
                                                     ? "bg-blue-500/10 text-blue-600 border-blue-500/20"
                                                     : "bg-purple-500/10 text-purple-600 border-purple-500/20"
-                                            }`}>
+                                                }`}>
                                                 {n.type === "sms" ? "SMS" : "Email"}
                                             </Badge>
                                         </td>
