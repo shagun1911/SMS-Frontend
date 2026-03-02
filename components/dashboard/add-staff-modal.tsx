@@ -1,5 +1,6 @@
 "use client";
 
+import { useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -10,7 +11,7 @@ import { Modal } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
-import { Loader2, ShieldCheck } from "lucide-react";
+import { Loader2, ShieldCheck, Camera, X } from "lucide-react";
 import { UserRole } from "@/types";
 
 const staffSchema = z.object({
@@ -24,6 +25,7 @@ const staffSchema = z.object({
         UserRole.SCHOOL_ADMIN
     ]),
     baseSalary: z.string().min(1, "Basic salary required"),
+    joiningDate: z.string().min(1, "Joining date required"),
     subject: z.string().optional(),
 });
 
@@ -36,6 +38,11 @@ interface AddStaffModalProps {
 
 export function AddStaffModal({ isOpen, onClose }: AddStaffModalProps) {
     const queryClient = useQueryClient();
+    const fileInputRef = useRef<HTMLInputElement>(null);
+
+    const [photoPreview, setPhotoPreview] = useState<string | null>(null);
+    const [photoUrl, setPhotoUrl] = useState<string | null>(null);
+    const [photoUploading, setPhotoUploading] = useState(false);
 
     const {
         register,
@@ -52,10 +59,46 @@ export function AddStaffModal({ isOpen, onClose }: AddStaffModalProps) {
 
     const selectedRole = watch("role");
 
+    const handlePhotoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        // Local preview
+        const reader = new FileReader();
+        reader.onloadend = () => setPhotoPreview(reader.result as string);
+        reader.readAsDataURL(file);
+
+        // Upload to Cloudinary via backend
+        setPhotoUploading(true);
+        try {
+            const formData = new FormData();
+            formData.append("image", file);
+            const res = await api.post("/upload/image?folder=staff", formData, {
+                headers: { "Content-Type": "multipart/form-data" },
+            });
+            setPhotoUrl(res.data.data?.url ?? null);
+            toast.success("Photo uploaded");
+        } catch {
+            toast.error("Photo upload failed — you can still save without a photo");
+            setPhotoPreview(null);
+            setPhotoUrl(null);
+        } finally {
+            setPhotoUploading(false);
+        }
+    };
+
+    const removePhoto = () => {
+        setPhotoPreview(null);
+        setPhotoUrl(null);
+        if (fileInputRef.current) fileInputRef.current.value = "";
+    };
+
     const mutation = useMutation({
         mutationFn: (data: StaffValues) => api.post("/users", {
             ...data,
-            baseSalary: Number(data.baseSalary)
+            baseSalary: Number(data.baseSalary),
+            joiningDate: data.joiningDate ? new Date(data.joiningDate).toISOString() : undefined,
+            ...(photoUrl ? { photo: photoUrl } : {}),
         }),
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ["staff-list"] });
@@ -63,6 +106,8 @@ export function AddStaffModal({ isOpen, onClose }: AddStaffModalProps) {
                 description: "New staff record with salary profile has been created."
             });
             reset();
+            setPhotoPreview(null);
+            setPhotoUrl(null);
             onClose();
         },
         onError: (error: any) => {
@@ -85,6 +130,55 @@ export function AddStaffModal({ isOpen, onClose }: AddStaffModalProps) {
             className="max-w-lg"
         >
             <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+
+                {/* Photo upload */}
+                <div className="flex flex-col items-center gap-2">
+                    <div className="relative">
+                        <button
+                            type="button"
+                            onClick={() => fileInputRef.current?.click()}
+                            className="group relative h-24 w-24 overflow-hidden rounded-full border-2 border-dashed border-gray-300 bg-gray-50 transition hover:border-blue-400 hover:bg-blue-50 focus:outline-none"
+                            disabled={photoUploading}
+                        >
+                            {photoPreview ? (
+                                <img
+                                    src={photoPreview}
+                                    alt="Preview"
+                                    className="h-full w-full object-cover"
+                                />
+                            ) : (
+                                <div className="flex flex-col items-center justify-center gap-1 p-2">
+                                    {photoUploading
+                                        ? <Loader2 className="h-6 w-6 animate-spin text-blue-400" />
+                                        : <Camera className="h-7 w-7 text-gray-400 group-hover:text-blue-400 transition" />
+                                    }
+                                    <span className="text-[10px] text-gray-400 text-center leading-tight">
+                                        {photoUploading ? "Uploading…" : "Add Photo"}
+                                    </span>
+                                </div>
+                            )}
+                        </button>
+
+                        {photoPreview && !photoUploading && (
+                            <button
+                                type="button"
+                                onClick={removePhoto}
+                                className="absolute -right-1 -top-1 flex h-6 w-6 items-center justify-center rounded-full bg-red-500 text-white shadow-md hover:bg-red-600"
+                            >
+                                <X className="h-3.5 w-3.5" />
+                            </button>
+                        )}
+                    </div>
+                    <p className="text-xs text-gray-400">Click to upload photo (optional)</p>
+                    <input
+                        ref={fileInputRef}
+                        type="file"
+                        accept="image/jpeg,image/jpg,image/png,image/webp"
+                        className="hidden"
+                        onChange={handlePhotoChange}
+                    />
+                </div>
+
                 <div className="space-y-2">
                     <label className="text-xs font-bold uppercase tracking-wider text-zinc-500 ml-1">Full Name</label>
                     <Input {...register("name")} placeholder="Prof. Jane Cooper" className="h-11 rounded-xl border-gray-200 bg-white" />
@@ -122,6 +216,12 @@ export function AddStaffModal({ isOpen, onClose }: AddStaffModalProps) {
                     </div>
                 </div>
 
+                <div className="space-y-2">
+                    <label className="text-xs font-bold uppercase tracking-wider text-zinc-500 ml-1">Joining Date</label>
+                    <Input {...register("joiningDate")} type="date" className="h-11 rounded-xl border-gray-200 bg-white" />
+                    {errors.joiningDate && <p className="text-[10px] text-red-400 ml-1">{errors.joiningDate.message}</p>}
+                </div>
+
                 {selectedRole === UserRole.TEACHER && (
                     <div className="space-y-2 animate-in fade-in slide-in-from-top-2 duration-300">
                         <label className="text-xs font-bold uppercase tracking-wider text-zinc-500 ml-1">Primary Subject / Specialization</label>
@@ -140,7 +240,7 @@ export function AddStaffModal({ isOpen, onClose }: AddStaffModalProps) {
                     </Button>
                     <Button
                         type="submit"
-                        disabled={mutation.isPending}
+                        disabled={mutation.isPending || photoUploading}
                         className="h-14 flex-[2] bg-blue-600 hover:bg-blue-500 rounded-2xl font-bold shadow-lg shadow-blue-500/20"
                     >
                         {mutation.isPending ? <Loader2 className="h-5 w-5 animate-spin" /> : (

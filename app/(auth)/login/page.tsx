@@ -162,18 +162,7 @@ function LoginContent() {
                         </form>
                     </div>
 
-                    {!isMaster && (
-                        <div className="border-t border-[hsl(var(--border))] bg-[hsl(var(--muted))]/50 p-5 text-center">
-                            <p className="text-sm text-[hsl(var(--muted-foreground))]">
-                                New institution?{" "}
-                                <Link href="/register" className="font-medium text-[hsl(var(--primary))] transition-smooth hover:underline">
-                                    Register your school
-                                </Link>
-                            </p>
-                        </div>
-                    )}
                 </div>
-
                 <p className="mt-6 text-center text-[10px] uppercase tracking-wider text-[hsl(var(--muted-foreground))]">
                     Secure login · SMS
                 </p>

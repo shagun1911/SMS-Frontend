@@ -18,9 +18,29 @@ export default function PlanPage() {
         if (typeof window === "undefined") return;
         const params = new URLSearchParams(window.location.search);
         if (params.get("success") === "1") {
-            setSuccessMsg("Your plan has been updated successfully.");
-            queryClient.invalidateQueries({ queryKey: ["school-stats"] });
             window.history.replaceState({}, "", window.location.pathname);
+            // Try to confirm PhonePe payment if merchantOrderId was saved before redirect
+            const merchantOrderId = sessionStorage.getItem("pp_merchant_order_id");
+            sessionStorage.removeItem("pp_merchant_order_id");
+            if (merchantOrderId) {
+                api.post("/payments/confirm-phonepe", { merchantOrderId })
+                    .then(() => {
+                        setSuccessMsg("Your plan has been updated successfully.");
+                        void queryClient.resetQueries({ queryKey: ["school-stats"] });
+                        void queryClient.resetQueries({ queryKey: ["school-plans"] });
+                    })
+                    .catch(() => {
+                        // Even if confirm fails, try to refresh — webhook may have already activated it
+                        setSuccessMsg("Payment received. Your plan is being updated.");
+                        void queryClient.resetQueries({ queryKey: ["school-stats"] });
+                        void queryClient.resetQueries({ queryKey: ["school-plans"] });
+                    });
+            } else {
+                // Razorpay flow — plan already activated via verifyPayment
+                setSuccessMsg("Your plan has been updated successfully.");
+                void queryClient.resetQueries({ queryKey: ["school-stats"] });
+                void queryClient.resetQueries({ queryKey: ["school-plans"] });
+            }
         }
         if (params.get("canceled") === "1") {
             setCanceledMsg("Checkout was canceled.");
@@ -55,6 +75,10 @@ export default function PlanPage() {
                 return;
             }
             if (data?.redirectUrl) {
+                // Save merchantOrderId so we can activate plan after redirect
+                if (data?.merchantOrderId) {
+                    sessionStorage.setItem("pp_merchant_order_id", data.merchantOrderId);
+                }
                 window.location.href = data.redirectUrl;
                 return;
             }
@@ -153,7 +177,8 @@ export default function PlanPage() {
                 </div>
             )}
 
-            {isOverLimit && (
+            {/* Hide the limit warning when a plan upgrade just succeeded */}
+            {isOverLimit && !successMsg && (
                 <Card className="rounded-2xl border-destructive/50 bg-destructive/10 p-4">
                     <div className="flex items-center gap-2 text-destructive">
                         <AlertTriangle className="h-5 w-5" />
@@ -213,9 +238,8 @@ export default function PlanPage() {
                         return (
                             <Card
                                 key={p._id}
-                                className={`relative rounded-2xl p-6 ${
-                                    isCurrent ? "border-primary bg-primary/5" : ""
-                                }`}
+                                className={`relative rounded-2xl p-6 ${isCurrent ? "border-primary bg-primary/5" : ""
+                                    }`}
                             >
                                 {isCurrent && (
                                     <span className="absolute right-4 top-4 rounded-md bg-emerald-500/20 px-2 py-0.5 text-xs font-medium text-emerald-600 dark:text-emerald-400">

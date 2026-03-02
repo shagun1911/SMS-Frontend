@@ -16,9 +16,14 @@ import {
     UserPlus,
     Camera,
     CheckCircle2,
-    FileCheck
+    FileCheck,
+    QrCode,
+    RefreshCw,
+    XCircle
 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { QRCodeSVG } from "qrcode.react";
+import { useEffect, useRef } from "react";
 
 const studentSchema = z.object({
     firstName: z.string().min(2, "First name required"),
@@ -36,6 +41,7 @@ const studentSchema = z.object({
     migrationSubmitted: z.boolean().default(false),
     initialDepositAmount: z.coerce.number().min(0).optional(),
     depositPaymentMode: z.string().optional(),
+    depositTransactionId: z.string().optional(),
     address: z.object({
         street: z.string().min(1, "Street required"),
         city: z.string().min(1, "City required"),
@@ -61,7 +67,7 @@ export function AddStudentModal({ isOpen, onClose }: AddStudentModalProps) {
         reset,
         setValue,
         watch,
-        formState: { errors },
+        formState: { errors, isValid },
     } = useForm<StudentValues>({
         resolver: zodResolver(studentSchema) as Resolver<StudentValues>,
         defaultValues: {
@@ -77,6 +83,82 @@ export function AddStudentModal({ isOpen, onClose }: AddStudentModalProps) {
     });
 
     const selectedClass = watch("class");
+    const depositAmount = watch("initialDepositAmount") || 0;
+    const paymentMode = watch("depositPaymentMode");
+
+    // Payment States
+    const [qrData, setQrData] = useState<string | null>(null);
+    const [status, setStatus] = useState<"IDLE" | "GENERATING" | "WAITING" | "VERIFYING" | "COMPLETED" | "FAILED">("IDLE");
+    const [merchantTransactionId, setMerchantTransactionId] = useState<string | null>(null);
+    const pollingInterval = useRef<NodeJS.Timeout | null>(null);
+
+    // Reset payment state when modal closes or amount/mode changes
+    useEffect(() => {
+        if (!isOpen) {
+            setStatus("IDLE");
+            setQrData(null);
+            setMerchantTransactionId(null);
+            if (pollingInterval.current) clearInterval(pollingInterval.current);
+        }
+    }, [isOpen]);
+
+    useEffect(() => {
+        if (status !== "COMPLETED") {
+            setStatus("IDLE");
+            setQrData(null);
+            setMerchantTransactionId(null);
+            if (pollingInterval.current) {
+                clearInterval(pollingInterval.current);
+                pollingInterval.current = null;
+            }
+        }
+    }, [depositAmount, paymentMode]);
+
+    const startPolling = (tid: string) => {
+        if (pollingInterval.current) clearInterval(pollingInterval.current);
+        pollingInterval.current = setInterval(async () => {
+            try {
+                const res = await api.get(`/payments/status/${tid}`);
+                if (res.data.data.state === "COMPLETED") {
+                    setStatus("COMPLETED");
+                    clearInterval(pollingInterval.current!);
+                    toast.success("Payment Successful!", { description: "You can now finalize the enrollment." });
+                } else if (res.data.data.state === "FAILED") {
+                    setStatus("FAILED");
+                    clearInterval(pollingInterval.current!);
+                    toast.error("Payment Failed", { description: "Please try again or use a different mode." });
+                }
+            } catch (error) {
+                console.error("Polling error:", error);
+            }
+        }, 3000);
+    };
+
+    const handleGenerateQR = async () => {
+        if (!depositAmount || depositAmount <= 0) {
+            toast.error("Invalid Amount", { description: "Please enter a valid deposit amount." });
+            return;
+        }
+        setStatus("GENERATING");
+        try {
+            const firstName = watch("firstName");
+            const lastName = watch("lastName");
+            const res = await api.post("/payments/generate-qr", {
+                amount: depositAmount,
+                metadata: {
+                    type: "admission_deposit",
+                    studentName: `${firstName} ${lastName}`,
+                }
+            });
+            setQrData(res.data.data.qrData);
+            setMerchantTransactionId(res.data.data.merchantTransactionId);
+            setStatus("WAITING");
+            startPolling(res.data.data.merchantTransactionId);
+        } catch (error: any) {
+            setStatus("IDLE");
+            toast.error("QR Generation Failed", { description: error.response?.data?.message || "Internal error" });
+        }
+    };
 
     const { data: classes } = useQuery({
         queryKey: ["classes-list"],
@@ -170,7 +252,19 @@ export function AddStudentModal({ isOpen, onClose }: AddStudentModalProps) {
     };
 
     const onSubmit: SubmitHandler<StudentValues> = (data) => {
-        mutation.mutate(data);
+        const isOnline = ["upi", "online"].includes(data.depositPaymentMode || "");
+        if (isOnline && (data.initialDepositAmount || 0) > 0 && status !== "COMPLETED") {
+            toast.info("Payment Required", { description: "Please complete the UPI payment using the QR code first." });
+            return;
+        }
+
+        // Include the verified transaction ID
+        const finalData = {
+            ...data,
+            depositTransactionId: merchantTransactionId || undefined
+        };
+
+        mutation.mutate(finalData);
     };
 
     return (
@@ -333,18 +427,79 @@ export function AddStudentModal({ isOpen, onClose }: AddStudentModalProps) {
                         <div className="space-y-2">
                             <label className="text-[10px] font-bold uppercase tracking-widest text-zinc-500 ml-1">Payment Mode</label>
                             <select
-                                className="h-10 w-full rounded-xl border-gray-200 bg-white px-3 text-sm"
+                                className="h-10 w-full rounded-xl border-gray-200 bg-white px-3 text-sm focus:ring-2 focus:ring-purple-500 outline-none transition-all"
                                 {...register("depositPaymentMode")}
                             >
                                 <option value="">Select mode</option>
                                 <option value="cash">Cash</option>
-                                <option value="upi">UPI</option>
-                                <option value="online">Online</option>
+                                <option value="upi">UPI/QR Code</option>
+                                <option value="online">Online Transfer</option>
                                 <option value="cheque">Cheque</option>
                                 <option value="bank">Bank Transfer</option>
                             </select>
                         </div>
                     </div>
+
+                    {/* QR Code Section - Dynamic */}
+                    {(paymentMode === "upi" || paymentMode === "online") && depositAmount > 0 && (
+                        <div className="mt-4 p-6 rounded-3xl bg-zinc-50 border border-zinc-100 flex flex-col items-center gap-4 transition-all animate-in fade-in slide-in-from-top-4">
+                            {status === "IDLE" && (
+                                <Button
+                                    type="button"
+                                    onClick={handleGenerateQR}
+                                    className="bg-zinc-900 hover:bg-zinc-800 text-white rounded-2xl px-8 h-12 font-bold shadow-lg flex items-center gap-2"
+                                >
+                                    <QrCode className="h-5 w-5" /> Generate PhonePe QR
+                                </Button>
+                            )}
+
+                            {status === "GENERATING" && (
+                                <div className="flex flex-col items-center gap-3 py-6">
+                                    <Loader2 className="h-10 w-10 text-purple-600 animate-spin" />
+                                    <p className="text-xs font-bold text-zinc-500 uppercase tracking-widest">Securing Payment Channel...</p>
+                                </div>
+                            )}
+
+                            {(status === "WAITING" || status === "COMPLETED" || status === "FAILED") && qrData && (
+                                <div className="flex flex-col items-center gap-4">
+                                    <div className={`p-4 rounded-3xl bg-white shadow-xl border-2 transition-colors ${status === "COMPLETED" ? "border-emerald-500" : "border-zinc-100"}`}>
+                                        <QRCodeSVG value={qrData} size={180} />
+                                    </div>
+
+                                    <div className="text-center">
+                                        {status === "WAITING" && (
+                                            <>
+                                                <p className="text-sm font-bold text-zinc-800">Scan to Pay ₹{depositAmount}</p>
+                                                <div className="flex items-center justify-center gap-2 mt-2">
+                                                    <RefreshCw className="h-3 w-3 text-purple-500 animate-spin" />
+                                                    <p className="text-[10px] text-zinc-500 uppercase tracking-widest font-bold">Waiting for payment confirmation...</p>
+                                                </div>
+                                            </>
+                                        )}
+                                        {status === "COMPLETED" && (
+                                            <div className="flex flex-col items-center gap-1">
+                                                <div className="h-8 w-8 rounded-full bg-emerald-100 flex items-center justify-center mb-1">
+                                                    <CheckCircle2 className="h-5 w-5 text-emerald-600" />
+                                                </div>
+                                                <p className="text-sm font-bold text-emerald-700">Payment Verified Successfully</p>
+                                                <p className="text-[10px] text-zinc-500 uppercase tracking-widest">Transaction ID: {merchantTransactionId?.slice(-8)}</p>
+                                            </div>
+                                        )}
+                                        {status === "FAILED" && (
+                                            <div className="flex flex-col items-center gap-1">
+                                                <XCircle className="h-8 w-8 text-red-500 mb-1" />
+                                                <p className="text-sm font-bold text-red-700">Payment Verification Failed</p>
+                                                <Button variant="link" onClick={handleGenerateQR} className="text-purple-600 text-[10px] font-bold uppercase tracking-widest">Try Again</Button>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            )}
+                            <p className="text-[10px] text-zinc-400 text-center max-w-[200px]">
+                                This QR is dynamic and valid for this session only. Do not refresh the page.
+                            </p>
+                        </div>
+                    )}
                 </div>
 
                 {/* Section: Document Submission */}
@@ -412,12 +567,13 @@ export function AddStudentModal({ isOpen, onClose }: AddStudentModalProps) {
                     </Button>
                     <Button
                         type="submit"
-                        disabled={mutation.isPending}
-                        className="h-14 flex-[2] bg-purple-600 hover:bg-purple-500 rounded-2xl font-bold shadow-xl shadow-purple-500/20 active:scale-[0.98] transition-transform"
+                        disabled={mutation.isPending || (["upi", "online"].includes(paymentMode || "") && depositAmount > 0 && status !== "COMPLETED")}
+                        className={`h-14 flex-[2] rounded-2xl font-bold shadow-xl active:scale-[0.98] transition-all ${status === "COMPLETED" ? "bg-emerald-600 hover:bg-emerald-500 shadow-emerald-500/20" : "bg-purple-600 hover:bg-purple-500 shadow-purple-500/20"}`}
                     >
                         {mutation.isPending ? <Loader2 className="h-5 w-5 animate-spin" /> : (
                             <div className="flex items-center gap-2">
-                                <UserPlus className="h-4 w-4" /> Finalize Enrollment
+                                <UserPlus className="h-4 w-4" />
+                                {status === "COMPLETED" ? "Finalize Enrollment" : (["upi", "online"].includes(paymentMode || "") && depositAmount > 0 ? "Pending Payment..." : "Finalize Enrollment")}
                             </div>
                         )}
                     </Button>

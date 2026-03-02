@@ -113,6 +113,10 @@ export default function StudentLoginPage() {
             </Link>
           </div>
         </div>
+
+        <p className="mt-6 text-center text-[10px] uppercase tracking-wider text-gray-400">
+          Secure login · SMS
+        </p>
       </div>
     </div>
   );

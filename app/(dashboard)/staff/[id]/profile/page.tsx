@@ -2,7 +2,7 @@
 
 import { useParams, useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import api from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -14,8 +14,14 @@ import { Loader2, ArrowLeft, Mail, Phone, Calendar, Save, KeyRound, X, Copy, Cal
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
-function SetCredentialsModal({ staff, onClose }: { staff: { _id: string; name: string; email: string; role?: string }; onClose: () => void }) {
-  const [password, setPassword] = useState("");
+function SetCredentialsModal({ staff, onClose }: { staff: { _id: string; name: string; email: string; phone: string; role?: string }; onClose: () => void }) {
+  const defaultPassword = useMemo(() => {
+    const firstName = (staff.name || "").split(" ")[0].toLowerCase();
+    const lastFour = (staff.phone || "").slice(-4);
+    return firstName + lastFour;
+  }, [staff.name, staff.phone]);
+
+  const [password, setPassword] = useState(defaultPassword);
   const [done, setDone] = useState(false);
 
   const mutation = useMutation({
@@ -284,10 +290,10 @@ export default function StaffProfilePage() {
               <p className="text-gray-900">
                 {staff.joiningDate
                   ? new Date(staff.joiningDate).toLocaleDateString("en-IN", {
-                      day: "numeric",
-                      month: "long",
-                      year: "numeric",
-                    })
+                    day: "numeric",
+                    month: "long",
+                    year: "numeric",
+                  })
                   : "—"}
               </p>
             </div>
@@ -352,7 +358,7 @@ export default function StaffProfilePage() {
 
       {showCredentialsModal && (
         <SetCredentialsModal
-          staff={{ _id: staff._id, name: staff.name, email: staff.email, role: staff.role }}
+          staff={{ _id: staff._id, name: staff.name, email: staff.email, phone: staff.phone, role: staff.role }}
           onClose={() => setShowCredentialsModal(false)}
         />
       )}

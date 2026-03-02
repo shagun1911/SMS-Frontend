@@ -47,6 +47,8 @@ function downloadCsv(rows: any[]) {
     URL.revokeObjectURL(url);
 }
 
+import { AddSchoolModal } from "@/components/master/add-school-modal";
+
 export default function MasterSchoolsPage() {
     const [searchTerm, setSearchTerm] = useState("");
     const [page, setPage] = useState(1);
@@ -137,9 +139,12 @@ export default function MasterSchoolsPage() {
 
     return (
         <div className="flex-1 space-y-6">
-            <div>
-                <h2 className="text-2xl font-bold tracking-tight text-gray-900">Schools</h2>
-                <p className="mt-1 text-sm text-gray-500">Plan, usage and subscription status. No student-level detail.</p>
+            <div className="flex items-center justify-between">
+                <div>
+                    <h2 className="text-2xl font-bold tracking-tight text-gray-900">Schools</h2>
+                    <p className="mt-1 text-sm text-gray-500">Plan, usage and subscription status. No student-level detail.</p>
+                </div>
+                <AddSchoolModal onSuccess={() => queryClient.invalidateQueries({ queryKey: ["master-schools"] })} />
             </div>
 
             <div className="flex flex-wrap items-center gap-4">
@@ -235,26 +240,24 @@ export default function MasterSchoolsPage() {
                                         <td className="p-3">{row.plan ?? "—"}</td>
                                         <td className="p-3">
                                             <span
-                                                className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
-                                                    row.healthLabel === "Good"
+                                                className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${row.healthLabel === "Good"
                                                         ? "bg-emerald-100 text-emerald-700"
                                                         : row.healthLabel === "Fair"
                                                             ? "bg-amber-100 text-amber-700"
                                                             : "bg-red-100 text-red-700"
-                                                }`}
+                                                    }`}
                                             >
                                                 {row.healthLabel ?? "—"}
                                             </span>
                                         </td>
                                         <td className="p-3">
                                             <span
-                                                className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
-                                                    row.status === "active"
+                                                className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${row.status === "active"
                                                         ? "bg-emerald-100 text-emerald-700"
                                                         : row.status === "expired"
                                                             ? "bg-red-100 text-red-700"
                                                             : "bg-gray-100 text-gray-600"
-                                                }`}
+                                                    }`}
                                             >
                                                 {row.status ?? "none"}
                                             </span>

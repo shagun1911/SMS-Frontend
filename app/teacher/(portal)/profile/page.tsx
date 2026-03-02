@@ -5,7 +5,7 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { useSearchParams } from "next/navigation";
 import { useAuthStore } from "@/store/authStore";
 import api from "@/lib/api";
-import { User, Lock, Eye, EyeOff, Loader2, CheckCircle, Mail } from "lucide-react";
+import { User, Lock, Eye, EyeOff, Loader2, CheckCircle, Mail, Calendar } from "lucide-react";
 import { toast } from "sonner";
 
 export default function TeacherProfilePage() {
@@ -114,6 +114,21 @@ export default function TeacherProfilePage() {
           <div>
             <p className="mb-0.5 text-xs uppercase tracking-wide text-slate-500">Role</p>
             <p className="font-medium text-slate-900 capitalize">{(data?.role ?? "").replace("_", " ")}</p>
+          </div>
+          <div>
+            <p className="mb-0.5 text-xs uppercase tracking-wide text-slate-500 flex items-center gap-1">
+              <Calendar className="h-3 w-3" />
+              Joining Date
+            </p>
+            <p className="font-medium text-slate-900">
+              {data?.joiningDate
+                ? new Date(data.joiningDate).toLocaleDateString("en-IN", {
+                  day: "numeric",
+                  month: "long",
+                  year: "numeric",
+                })
+                : "—"}
+            </p>
           </div>
         </div>
       </div>

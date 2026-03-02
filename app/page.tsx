@@ -80,9 +80,8 @@ export default function LandingPage() {
     <div className="min-h-screen bg-[hsl(var(--background))] text-[hsl(var(--foreground))]">
       {/* Navbar: embedded, shrinks on scroll for modern feel */}
       <header
-        className={`sticky top-0 z-50 border-b bg-[hsl(var(--card))] transition-all duration-200 ${
-          scrolled ? "border-[hsl(var(--border))] shadow-card" : "border-transparent"
-        }`}
+        className={`sticky top-0 z-50 border-b bg-[hsl(var(--card))] transition-all duration-200 ${scrolled ? "border-[hsl(var(--border))] shadow-card" : "border-transparent"
+          }`}
       >
         <div className={`mx-auto flex max-w-6xl items-center justify-between px-4 transition-all duration-200 ${scrolled ? "h-12" : "h-14"}`}>
           <Link href="/" className="flex items-center gap-2 text-[hsl(var(--foreground))] transition-smooth hover:opacity-80">
@@ -344,7 +343,7 @@ export default function LandingPage() {
             </h2>
             <span className="mx-auto mt-3 block h-1 w-12 rounded-full bg-[hsl(var(--primary))]/80" />
             <p className="mt-6 text-base text-[hsl(var(--muted-foreground))]">
-              Log in or register your institution.
+              Log in to your institution.
             </p>
             <div className="mt-10 flex flex-wrap items-center justify-center gap-3">
               <Link
@@ -367,12 +366,6 @@ export default function LandingPage() {
               >
                 <BookOpenCheck className="h-4 w-4" />
                 Teacher Login
-              </Link>
-              <Link
-                href="/register"
-                className="inline-flex items-center gap-2 rounded-lg border border-[hsl(var(--border))] bg-[hsl(var(--card))] px-5 py-2.5 text-sm font-medium text-[hsl(var(--foreground))] transition-smooth hover:bg-[hsl(var(--muted))]"
-              >
-                Register school
               </Link>
             </div>
           </div>

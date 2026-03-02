@@ -248,11 +248,11 @@ export default function MasterPlansPage() {
             )}
 
             <Dialog open={open} onOpenChange={setOpen}>
-                <DialogContent>
+                <DialogContent className="max-h-[90vh] flex flex-col">
                     <DialogHeader>
                         <DialogTitle>{editingId ? "Edit plan" : "Create plan"}</DialogTitle>
                     </DialogHeader>
-                    <div className="grid gap-4 py-4">
+                    <div className="grid gap-4 py-4 overflow-y-auto flex-1 pr-1">
                         <div>
                             <label className="text-sm font-medium text-foreground">Name</label>
                             <Input
