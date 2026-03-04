@@ -132,6 +132,20 @@ export function CollectFeeModal({ open, onOpenChange }: CollectFeeModalProps) {
         return dueAmount;
     }, [effectiveMonthIndex, targetDueUntilMonth, dueAmount]);
 
+    function resetForm() {
+        setSearchTerm("");
+        setSelectedStudent(null);
+        setAmount("");
+        setUpToMonth(null);
+        setPaymentMode("cash");
+        setLastReceiptId(null);
+    }
+
+    function handleClose(open: boolean) {
+        if (!open) resetForm();
+        onOpenChange(open);
+    }
+
     const collectFee = useMutation({
         mutationFn: async (payload: { studentId: string; amountPaid: number; paymentMode: string }) => {
             const res = await api.post("/fees/pay", payload);
@@ -147,20 +161,12 @@ export function CollectFeeModal({ open, onOpenChange }: CollectFeeModalProps) {
             const payment = data?.data?.payment ?? data?.payment;
             if (payment?._id) setLastReceiptId(payment._id);
             toast.success(`Fee collected. Receipt: ${payment?.receiptNumber ?? ""}`);
+            handleClose(false);
         },
         onError: (err: any) => {
             toast.error(err.response?.data?.message ?? "Failed to collect fee");
         },
     });
-
-    const resetForm = () => {
-        setSearchTerm("");
-        setSelectedStudent(null);
-        setAmount("");
-        setUpToMonth(null);
-        setPaymentMode("cash");
-        setLastReceiptId(null);
-    };
 
     const handleSubmit = () => {
         const amt = Number(amount);
@@ -177,11 +183,6 @@ export function CollectFeeModal({ open, onOpenChange }: CollectFeeModalProps) {
             amountPaid: amt,
             paymentMode: paymentMode === "bank_transfer" ? "bank" : paymentMode,
         });
-    };
-
-    const handleClose = (open: boolean) => {
-        if (!open) resetForm();
-        onOpenChange(open);
     };
 
     const handleReceiptPdf = async (action: "preview" | "download" | "print") => {
