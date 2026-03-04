@@ -121,7 +121,7 @@ export function Sidebar({ className }: SidebarProps) {
         { label: "Payroll", icon: Wallet, href: "/payroll", roles: [UserRole.SCHOOL_ADMIN, UserRole.ACCOUNTANT], featureKey: "staff" },
         { label: "Fee Structure", icon: Layers, href: "/fees/structure", roles: [UserRole.SCHOOL_ADMIN, UserRole.ACCOUNTANT], exact: true, featureKey: "fees" },
         { label: "Collect Fee", icon: Banknote, href: "/fees", roles: [UserRole.SCHOOL_ADMIN, UserRole.ACCOUNTANT], exact: true, featureKey: "fees" },
-        { label: "Defaulters", icon: UserX, href: "/fees/defaulters", roles: [UserRole.SCHOOL_ADMIN, UserRole.ACCOUNTANT], exact: true, featureKey: "fees" },
+        { label: "Pending Students", icon: UserX, href: "/fees/defaulters", roles: [UserRole.SCHOOL_ADMIN, UserRole.ACCOUNTANT], exact: true, featureKey: "fees" },
         { label: "Transport", icon: Bus, href: "/transport", roles: [UserRole.SCHOOL_ADMIN, UserRole.TRANSPORT_MANAGER], featureKey: "transport" },
         { label: "Exams", icon: FileText, href: "/exams", roles: [UserRole.SCHOOL_ADMIN, UserRole.TEACHER], featureKey: "exams" },
         { label: "Admit Cards", icon: IdCard, href: "/admit-cards", roles: [UserRole.SCHOOL_ADMIN, UserRole.TEACHER], featureKey: "admit_cards" },

@@ -180,6 +180,51 @@ export function AddStudentModal({ isOpen, onClose }: AddStudentModalProps) {
         });
     }, [classes]);
 
+    // Fetch fee structure for selected class to suggest initial deposit (one-time + first month fee)
+    const { data: feeStructure } = useQuery({
+        queryKey: ["fee-structure-for-class", selectedClass],
+        queryFn: async () => {
+            if (!selectedClass) return null;
+            const res = await api.get(`/fees/structure/${encodeURIComponent(selectedClass)}`);
+            return res.data.data ?? res.data;
+        },
+        enabled: !!selectedClass && isOpen,
+    });
+
+    const suggestedInitialDeposit = useMemo(() => {
+        const s: any = feeStructure;
+        if (!s) return 0;
+
+        const components =
+            Array.isArray(s.components) && s.components.length > 0
+                ? s.components
+                : (s.fees || []).map((f: any) => ({
+                      amount: f.amount,
+                      type: f.type,
+                  }));
+
+        let monthlyTotal = 0;
+        let oneTimeTotal = 0;
+        components.forEach((c: any) => {
+            if (!c || typeof c.amount !== "number") return;
+            const t = (c.type || "").toString().toLowerCase();
+            if (t === "one-time" || t === "one_time" || t === "one time") {
+                oneTimeTotal += c.amount;
+            } else if (t === "monthly") {
+                monthlyTotal += c.amount;
+            }
+        });
+
+        return oneTimeTotal + monthlyTotal;
+    }, [feeStructure]);
+
+    // Auto-fill initial deposit with suggested amount when available and empty
+    useEffect(() => {
+        if (isOpen && selectedClass && suggestedInitialDeposit > 0 && !depositAmount) {
+            setValue("initialDepositAmount", suggestedInitialDeposit, { shouldValidate: true });
+        }
+    }, [isOpen, selectedClass, suggestedInitialDeposit, depositAmount, setValue]);
+
     const availableSections = useMemo(() => {
         if (!Array.isArray(classes) || !selectedClass) return [];
         const sectionsSet = new Set<string>();
@@ -423,6 +468,12 @@ export function AddStudentModal({ isOpen, onClose }: AddStudentModalProps) {
                         <div className="space-y-2">
                             <label className="text-[10px] font-bold uppercase tracking-widest text-zinc-500 ml-1">Initial Deposit Amount</label>
                             <Input {...register("initialDepositAmount")} type="number" placeholder="0" min="0" className="h-10 rounded-xl border-gray-200 bg-white" />
+                            {suggestedInitialDeposit > 0 && (
+                                <p className="text-[10px] text-zinc-500 ml-1">
+                                    Suggested first-month fee: ₹{suggestedInitialDeposit.toLocaleString("en-IN")}{" "}
+                                    <span className="text-zinc-400">(one-time fees + first month)</span>
+                                </p>
+                            )}
                         </div>
                         <div className="space-y-2">
                             <label className="text-[10px] font-bold uppercase tracking-widest text-zinc-500 ml-1">Payment Mode</label>
