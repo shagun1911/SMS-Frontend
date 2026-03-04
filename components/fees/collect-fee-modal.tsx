@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Loader2, Search, X, Download, Eye, Printer } from "lucide-react";
@@ -25,11 +25,27 @@ function formatCurrency(n: number) {
     return `₹${Number(n).toLocaleString("en-IN")}`;
 }
 
+const MONTHS = [
+    "January",
+    "February",
+    "March",
+    "April",
+    "May",
+    "June",
+    "July",
+    "August",
+    "September",
+    "October",
+    "November",
+    "December",
+];
+
 export function CollectFeeModal({ open, onOpenChange }: CollectFeeModalProps) {
     const queryClient = useQueryClient();
     const [searchTerm, setSearchTerm] = useState("");
     const [selectedStudent, setSelectedStudent] = useState<any>(null);
     const [amount, setAmount] = useState("");
+    const [upToMonth, setUpToMonth] = useState<number | null>(null);
     const [paymentMode, setPaymentMode] = useState("cash");
     const [lastReceiptId, setLastReceiptId] = useState<string | null>(null);
 
@@ -57,6 +73,65 @@ export function CollectFeeModal({ open, onOpenChange }: CollectFeeModalProps) {
     const paidAmount = student?.paidAmount ?? 0;
     const dueAmount = student?.dueAmount ?? totalYearly - paidAmount;
 
+    const {
+        effectiveMonthIndex,
+        targetTotalUntilMonth,
+        targetPaidUntilMonth,
+        targetDueUntilMonth,
+    } = useMemo(() => {
+        const selectedMonthIndex =
+            typeof upToMonth === "number"
+                ? Math.min(Math.max(upToMonth, 1), 12) - 1
+                : null;
+
+        if (selectedMonthIndex === null || totalYearly <= 0) {
+            return {
+                effectiveMonthIndex: selectedMonthIndex,
+                targetTotalUntilMonth: 0,
+                targetPaidUntilMonth: 0,
+                targetDueUntilMonth: 0,
+            };
+        }
+
+        const admissionDate = student?.admissionDate
+            ? new Date(student.admissionDate)
+            : null;
+        const joiningMonthIndex = admissionDate ? admissionDate.getMonth() : 0;
+
+        const monthsCount =
+            selectedMonthIndex >= joiningMonthIndex
+                ? selectedMonthIndex - joiningMonthIndex + 1
+                : 0;
+
+        if (monthsCount <= 0) {
+            return {
+                effectiveMonthIndex: selectedMonthIndex,
+                targetTotalUntilMonth: 0,
+                targetPaidUntilMonth: 0,
+                targetDueUntilMonth: 0,
+            };
+        }
+
+        const perMonth = totalYearly / 12;
+        const totalUntilRaw = perMonth * monthsCount;
+        const totalUntil = Math.round(totalUntilRaw);
+        const paidUntil = Math.min(paidAmount, totalUntil);
+        const dueUntil = Math.max(0, totalUntil - paidUntil);
+        return {
+            effectiveMonthIndex: selectedMonthIndex,
+            targetTotalUntilMonth: totalUntil,
+            targetPaidUntilMonth: paidUntil,
+            targetDueUntilMonth: dueUntil,
+        };
+    }, [upToMonth, totalYearly, paidAmount, student?.admissionDate]);
+
+    const maxCollectable = useMemo(() => {
+        if (effectiveMonthIndex !== null && targetDueUntilMonth > 0) {
+            return Math.round(targetDueUntilMonth);
+        }
+        return dueAmount;
+    }, [effectiveMonthIndex, targetDueUntilMonth, dueAmount]);
+
     const collectFee = useMutation({
         mutationFn: async (payload: { studentId: string; amountPaid: number; paymentMode: string }) => {
             const res = await api.post("/fees/pay", payload);
@@ -65,6 +140,7 @@ export function CollectFeeModal({ open, onOpenChange }: CollectFeeModalProps) {
         onSuccess: (data: any) => {
             queryClient.invalidateQueries({ queryKey: ["fees-list"] });
             queryClient.invalidateQueries({ queryKey: ["fees-stats"] });
+            queryClient.invalidateQueries({ queryKey: ["fees-monthly"] });
             queryClient.invalidateQueries({ queryKey: ["fee-payments"] });
             queryClient.invalidateQueries({ queryKey: ["fee-defaulters"] });
             queryClient.invalidateQueries({ queryKey: ["fee-summary", selectedStudent?._id] });
@@ -81,6 +157,7 @@ export function CollectFeeModal({ open, onOpenChange }: CollectFeeModalProps) {
         setSearchTerm("");
         setSelectedStudent(null);
         setAmount("");
+        setUpToMonth(null);
         setPaymentMode("cash");
         setLastReceiptId(null);
     };
@@ -91,8 +168,8 @@ export function CollectFeeModal({ open, onOpenChange }: CollectFeeModalProps) {
             toast.error("Enter a valid amount");
             return;
         }
-        if (dueAmount > 0 && amt > dueAmount) {
-            toast.error(`Amount cannot exceed due amount (${formatCurrency(dueAmount)})`);
+        if (maxCollectable > 0 && amt > maxCollectable) {
+            toast.error(`Amount cannot exceed due amount (${formatCurrency(maxCollectable)})`);
             return;
         }
         collectFee.mutate({
@@ -203,6 +280,53 @@ export function CollectFeeModal({ open, onOpenChange }: CollectFeeModalProps) {
                                         <p className="mt-1 flex justify-between"><span className="font-medium text-amber-700">Remaining Due</span><span className="font-semibold">{formatCurrency(dueAmount)}</span></p>
                                     </div>
 
+                                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                                        <div className="space-y-2">
+                                            <Label>Collect fees up to month</Label>
+                                            <select
+                                                className="flex h-10 w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm"
+                                                value={upToMonth ?? ""}
+                                                onChange={(e) =>
+                                                    setUpToMonth(
+                                                        e.target.value ? Number(e.target.value) : null
+                                                    )
+                                                }
+                                            >
+                                                <option value="">Full year</option>
+                                                {MONTHS.map((m, idx) => (
+                                                    <option key={m} value={idx + 1}>
+                                                        {m}
+                                                    </option>
+                                                ))}
+                                            </select>
+                                        </div>
+                                        {effectiveMonthIndex !== null && totalYearly > 0 && (
+                                            <div className="rounded-lg border border-indigo-100 bg-indigo-50 p-3 text-xs sm:text-sm">
+                                                <p className="mb-1 font-medium text-indigo-900">
+                                                    Summary up to {MONTHS[effectiveMonthIndex]}
+                                                </p>
+                                                <p className="flex justify-between">
+                                                    <span>Total fee till month</span>
+                                                    <span className="font-medium">
+                                                        {formatCurrency(targetTotalUntilMonth)}
+                                                    </span>
+                                                </p>
+                                                <p className="mt-1 flex justify-between">
+                                                    <span>Amount already collected</span>
+                                                    <span>{formatCurrency(targetPaidUntilMonth)}</span>
+                                                </p>
+                                                <p className="mt-1 flex justify-between">
+                                                    <span className="font-medium text-amber-700">
+                                                        Pending till month
+                                                    </span>
+                                                    <span className="font-semibold">
+                                                        {formatCurrency(targetDueUntilMonth)}
+                                                    </span>
+                                                </p>
+                                            </div>
+                                        )}
+                                    </div>
+
                                     <div className="grid grid-cols-2 gap-4">
                                         <div className="space-y-2">
                                             <Label>Amount (₹)</Label>
@@ -210,7 +334,7 @@ export function CollectFeeModal({ open, onOpenChange }: CollectFeeModalProps) {
                                                 type="number"
                                                 placeholder="0"
                                                 min={1}
-                                                max={dueAmount || undefined}
+                                                max={maxCollectable || undefined}
                                                 value={amount}
                                                 onChange={(e) => setAmount(e.target.value)}
                                             />
