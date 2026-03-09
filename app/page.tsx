@@ -98,14 +98,14 @@ export default function LandingPage() {
               className="inline-flex items-center gap-1.5 rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-2 text-sm font-medium text-indigo-700 transition-smooth hover:bg-indigo-100 hidden sm:inline-flex"
             >
               <GraduationCap className="h-4 w-4" />
-              Student
+              Student app
             </Link>
             <Link
               href="/teacher/login"
               className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-medium text-emerald-700 transition-smooth hover:bg-emerald-100 hidden sm:inline-flex"
             >
               <BookOpenCheck className="h-4 w-4" />
-              Teacher
+              Teacher app
             </Link>
             <Link
               href="/login?portal=school"
