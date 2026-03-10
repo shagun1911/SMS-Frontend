@@ -68,10 +68,58 @@ export function CollectFeeModal({ open, onOpenChange }: CollectFeeModalProps) {
         enabled: open && !!selectedStudent?._id,
     });
 
+    const { data: sessions } = useQuery({
+        queryKey: ["sessions-list"],
+        queryFn: async () => {
+            const res = await api.get("/sessions");
+            return res.data.data ?? [];
+        },
+        enabled: open,
+    });
+
+    const activeSess = useMemo(
+        () =>
+            Array.isArray(sessions)
+                ? sessions.find((s: any) => s.isActive)
+                : null,
+        [sessions]
+    );
+
+    const sessionMonthOptions = useMemo(() => {
+        if (!activeSess?.startDate || !activeSess?.endDate) {
+            return MONTHS.map((label, idx) => ({ value: idx + 1, label }));
+        }
+        const start = new Date(activeSess.startDate);
+        const end = new Date(activeSess.endDate);
+        if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
+            return MONTHS.map((label, idx) => ({ value: idx + 1, label }));
+        }
+
+        const opts: { value: number; label: string }[] = [];
+        let y = start.getFullYear();
+        let m = start.getMonth() + 1; // 1-based
+        while (y < end.getFullYear() || (y === end.getFullYear() && m <= end.getMonth() + 1)) {
+            opts.push({ value: m, label: MONTHS[m - 1] });
+            m++;
+            if (m > 12) {
+                m = 1;
+                y++;
+            }
+        }
+        return opts;
+    }, [activeSess]);
+
+    const collectUpToOptions = useMemo(() => {
+        // Show all months in the academic session: March..Dec, then Jan, Feb.
+        return sessionMonthOptions;
+    }, [sessionMonthOptions]);
+
     const student = feeSummary?.student ?? selectedStudent;
     const totalYearly = student?.totalYearlyFee ?? 0;
     const paidAmount = student?.paidAmount ?? 0;
     const dueAmount = student?.dueAmount ?? totalYearly - paidAmount;
+    const monthlyFeeFromBackend = feeSummary?.monthlyFee ?? 0;
+    const oneTimeFeeFromBackend = feeSummary?.oneTimeFee ?? 0;
 
     const {
         effectiveMonthIndex,
@@ -84,6 +132,7 @@ export function CollectFeeModal({ open, onOpenChange }: CollectFeeModalProps) {
                 ? Math.min(Math.max(upToMonth, 1), 12) - 1
                 : null;
 
+        // If no specific month is selected yet, show zeros.
         if (selectedMonthIndex === null || totalYearly <= 0) {
             return {
                 effectiveMonthIndex: selectedMonthIndex,
@@ -93,15 +142,13 @@ export function CollectFeeModal({ open, onOpenChange }: CollectFeeModalProps) {
             };
         }
 
-        const admissionDate = student?.admissionDate
-            ? new Date(student.admissionDate)
-            : null;
-        const joiningMonthIndex = admissionDate ? admissionDate.getMonth() : 0;
-
-        const monthsCount =
-            selectedMonthIndex >= joiningMonthIndex
-                ? selectedMonthIndex - joiningMonthIndex + 1
-                : 0;
+        // Work out how many academic months from session start up to this month.
+        // We use the sessionMonthOptions order (e.g. March..Dec, Jan, Feb).
+        let monthsCount = 0;
+        if (Array.isArray(sessionMonthOptions) && sessionMonthOptions.length > 0) {
+            const idx = sessionMonthOptions.findIndex((m) => m.value === upToMonth);
+            monthsCount = idx >= 0 ? idx + 1 : 0;
+        }
 
         if (monthsCount <= 0) {
             return {
@@ -112,18 +159,38 @@ export function CollectFeeModal({ open, onOpenChange }: CollectFeeModalProps) {
             };
         }
 
-        const perMonth = totalYearly / 12;
-        const totalUntilRaw = perMonth * monthsCount;
-        const totalUntil = Math.round(totalUntilRaw);
-        const paidUntil = Math.min(paidAmount, totalUntil);
-        const dueUntil = Math.max(0, totalUntil - paidUntil);
+        // One-time fees (admission, exam, etc.) are collected at admission and are NOT
+        // counted in the monthly summary. Strip them out to get only the monthly portion paid.
+        const monthlyAlreadyPaid = Math.max(0, paidAmount - oneTimeFeeFromBackend);
+
+        if (monthlyFeeFromBackend > 0) {
+            // Total fee till selected month = fixed monthly fee × number of session months
+            const total = Math.round(monthlyFeeFromBackend * monthsCount);
+            // How much of that total has already been paid in monthly fees
+            const collected = Math.min(Math.round(monthlyAlreadyPaid), total);
+            const pending = Math.max(0, total - collected);
+            return {
+                effectiveMonthIndex: selectedMonthIndex,
+                targetTotalUntilMonth: total,
+                targetPaidUntilMonth: collected,
+                targetDueUntilMonth: pending,
+            };
+        }
+
+        // Fallback: use (totalYearly - oneTime) / sessionMonths when monthly fee is not available.
+        const sessionLength = sessionMonthOptions.length > 0 ? sessionMonthOptions.length : 12;
+        const oneTime = oneTimeFeeFromBackend > 0 ? oneTimeFeeFromBackend : 0;
+        const perMonth = (totalYearly - oneTime) / sessionLength;
+        const total = Math.round(perMonth * monthsCount);
+        const collected = Math.min(Math.round(monthlyAlreadyPaid), total);
+        const pending = Math.max(0, total - collected);
         return {
             effectiveMonthIndex: selectedMonthIndex,
-            targetTotalUntilMonth: totalUntil,
-            targetPaidUntilMonth: paidUntil,
-            targetDueUntilMonth: dueUntil,
+            targetTotalUntilMonth: total,
+            targetPaidUntilMonth: collected,
+            targetDueUntilMonth: pending,
         };
-    }, [upToMonth, totalYearly, paidAmount, student?.admissionDate]);
+    }, [upToMonth, totalYearly, paidAmount, monthlyFeeFromBackend, oneTimeFeeFromBackend, sessionMonthOptions]);
 
     const maxCollectable = useMemo(() => {
         if (effectiveMonthIndex !== null && targetDueUntilMonth > 0) {
@@ -294,9 +361,9 @@ export function CollectFeeModal({ open, onOpenChange }: CollectFeeModalProps) {
                                                 }
                                             >
                                                 <option value="">Full year</option>
-                                                {MONTHS.map((m, idx) => (
-                                                    <option key={m} value={idx + 1}>
-                                                        {m}
+                                                {collectUpToOptions.map((m) => (
+                                                    <option key={m.label + m.value} value={m.value}>
+                                                        {m.label}
                                                     </option>
                                                 ))}
                                             </select>

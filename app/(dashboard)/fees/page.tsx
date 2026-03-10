@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
     Banknote,
@@ -51,9 +51,121 @@ export default function FeesPage() {
     const [selectedYear, setSelectedYear] = useState(today.getFullYear());
     const [selectedMonth, setSelectedMonth] = useState(today.getMonth() + 1);
 
+    const { data: sessions } = useQuery({
+        queryKey: ["sessions-list"],
+        queryFn: async () => {
+            const res = await api.get("/sessions");
+            return res.data.data ?? [];
+        },
+    });
+
+    const activeSess = useMemo(
+        () =>
+            Array.isArray(sessions)
+                ? sessions.find((s: any) => s.isActive)
+                : null,
+        [sessions]
+    );
+
+    const sessionBounds = useMemo(() => {
+        if (!activeSess?.startDate || !activeSess?.endDate) return null;
+        const start = new Date(activeSess.startDate);
+        const end = new Date(activeSess.endDate);
+        if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return null;
+        const startYear = start.getFullYear();
+        const startMonth = start.getMonth() + 1;
+        const endYear = end.getFullYear();
+        const endMonth = end.getMonth() + 1;
+        return { startYear, startMonth, endYear, endMonth };
+    }, [activeSess]);
+
+    const allowedYears = useMemo(() => {
+        if (!sessionBounds) {
+            return [today.getFullYear(), today.getFullYear() - 1, today.getFullYear() - 2];
+        }
+        const years = [];
+        for (let y = sessionBounds.startYear; y <= sessionBounds.endYear; y++) {
+            years.push(y);
+        }
+        return years;
+    }, [sessionBounds, today]);
+
+    useEffect(() => {
+        if (!sessionBounds) return;
+        const { startYear, endYear, startMonth, endMonth } = sessionBounds;
+
+        let newYear = selectedYear;
+        if (selectedYear < startYear) newYear = startYear;
+        if (selectedYear > endYear) newYear = endYear;
+
+        let newMonth = selectedMonth;
+
+        if (newYear === startYear && newYear === endYear) {
+            if (selectedMonth < startMonth) newMonth = startMonth;
+            if (selectedMonth > endMonth) newMonth = endMonth;
+        } else if (newYear === startYear) {
+            if (selectedMonth < startMonth) newMonth = startMonth;
+        } else if (newYear === endYear) {
+            if (selectedMonth > endMonth) newMonth = endMonth;
+        } else {
+            if (selectedMonth < 1) newMonth = 1;
+            if (selectedMonth > 12) newMonth = 12;
+        }
+
+        if (newYear !== selectedYear) {
+            setSelectedYear(newYear);
+        }
+        if (newMonth !== selectedMonth) {
+            setSelectedMonth(newMonth);
+        }
+    }, [sessionBounds, selectedYear, selectedMonth]);
+
+    const monthOptions = useMemo(() => {
+        if (!sessionBounds) {
+            return MONTHS.map((label, idx) => ({ value: idx + 1, label }));
+        }
+        const { startYear, startMonth, endYear, endMonth } = sessionBounds;
+        let from = 1;
+        let to = 12;
+
+        if (selectedYear === startYear && selectedYear === endYear) {
+            from = startMonth;
+            to = endMonth;
+        } else if (selectedYear === startYear) {
+            from = startMonth;
+            to = 12;
+        } else if (selectedYear === endYear) {
+            from = 1;
+            to = endMonth;
+        }
+
+        const opts = [];
+        for (let m = from; m <= to; m++) {
+            opts.push({ value: m, label: MONTHS[m - 1] });
+        }
+        return opts;
+    }, [sessionBounds, selectedYear]);
+
     const resetToCurrentMonth = () => {
-        setSelectedYear(today.getFullYear());
-        setSelectedMonth(today.getMonth() + 1);
+        if (!sessionBounds) {
+            setSelectedYear(today.getFullYear());
+            setSelectedMonth(today.getMonth() + 1);
+            return;
+        }
+        const { startYear, startMonth, endYear, endMonth } = sessionBounds;
+        let year = today.getFullYear();
+        let month = today.getMonth() + 1;
+
+        if (year < startYear || year > endYear) {
+            year = startYear;
+            month = startMonth;
+        } else {
+            if (year === startYear && month < startMonth) month = startMonth;
+            if (year === endYear && month > endMonth) month = endMonth;
+        }
+
+        setSelectedYear(year);
+        setSelectedMonth(month);
     };
 
     const { data: monthlyData, isLoading: monthlyLoading } = useQuery({
@@ -118,8 +230,8 @@ export default function FeesPage() {
                             value={selectedMonth}
                             onChange={(e) => setSelectedMonth(Number(e.target.value))}
                         >
-                            {MONTHS.map((m, i) => (
-                                <option key={m} value={i + 1}>{m}</option>
+                            {monthOptions.map((m) => (
+                                <option key={m.value} value={m.value}>{m.label}</option>
                             ))}
                         </select>
                         <select
@@ -127,7 +239,7 @@ export default function FeesPage() {
                             value={selectedYear}
                             onChange={(e) => setSelectedYear(Number(e.target.value))}
                         >
-                            {[today.getFullYear(), today.getFullYear() - 1, today.getFullYear() - 2].map((y) => (
+                            {allowedYears.map((y) => (
                                 <option key={y} value={y}>{y}</option>
                             ))}
                         </select>

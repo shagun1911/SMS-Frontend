@@ -180,7 +180,7 @@ export function AddStudentModal({ isOpen, onClose }: AddStudentModalProps) {
         });
     }, [classes]);
 
-    // Fetch fee structure for selected class to suggest initial deposit (one-time + first month fee)
+    // Fetch fee structure for selected class to suggest initial deposit (sum of all one-time fees only)
     const { data: feeStructure } = useQuery({
         queryKey: ["fee-structure-for-class", selectedClass],
         queryFn: async () => {
@@ -203,19 +203,16 @@ export function AddStudentModal({ isOpen, onClose }: AddStudentModalProps) {
                       type: f.type,
                   }));
 
-        let monthlyTotal = 0;
         let oneTimeTotal = 0;
         components.forEach((c: any) => {
             if (!c || typeof c.amount !== "number") return;
             const t = (c.type || "").toString().toLowerCase();
             if (t === "one-time" || t === "one_time" || t === "one time") {
                 oneTimeTotal += c.amount;
-            } else if (t === "monthly") {
-                monthlyTotal += c.amount;
             }
         });
 
-        return oneTimeTotal + monthlyTotal;
+        return oneTimeTotal;
     }, [feeStructure]);
 
     // Auto-fill initial deposit with suggested amount when available and empty
@@ -470,8 +467,8 @@ export function AddStudentModal({ isOpen, onClose }: AddStudentModalProps) {
                             <Input {...register("initialDepositAmount")} type="number" placeholder="0" min="0" className="h-10 rounded-xl border-gray-200 bg-white" />
                             {suggestedInitialDeposit > 0 && (
                                 <p className="text-[10px] text-zinc-500 ml-1">
-                                    Suggested first-month fee: ₹{suggestedInitialDeposit.toLocaleString("en-IN")}{" "}
-                                    <span className="text-zinc-400">(one-time fees + first month)</span>
+                                    Suggested one-time total: ₹{suggestedInitialDeposit.toLocaleString("en-IN")}{" "}
+                                    <span className="text-zinc-400">(all one-time fees for this session)</span>
                                 </p>
                             )}
                         </div>
