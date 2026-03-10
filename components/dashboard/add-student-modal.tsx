@@ -40,6 +40,7 @@ const studentSchema = z.object({
     tcSubmitted: z.boolean().default(false),
     migrationSubmitted: z.boolean().default(false),
     initialDepositAmount: z.coerce.number().min(0).optional(),
+    concessionAmount: z.coerce.number().min(0).optional(),
     depositPaymentMode: z.string().optional(),
     depositTransactionId: z.string().optional(),
     address: z.object({
@@ -84,6 +85,7 @@ export function AddStudentModal({ isOpen, onClose }: AddStudentModalProps) {
 
     const selectedClass = watch("class");
     const depositAmount = watch("initialDepositAmount") || 0;
+    const concessionAmount = watch("concessionAmount") || 0;
     const paymentMode = watch("depositPaymentMode");
 
     // Payment States
@@ -214,6 +216,42 @@ export function AddStudentModal({ isOpen, onClose }: AddStudentModalProps) {
 
         return oneTimeTotal;
     }, [feeStructure]);
+
+    // Live concession breakdown shown as helper text
+    const concessionBreakdown = useMemo(() => {
+        const s: any = feeStructure;
+        if (!s || concessionAmount <= 0) return null;
+
+        const components =
+            Array.isArray(s.components) && s.components.length > 0
+                ? s.components
+                : (s.fees || []).map((f: any) => ({ amount: f.amount, type: f.type }));
+
+        let monthlyTotal = 0;
+        let oneTimeTotal = 0;
+        components.forEach((c: any) => {
+            if (!c || typeof c.amount !== "number") return;
+            const t = (c.type || "").toString().toLowerCase();
+            if (t === "one-time" || t === "one_time" || t === "one time") oneTimeTotal += c.amount;
+            else if (t === "monthly") monthlyTotal += c.amount;
+        });
+
+        if (monthlyTotal <= 0) return null;
+
+        // Derive session month count from fee structure totals when available
+        const structureTotal = s.totalAmount ?? s.totalAnnualFee ?? 0;
+        const sessionMonths =
+            structureTotal > 0 && monthlyTotal > 0
+                ? Math.round((structureTotal - oneTimeTotal) / monthlyTotal)
+                : 12;
+
+        const annualMonthly = monthlyTotal * sessionMonths;
+        const adjustedAnnualMonthly = Math.max(0, annualMonthly - concessionAmount);
+        const adjustedPerMonth = Math.round(adjustedAnnualMonthly / sessionMonths);
+        const newTotalYearly = adjustedAnnualMonthly + oneTimeTotal;
+
+        return { sessionMonths, annualMonthly, adjustedAnnualMonthly, adjustedPerMonth, newTotalYearly, monthlyTotal };
+    }, [feeStructure, concessionAmount]);
 
     // Auto-fill initial deposit with suggested amount when available and empty
     useEffect(() => {
@@ -486,6 +524,39 @@ export function AddStudentModal({ isOpen, onClose }: AddStudentModalProps) {
                                 <option value="bank">Bank Transfer</option>
                             </select>
                         </div>
+                    </div>
+
+                    {/* Concession Amount */}
+                    <div className="space-y-2">
+                        <label className="text-[10px] font-bold uppercase tracking-widest text-zinc-500 ml-1">
+                            Concession Amount <span className="text-zinc-400 normal-case font-normal">(optional — reduces total monthly fees)</span>
+                        </label>
+                        <Input
+                            {...register("concessionAmount")}
+                            type="number"
+                            placeholder="0"
+                            min="0"
+                            className="h-10 rounded-xl border-gray-200 bg-white"
+                        />
+                        {concessionBreakdown ? (
+                            <div className="mt-1 rounded-xl border border-amber-100 bg-amber-50/60 px-4 py-3 text-[11px] text-amber-800 space-y-1">
+                                <p className="font-semibold text-amber-900">Fee breakdown after concession</p>
+                                <div className="grid grid-cols-2 gap-x-4 gap-y-0.5 mt-1">
+                                    <span className="text-zinc-500">Original monthly/month</span>
+                                    <span className="font-medium">₹{concessionBreakdown.monthlyTotal.toLocaleString("en-IN")}</span>
+                                    <span className="text-zinc-500">Total monthly ({concessionBreakdown.sessionMonths} months)</span>
+                                    <span className="font-medium">₹{concessionBreakdown.annualMonthly.toLocaleString("en-IN")}</span>
+                                    <span className="text-zinc-500">Concession</span>
+                                    <span className="font-semibold text-red-600">− ₹{concessionAmount.toLocaleString("en-IN")}</span>
+                                    <span className="text-zinc-500">Adjusted monthly/month</span>
+                                    <span className="font-semibold text-teal-700">₹{concessionBreakdown.adjustedPerMonth.toLocaleString("en-IN")}</span>
+                                    <span className="text-zinc-500 border-t border-amber-100 pt-1">New total yearly fee</span>
+                                    <span className="font-bold text-indigo-700 border-t border-amber-100 pt-1">₹{concessionBreakdown.newTotalYearly.toLocaleString("en-IN")}</span>
+                                </div>
+                            </div>
+                        ) : concessionAmount > 0 && !feeStructure ? (
+                            <p className="text-[10px] text-zinc-400 ml-1">Select a class first to see the adjusted fee breakdown.</p>
+                        ) : null}
                     </div>
 
                     {/* QR Code Section - Dynamic */}

@@ -195,7 +195,6 @@ export default function FeesPage() {
     const totalCollected = stats?.totalCollected ?? 0;
     const totalExpected = stats?.totalExpected ?? 0;
     const totalPending = stats?.totalPending ?? 0;
-    const collectionRate = stats?.collectionRate ?? 0;
     const transactionCount = stats?.transactionCount ?? 0;
 
     const handleReceiptClick = async (receiptId: string) => {
@@ -266,7 +265,7 @@ export default function FeesPage() {
                 Showing data for <strong>{MONTHS[selectedMonth - 1]} {selectedYear}</strong>
             </div>
 
-            <div className="grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-5">
+            <div className="grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-4">
                 <Card className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
                     <p className="text-xs font-medium uppercase tracking-wide text-gray-500">Collected (Month)</p>
                     <div className="mt-2 flex items-baseline gap-2">
@@ -283,12 +282,6 @@ export default function FeesPage() {
                     <p className="text-xs font-medium uppercase tracking-wide text-gray-500">Pending (Month)</p>
                     <div className="mt-2 flex items-baseline gap-2">
                         <h3 className="text-2xl font-bold text-amber-600">{formatCurrency(totalPending)}</h3>
-                    </div>
-                </Card>
-                <Card className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
-                    <p className="text-xs font-medium uppercase tracking-wide text-gray-500">Collection Rate</p>
-                    <div className="mt-2 flex items-baseline gap-2">
-                        <h3 className="text-2xl font-bold text-gray-900">{collectionRate}%</h3>
                     </div>
                 </Card>
                 <Card className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">

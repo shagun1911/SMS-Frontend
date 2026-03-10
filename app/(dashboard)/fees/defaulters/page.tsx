@@ -23,6 +23,9 @@ function formatCurrency(n: number) {
 
 export default function DefaultersPage() {
     const [search, setSearch] = useState("");
+    const [selectedClass, setSelectedClass] = useState("all");
+    const [selectedSection, setSelectedSection] = useState("all");
+    const [minDue, setMinDue] = useState("");
 
     const { data: overdue = [], isLoading: overdueLoading } = useQuery({
         queryKey: ["fee-defaulters-overdue"],
@@ -40,27 +43,56 @@ export default function DefaultersPage() {
         },
     });
 
-    const filteredOverdue = useMemo(() => {
-        if (!search.trim()) return overdue;
+    const allStudents = useMemo(() => [...overdue, ...currentPending], [overdue, currentPending]);
+
+    const classOptions = useMemo(() => {
+        return Array.from(
+            new Set(
+                allStudents
+                    .map((s: any) => (s.class || "").toString().trim())
+                    .filter(Boolean)
+            )
+        ).sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: "base" }));
+    }, [allStudents]);
+
+    const sectionOptions = useMemo(() => {
+        return Array.from(
+            new Set(
+                allStudents
+                    .filter((s: any) => selectedClass === "all" || (s.class || "").toString() === selectedClass)
+                    .map((s: any) => (s.section || "").toString().trim())
+                    .filter(Boolean)
+            )
+        ).sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: "base" }));
+    }, [allStudents, selectedClass]);
+
+    const matchesFilters = (d: any, which: "overdue" | "current") => {
+        const classMatch = selectedClass === "all" || (d.class || "").toString() === selectedClass;
+        const sectionMatch = selectedSection === "all" || (d.section || "").toString() === selectedSection;
+        if (!classMatch || !sectionMatch) return false;
+
+        const dueAmount = which === "current" ? Number(d.currentMonthDue ?? 0) : Number(d.dueAmount ?? 0);
+        const minDueValue = minDue.trim() ? Number(minDue) : null;
+
+        if (minDueValue !== null && !Number.isNaN(minDueValue) && dueAmount < minDueValue) return false;
+
+        if (!search.trim()) return true;
         const q = search.toLowerCase();
-        return overdue.filter((d: any) => {
-            const name = `${d.firstName || ""} ${d.lastName || ""}`.toLowerCase();
-            const adm = (d.admissionNumber || "").toLowerCase();
-            const cls = (d.class || "").toLowerCase();
-            return name.includes(q) || adm.includes(q) || cls.includes(q);
-        });
-    }, [overdue, search]);
+        
+        const name = `${d.firstName || ""} ${d.lastName || ""}`.toLowerCase();
+        const adm = (d.admissionNumber || "").toLowerCase();
+        const cls = (d.class || "").toLowerCase();
+        const sec = (d.section || "").toLowerCase();
+        return name.includes(q) || adm.includes(q) || cls.includes(q) || sec.includes(q);
+    };
+
+    const filteredOverdue = useMemo(() => {
+        return overdue.filter((d: any) => matchesFilters(d, "overdue"));
+    }, [overdue, search, selectedClass, selectedSection, minDue]);
 
     const filteredCurrentPending = useMemo(() => {
-        if (!search.trim()) return currentPending;
-        const q = search.toLowerCase();
-        return currentPending.filter((d: any) => {
-            const name = `${d.firstName || ""} ${d.lastName || ""}`.toLowerCase();
-            const adm = (d.admissionNumber || "").toLowerCase();
-            const cls = (d.class || "").toLowerCase();
-            return name.includes(q) || adm.includes(q) || cls.includes(q);
-        });
-    }, [currentPending, search]);
+        return currentPending.filter((d: any) => matchesFilters(d, "current"));
+    }, [currentPending, search, selectedClass, selectedSection, minDue]);
 
     const downloadCsv = (which: "overdue" | "current") => {
         const headers = which === "current"
@@ -94,14 +126,47 @@ export default function DefaultersPage() {
                     <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-gray-900">Pending Students</h2>
                     <p className="mt-1 text-sm text-gray-500">Defaulters (previous months) and students who haven’t paid the current month.</p>
                 </div>
-                <div className="relative w-full sm:w-64">
-                    <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+                <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
+                    <select
+                        className="h-9 rounded-md border border-input bg-background px-3 text-sm"
+                        value={selectedClass}
+                        onChange={(e) => {
+                            setSelectedClass(e.target.value);
+                            setSelectedSection("all");
+                        }}
+                    >
+                        <option value="all">All Classes</option>
+                        {classOptions.map((cls) => (
+                            <option key={cls} value={cls}>{cls}</option>
+                        ))}
+                    </select>
+                    <select
+                        className="h-9 rounded-md border border-input bg-background px-3 text-sm"
+                        value={selectedSection}
+                        onChange={(e) => setSelectedSection(e.target.value)}
+                    >
+                        <option value="all">All Sections</option>
+                        {sectionOptions.map((section) => (
+                            <option key={section} value={section}>{section}</option>
+                        ))}
+                    </select>
                     <Input
-                        placeholder="Search student..."
-                        className="h-9 pl-9"
-                        value={search}
-                        onChange={(e) => setSearch(e.target.value)}
+                        type="number"
+                        min="0"
+                        placeholder="Min due"
+                        className="h-9 w-full sm:w-28"
+                        value={minDue}
+                        onChange={(e) => setMinDue(e.target.value)}
                     />
+                    <div className="relative w-full sm:w-64">
+                        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+                        <Input
+                            placeholder="Search student..."
+                            className="h-9 pl-9"
+                            value={search}
+                            onChange={(e) => setSearch(e.target.value)}
+                        />
+                    </div>
                 </div>
             </div>
 
