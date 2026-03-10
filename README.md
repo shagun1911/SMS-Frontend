@@ -1,6 +1,8 @@
 # SMS Frontend (Web)
 
 This repository contains the **web frontend** for the School Management System.
+.
+.
 
 ## Mobile app
 
