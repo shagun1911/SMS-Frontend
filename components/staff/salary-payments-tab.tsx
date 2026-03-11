@@ -19,7 +19,7 @@ interface SalaryPaymentsTabProps {
   compact?: boolean;
 }
 
-const PAYMENT_MODES = ["cash", "bank_transfer", "upi", "cheque", "other"] as const;
+const PAYMENT_MODES = ["cash", "cheque", "online", "upi", "card"] as const;
 type PaymentMode = typeof PAYMENT_MODES[number];
 
 interface PayForm {
@@ -437,6 +437,50 @@ export default function SalaryPaymentsTab({ staffId, compact }: SalaryPaymentsTa
               >
                 <X className="h-5 w-5" />
               </button>
+            </div>
+
+            <div className="rounded-xl border bg-muted/30 divide-y overflow-hidden">
+              <div className="flex items-center justify-between px-4 py-3">
+                <span className="text-sm text-muted-foreground">Base salary</span>
+                <span className="text-sm font-medium">{fmt(viewingHistory.basicSalary ?? 0)}</span>
+              </div>
+
+              {(viewingHistory.allowances || []).map((allowance: any, index: number) => (
+                <div key={`allowance-${index}`} className="flex items-center justify-between px-4 py-3">
+                  <span className="text-sm text-muted-foreground">{allowance.title}</span>
+                  <span className="text-sm font-medium text-emerald-600">+{fmt(allowance.amount || 0)}</span>
+                </div>
+              ))}
+
+              {(viewingHistory.allowances?.length || 0) > 0 && (
+                <div className="flex items-center justify-between px-4 py-3">
+                  <span className="text-sm text-muted-foreground">Total allowances</span>
+                  <span className="text-sm font-medium text-emerald-600">
+                    +{fmt((viewingHistory.allowances || []).reduce((sum: number, item: any) => sum + (item.amount || 0), 0))}
+                  </span>
+                </div>
+              )}
+
+              {(viewingHistory.deductions || []).map((deduction: any, index: number) => (
+                <div key={`deduction-${index}`} className="flex items-center justify-between px-4 py-3">
+                  <span className="text-sm text-muted-foreground">{deduction.title}</span>
+                  <span className="text-sm font-medium text-rose-500">-{fmt(deduction.amount || 0)}</span>
+                </div>
+              ))}
+
+              {(viewingHistory.deductions?.length || 0) > 0 && (
+                <div className="flex items-center justify-between px-4 py-3">
+                  <span className="text-sm text-muted-foreground">Total deductions</span>
+                  <span className="text-sm font-medium text-rose-500">
+                    -{fmt((viewingHistory.deductions || []).reduce((sum: number, item: any) => sum + (item.amount || 0), 0))}
+                  </span>
+                </div>
+              )}
+
+              <div className="flex items-center justify-between px-4 py-3 bg-background">
+                <span className="text-sm font-semibold">Net salary</span>
+                <span className="text-base font-bold text-emerald-600">{fmt(viewingHistory.netSalary || 0)}</span>
+              </div>
             </div>
 
             <div className="space-y-3 max-h-[60vh] overflow-y-auto">

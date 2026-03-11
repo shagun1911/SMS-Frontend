@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useRef, useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -22,9 +22,9 @@ const staffSchema = z.object({
         UserRole.TEACHER,
         UserRole.ACCOUNTANT,
         UserRole.TRANSPORT_MANAGER,
-        UserRole.SCHOOL_ADMIN
+        UserRole.SCHOOL_ADMIN,
     ]),
-    baseSalary: z.string().min(1, "Basic salary required"),
+    baseSalary: z.string().optional().default("0"),
     joiningDate: z.string().min(1, "Joining date required"),
     subject: z.string().optional(),
 });
@@ -49,6 +49,7 @@ export function AddStaffModal({ isOpen, onClose }: AddStaffModalProps) {
         handleSubmit,
         reset,
         watch,
+        setValue,
         formState: { errors },
     } = useForm<StaffValues>({
         resolver: zodResolver(staffSchema),
@@ -58,6 +59,12 @@ export function AddStaffModal({ isOpen, onClose }: AddStaffModalProps) {
     });
 
     const selectedRole = watch("role");
+
+    useEffect(() => {
+        if (selectedRole === UserRole.SCHOOL_ADMIN) {
+            setValue("baseSalary", "0");
+        }
+    }, [selectedRole, setValue]);
 
     const handlePhotoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
@@ -211,8 +218,18 @@ export function AddStaffModal({ isOpen, onClose }: AddStaffModalProps) {
                     />
                     <div className="space-y-2">
                         <label className="text-xs font-bold uppercase tracking-wider text-zinc-500 ml-1">Base Salary (Monthly)</label>
-                        <Input {...register("baseSalary")} type="number" placeholder="₹ 0.00" className="h-11 rounded-xl border-gray-200 bg-white" />
-                        {errors.baseSalary && <p className="text-[10px] text-red-400 ml-1">{errors.baseSalary.message}</p>}
+                        <Input
+                            {...register("baseSalary")}
+                            type="number"
+                            placeholder="₹ 0.00"
+                            disabled={selectedRole === UserRole.SCHOOL_ADMIN}
+                            value={selectedRole === UserRole.SCHOOL_ADMIN ? "0" : undefined}
+                            className={`h-11 rounded-xl border-gray-200 bg-white ${selectedRole === UserRole.SCHOOL_ADMIN ? "opacity-50 cursor-not-allowed" : ""}`}
+                        />
+                        {selectedRole === UserRole.SCHOOL_ADMIN && (
+                            <p className="text-[10px] text-muted-foreground ml-1">Payroll is not generated for school admins</p>
+                        )}
+                        {errors.baseSalary && selectedRole !== UserRole.SCHOOL_ADMIN && <p className="text-[10px] text-red-400 ml-1">{errors.baseSalary.message}</p>}
                     </div>
                 </div>
 

@@ -14,6 +14,13 @@ import {
     History,
     Trash2,
     AlertTriangle,
+    Lock,
+    ShieldCheck,
+    Eye,
+    EyeOff,
+    X,
+    Pencil,
+    Check,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -26,6 +33,13 @@ import { Badge } from "@/components/ui/badge";
 import api from "@/lib/api";
 import { toast } from "sonner";
 
+import {
+    Dialog,
+    DialogContent,
+    DialogHeader,
+    DialogTitle,
+    DialogDescription,
+} from "@/components/ui/dialog";
 import { AddStaffModal } from "@/components/dashboard/add-staff-modal";
 import { LockedFeatureGate } from "@/components/plan/locked-feature-gate";
 
@@ -37,6 +51,7 @@ interface StaffMember {
     role: string;
     baseSalary?: number;
     photo?: string;
+    plainPassword?: string;
     createdAt: string;
 }
 
@@ -253,13 +268,193 @@ const ROLE_TABS = [
     { label: "Teacher", value: "teacher" },
     { label: "Accountant", value: "accountant" },
     { label: "Transport Manager", value: "transport_manager" },
-    { label: "School Admin", value: "schooladmin" },
 ] as const;
+
+// ── School Admin Card (credentials + edit) ───────────────────────────────────
+function SchoolAdminCard({ member }: { member: StaffMember }) {
+    const queryClient = useQueryClient();
+    const [showPassword, setShowPassword] = useState(false);
+    const [editing, setEditing] = useState(false);
+    const [editEmail, setEditEmail] = useState(member.email);
+    const [editPassword, setEditPassword] = useState("");
+    const [showEditPassword, setShowEditPassword] = useState(false);
+    const [saving, setSaving] = useState(false);
+
+    const handleSave = async () => {
+        setSaving(true);
+        try {
+            const emailChanged = editEmail.trim() && editEmail.trim() !== member.email;
+            const passwordChanged = editPassword.trim().length > 0;
+
+            if (!emailChanged && !passwordChanged) {
+                setEditing(false);
+                setSaving(false);
+                return;
+            }
+
+            if (emailChanged) {
+                await api.put(`/users/${member._id}`, { email: editEmail.trim() });
+            }
+            if (passwordChanged) {
+                if (editPassword.trim().length < 6) {
+                    toast.error("Password must be at least 6 characters");
+                    setSaving(false);
+                    return;
+                }
+                await api.post(`/users/${member._id}/set-password`, { password: editPassword.trim() });
+            }
+
+            queryClient.invalidateQueries({ queryKey: ["staff-list"] });
+            toast.success("Credentials updated", {
+                description: `${emailChanged ? "Email" : ""}${emailChanged && passwordChanged ? " & " : ""}${passwordChanged ? "Password" : ""} updated for ${member.name}.`,
+            });
+            setEditing(false);
+            setEditPassword("");
+        } catch (err: any) {
+            toast.error(err.response?.data?.message || "Failed to update credentials");
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    const handleCancel = () => {
+        setEditing(false);
+        setEditEmail(member.email);
+        setEditPassword("");
+        setShowEditPassword(false);
+    };
+
+    return (
+        <Card className="border border-amber-200 bg-amber-50/40 overflow-hidden rounded-2xl shadow-sm">
+            <CardContent className="p-6">
+                <div className="flex items-start gap-4">
+                    <Avatar className="h-14 w-14 border border-amber-200">
+                        <AvatarImage src={member.photo} />
+                        <AvatarFallback className="bg-amber-100 text-amber-700 font-semibold">
+                            {member.name.charAt(0)}
+                        </AvatarFallback>
+                    </Avatar>
+                    <div className="flex-1 min-w-0">
+                        <h3 className="font-semibold text-lg text-gray-900">{member.name}</h3>
+                        <Badge className="mt-1 text-xs bg-amber-100 text-amber-700 border-amber-200">
+                            School Admin
+                        </Badge>
+                    </div>
+                    {!editing ? (
+                        <button
+                            type="button"
+                            onClick={() => setEditing(true)}
+                            className="p-1.5 rounded-lg text-amber-500 hover:bg-amber-100 transition-colors"
+                            title="Edit credentials"
+                        >
+                            <Pencil className="h-4 w-4" />
+                        </button>
+                    ) : (
+                        <ShieldCheck className="h-5 w-5 text-amber-600 shrink-0 mt-1" />
+                    )}
+                </div>
+
+                <div className="mt-5 space-y-3">
+                    {/* Email */}
+                    <div className="rounded-xl bg-white border border-gray-100 p-3">
+                        <p className="text-[10px] font-medium text-gray-500 uppercase tracking-wider mb-1">Login Email</p>
+                        {editing ? (
+                            <Input
+                                type="email"
+                                value={editEmail}
+                                onChange={(e) => setEditEmail(e.target.value)}
+                                className="h-9 text-sm rounded-lg"
+                            />
+                        ) : (
+                            <p className="text-sm font-medium text-gray-900 break-all">{member.email}</p>
+                        )}
+                    </div>
+
+                    {/* Password */}
+                    <div className="rounded-xl bg-white border border-gray-100 p-3">
+                        <p className="text-[10px] font-medium text-gray-500 uppercase tracking-wider mb-1">
+                            {editing ? "New Password" : "Password"}
+                        </p>
+                        {editing ? (
+                            <div className="relative">
+                                <Input
+                                    type={showEditPassword ? "text" : "password"}
+                                    value={editPassword}
+                                    onChange={(e) => setEditPassword(e.target.value)}
+                                    placeholder="Leave blank to keep current"
+                                    className="h-9 text-sm rounded-lg pr-9"
+                                />
+                                <button
+                                    type="button"
+                                    onClick={() => setShowEditPassword(!showEditPassword)}
+                                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                                >
+                                    {showEditPassword ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+                                </button>
+                            </div>
+                        ) : (
+                            <div className="flex items-center justify-between gap-2">
+                                <p className="text-sm font-mono font-medium text-gray-900 break-all">
+                                    {showPassword ? (member.plainPassword || "Not available") : "••••••••"}
+                                </p>
+                                <button
+                                    type="button"
+                                    onClick={() => setShowPassword(!showPassword)}
+                                    className="text-gray-400 hover:text-gray-600"
+                                >
+                                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                                </button>
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Phone (always read-only) */}
+                    <div className="flex items-center gap-3 text-xs text-gray-500 px-1">
+                        <Phone className="h-3.5 w-3.5" />
+                        {member.phone}
+                    </div>
+
+                    {/* Edit action buttons */}
+                    {editing && (
+                        <div className="flex gap-2 pt-1">
+                            <Button
+                                onClick={handleSave}
+                                disabled={saving}
+                                className="flex-1 h-9 bg-amber-500 hover:bg-amber-600 text-white text-xs font-semibold rounded-xl"
+                            >
+                                {saving ? (
+                                    <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" />
+                                ) : (
+                                    <Check className="h-3.5 w-3.5 mr-1.5" />
+                                )}
+                                Save
+                            </Button>
+                            <Button
+                                variant="outline"
+                                onClick={handleCancel}
+                                disabled={saving}
+                                className="flex-1 h-9 text-xs rounded-xl"
+                            >
+                                Cancel
+                            </Button>
+                        </div>
+                    )}
+                </div>
+            </CardContent>
+        </Card>
+    );
+}
 
 export default function StaffPage() {
     const [searchTerm, setSearchTerm] = useState("");
     const [selectedRole, setSelectedRole] = useState<string>("all");
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+    const [adminAuthOpen, setAdminAuthOpen] = useState(false);
+    const [adminUnlocked, setAdminUnlocked] = useState(false);
+    const [authPassword, setAuthPassword] = useState("");
+    const [authError, setAuthError] = useState("");
+    const [authLoading, setAuthLoading] = useState(false);
+    const [showAuthPassword, setShowAuthPassword] = useState(false);
     const router = useRouter();
 
     const { data: staffData, isLoading } = useQuery({
@@ -270,7 +465,9 @@ export default function StaffPage() {
         }
     });
 
-    const staff: StaffMember[] = staffData || [];
+    const allStaff: StaffMember[] = staffData || [];
+    const staff = allStaff.filter((m) => m.role !== "schooladmin");
+    const schoolAdmins = allStaff.filter((m) => m.role === "schooladmin");
 
     const filteredStaff = staff.filter((member: any) => {
         const matchesRole = selectedRole === "all" || member.role === selectedRole;
@@ -283,6 +480,37 @@ export default function StaffPage() {
 
     const countFor = (role: string) =>
         role === "all" ? staff.length : staff.filter((m) => m.role === role).length;
+
+    const handleAdminAuth = async () => {
+        if (!authPassword.trim()) {
+            setAuthError("Please enter your password");
+            return;
+        }
+        setAuthLoading(true);
+        setAuthError("");
+        try {
+            await api.post("/auth/verify-password", { password: authPassword });
+            setAdminUnlocked(true);
+            setAdminAuthOpen(false);
+            setAuthPassword("");
+            toast.success("Access granted", { description: "School admin credentials are now visible." });
+        } catch (err: any) {
+            setAuthError(err.response?.data?.message || "Verification failed");
+        } finally {
+            setAuthLoading(false);
+        }
+    };
+
+    const handleAdminButtonClick = () => {
+        if (adminUnlocked) {
+            setAdminUnlocked(false);
+        } else {
+            setAuthPassword("");
+            setAuthError("");
+            setShowAuthPassword(false);
+            setAdminAuthOpen(true);
+        }
+    };
 
     return (
         <LockedFeatureGate featureKey="staff" featureLabel="Staff & payroll">
@@ -329,7 +557,51 @@ export default function StaffPage() {
                             </button>
                         );
                     })}
+
+                    {schoolAdmins.length > 0 && (
+                        <button
+                            type="button"
+                            onClick={handleAdminButtonClick}
+                            className={`inline-flex items-center gap-1.5 rounded-xl px-4 py-2 text-sm font-medium transition-all ${
+                                adminUnlocked
+                                    ? "bg-amber-500 text-white shadow-sm shadow-amber-200"
+                                    : "bg-white border border-amber-300 text-amber-700 hover:border-amber-400 hover:bg-amber-50"
+                            }`}
+                        >
+                            {adminUnlocked ? <ShieldCheck className="h-3.5 w-3.5" /> : <Lock className="h-3.5 w-3.5" />}
+                            School Admin
+                            <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${
+                                adminUnlocked ? "bg-white/20 text-white" : "bg-amber-100 text-amber-600"
+                            }`}>
+                                {schoolAdmins.length}
+                            </span>
+                        </button>
+                    )}
                 </div>
+
+                {/* School admin cards (shown when unlocked) */}
+                {adminUnlocked && schoolAdmins.length > 0 && (
+                    <div className="space-y-3">
+                        <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                                <ShieldCheck className="h-4 w-4 text-amber-600" />
+                                <h3 className="text-sm font-semibold text-amber-700">School Admin Accounts</h3>
+                            </div>
+                            <button
+                                type="button"
+                                onClick={() => setAdminUnlocked(false)}
+                                className="text-xs text-gray-400 hover:text-gray-600 flex items-center gap-1"
+                            >
+                                <Lock className="h-3 w-3" /> Lock
+                            </button>
+                        </div>
+                        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+                            {schoolAdmins.map((admin) => (
+                                <SchoolAdminCard key={admin._id} member={admin} />
+                            ))}
+                        </div>
+                    </div>
+                )}
 
                 <div className="relative max-w-sm">
                     <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
@@ -365,6 +637,56 @@ export default function StaffPage() {
                     isOpen={isAddModalOpen}
                     onClose={() => setIsAddModalOpen(false)}
                 />
+
+                {/* Credential verification dialog */}
+                <Dialog open={adminAuthOpen} onOpenChange={setAdminAuthOpen}>
+                    <DialogContent className="sm:max-w-md">
+                        <DialogHeader>
+                            <DialogTitle className="flex items-center gap-2">
+                                <Lock className="h-5 w-5 text-amber-600" />
+                                Verify Your Identity
+                            </DialogTitle>
+                            <DialogDescription>
+                                Enter your account password to view school admin credentials.
+                            </DialogDescription>
+                        </DialogHeader>
+                        <div className="space-y-4 pt-2">
+                            <div className="relative">
+                                <Input
+                                    type={showAuthPassword ? "text" : "password"}
+                                    placeholder="Enter your password"
+                                    value={authPassword}
+                                    onChange={(e) => { setAuthPassword(e.target.value); setAuthError(""); }}
+                                    onKeyDown={(e) => { if (e.key === "Enter") handleAdminAuth(); }}
+                                    className="pr-10 h-11 rounded-xl"
+                                    autoFocus
+                                />
+                                <button
+                                    type="button"
+                                    onClick={() => setShowAuthPassword(!showAuthPassword)}
+                                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                                >
+                                    {showAuthPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                                </button>
+                            </div>
+                            {authError && (
+                                <p className="text-sm text-red-600 font-medium">{authError}</p>
+                            )}
+                            <Button
+                                onClick={handleAdminAuth}
+                                disabled={authLoading}
+                                className="w-full h-11 bg-amber-500 hover:bg-amber-600 text-white font-semibold rounded-xl"
+                            >
+                                {authLoading ? (
+                                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                                ) : (
+                                    <ShieldCheck className="h-4 w-4 mr-2" />
+                                )}
+                                Verify & Unlock
+                            </Button>
+                        </div>
+                    </DialogContent>
+                </Dialog>
             </div>
         </LockedFeatureGate>
     );

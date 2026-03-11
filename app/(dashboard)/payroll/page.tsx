@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
     Loader2, Wallet, Clock, CheckCircle2, AlertCircle,
@@ -23,9 +23,9 @@ const MONTHS = [
 const PAYMENT_MODES = [
     { value: "cash", label: "Cash" },
     { value: "cheque", label: "Cheque" },
-    { value: "online", label: "Online" },
+    { value: "online", label: "Online Transfer" },
     { value: "upi", label: "UPI" },
-    { value: "bank", label: "Bank Transfer" },
+    { value: "card", label: "Card" },
 ];
 
 function currentMonth() { return MONTHS[new Date().getMonth()]; }
@@ -58,13 +58,68 @@ export default function PayrollPage() {
         },
     });
 
+    const { data: sessionsData } = useQuery({
+        queryKey: ["sessions-list"],
+        queryFn: async () => {
+            const res = await api.get("/sessions");
+            return res.data?.data ?? res.data ?? [];
+        },
+    });
+
+    const activeSession: any = useMemo(() => {
+        const list = Array.isArray(sessionsData) ? sessionsData : [];
+        return list.find((s: any) => s.isActive) ?? null;
+    }, [sessionsData]);
+
+    const sessionYears: number[] = useMemo(() => {
+        if (!activeSession?.startDate || !activeSession?.endDate) {
+            return Array.from({ length: 5 }, (_, i) => currentYear() - 2 + i);
+        }
+
+        const startY = new Date(activeSession.startDate).getFullYear();
+        const endY = new Date(activeSession.endDate).getFullYear();
+        const years: number[] = [];
+        for (let y = startY; y <= endY; y++) years.push(y);
+        return years;
+    }, [activeSession]);
+
+    const availableMonths: string[] = useMemo(() => {
+        if (!activeSession?.startDate || !activeSession?.endDate) return MONTHS;
+
+        const start = new Date(activeSession.startDate);
+        const end = new Date(activeSession.endDate);
+        const startY = start.getFullYear();
+        const endY = end.getFullYear();
+        const startM = start.getMonth();
+        const endM = end.getMonth();
+
+        if (year === startY && year === endY) return MONTHS.slice(startM, endM + 1);
+        if (year === startY) return MONTHS.slice(startM);
+        if (year === endY) return MONTHS.slice(0, endM + 1);
+        if (year > startY && year < endY) return MONTHS;
+        return MONTHS;
+    }, [activeSession, year]);
+
+    useEffect(() => {
+        if (sessionYears.length > 0 && !sessionYears.includes(year)) {
+            setYear(sessionYears[0]);
+        }
+    }, [sessionYears, year]);
+
+    useEffect(() => {
+        if (availableMonths.length > 0 && !availableMonths.includes(month)) {
+            setMonth(availableMonths[0]);
+        }
+    }, [availableMonths, month]);
+
     const generateMut = useMutation({
         mutationFn: async () => {
             const res = await api.post("/salaries/generate", { month, year });
             return res.data?.data ?? res.data;
         },
         onSuccess: (d) => {
-            toast.success(`Generated ${d.created} salary records (${d.skipped} skipped)`);
+            const updated = d.updated ?? 0;
+            toast.success(`Generated ${d.created} salary records, refreshed ${updated} existing records`);
             qc.invalidateQueries({ queryKey: qk });
             qc.invalidateQueries({ queryKey: ["payroll-summary", month, year] });
         },
@@ -103,6 +158,12 @@ export default function PayrollPage() {
                         <p className="text-sm text-muted-foreground mt-1">
                             Generate, review and disburse monthly staff salaries.
                         </p>
+                        {activeSession?.startDate && activeSession?.endDate && (
+                            <p className="text-xs text-muted-foreground mt-1">
+                                Active session: {new Date(activeSession.startDate).toLocaleDateString("en-IN", { month: "short", year: "numeric" })} to{" "}
+                                {new Date(activeSession.endDate).toLocaleDateString("en-IN", { month: "short", year: "numeric" })}
+                            </p>
+                        )}
                     </div>
                     <div className="flex items-center gap-2">
                         <div className="relative">
@@ -111,7 +172,7 @@ export default function PayrollPage() {
                                 onChange={(e) => setMonth(e.target.value)}
                                 className="h-9 appearance-none rounded-lg border border-border bg-card pl-3 pr-8 text-sm focus:ring-2 focus:ring-primary"
                             >
-                                {MONTHS.map((m) => <option key={m} value={m}>{m}</option>)}
+                                {availableMonths.map((m) => <option key={m} value={m}>{m}</option>)}
                             </select>
                             <ChevronDown className="pointer-events-none absolute right-2 top-2.5 h-4 w-4 text-muted-foreground" />
                         </div>
@@ -121,7 +182,7 @@ export default function PayrollPage() {
                                 onChange={(e) => setYear(Number(e.target.value))}
                                 className="h-9 appearance-none rounded-lg border border-border bg-card pl-3 pr-8 text-sm focus:ring-2 focus:ring-primary"
                             >
-                                {Array.from({ length: 5 }, (_, i) => currentYear() - 2 + i).map((y) => (
+                                {sessionYears.map((y) => (
                                     <option key={y} value={y}>{y}</option>
                                 ))}
                             </select>
@@ -151,7 +212,7 @@ export default function PayrollPage() {
                         icon={<Clock className="h-5 w-5 text-amber-500" />}
                         label="Pending"
                         value={summaryLoading ? "..." : fmt(s.totalPendingAmount ?? 0)}
-                        sub={`${s.pendingCount ?? 0} staff`}
+                        sub={`${(s.pendingCount ?? 0) + (s.partialCount ?? 0)} staff`}
                     />
                     <SummaryCard
                         icon={<CheckCircle2 className="h-5 w-5 text-emerald-500" />}
@@ -186,7 +247,7 @@ export default function PayrollPage() {
                         />
                     </div>
                     <div className="flex gap-1.5">
-                        {["all", "pending", "paid", "hold"].map((s) => (
+                        {["all", "pending", "partial", "paid", "hold"].map((s) => (
                             <Button
                                 key={s}
                                 size="sm"
@@ -194,7 +255,7 @@ export default function PayrollPage() {
                                 className="h-8 text-xs capitalize"
                                 onClick={() => setStatusFilter(s)}
                             >
-                                {s === "all" ? "All" : s}
+                                {s === "all" ? "All" : s === "partial" ? "Partial" : s}
                             </Button>
                         ))}
                     </div>
@@ -226,6 +287,8 @@ export default function PayrollPage() {
                                         <th className="px-4 py-3 text-right">Allowances</th>
                                         <th className="px-4 py-3 text-right">Deductions</th>
                                         <th className="px-4 py-3 text-right">Net</th>
+                                        <th className="px-4 py-3 text-right">Paid</th>
+                                        <th className="px-4 py-3 text-right">Due</th>
                                         <th className="px-4 py-3 text-center">Status</th>
                                         <th className="px-4 py-3">Payment</th>
                                         <th className="px-4 py-3 text-right">Actions</th>
@@ -235,6 +298,8 @@ export default function PayrollPage() {
                                     {filtered.map((r: any) => {
                                         const allowTotal = (r.allowances || []).reduce((s: number, a: any) => s + a.amount, 0);
                                         const deductTotal = (r.deductions || []).reduce((s: number, d: any) => s + d.amount, 0);
+                                        const paid = r.paidAmount || 0;
+                                        const due = Math.max(0, (r.netSalary || 0) - paid);
                                         return (
                                             <tr key={r._id} className="border-b last:border-0 hover:bg-muted/20 transition-colors">
                                                 <td className="px-4 py-3 font-medium">{r.staffId?.name ?? "—"}</td>
@@ -245,6 +310,8 @@ export default function PayrollPage() {
                                                 <td className="px-4 py-3 text-right tabular-nums text-emerald-600">+{fmt(allowTotal)}</td>
                                                 <td className="px-4 py-3 text-right tabular-nums text-rose-500">-{fmt(deductTotal)}</td>
                                                 <td className="px-4 py-3 text-right tabular-nums font-semibold">{fmt(r.netSalary)}</td>
+                                                <td className="px-4 py-3 text-right tabular-nums text-emerald-600">{paid > 0 ? fmt(paid) : "—"}</td>
+                                                <td className="px-4 py-3 text-right tabular-nums text-rose-500 font-medium">{due > 0 ? fmt(due) : "—"}</td>
                                                 <td className="px-4 py-3 text-center">
                                                     <StatusBadge status={r.status} />
                                                 </td>
@@ -260,7 +327,7 @@ export default function PayrollPage() {
                                                             <Eye className="h-3.5 w-3.5" />
                                                         </Button>
                                                         {r.status !== "paid" && (
-                                                            <Button size="icon" variant="ghost" className="h-7 w-7 text-emerald-600" title="Pay" onClick={() => setPayRecord(r)}>
+                                                            <Button size="icon" variant="ghost" className="h-7 w-7 text-emerald-600" title="Pay remaining" onClick={() => setPayRecord(r)}>
                                                                 <Banknote className="h-3.5 w-3.5" />
                                                             </Button>
                                                         )}
@@ -275,6 +342,12 @@ export default function PayrollPage() {
                                         <td className="px-4 py-3" colSpan={5}>Total ({filtered.length} staff)</td>
                                         <td className="px-4 py-3 text-right tabular-nums">
                                             {fmt(filtered.reduce((s: number, r: any) => s + (r.netSalary || 0), 0))}
+                                        </td>
+                                        <td className="px-4 py-3 text-right tabular-nums text-emerald-600">
+                                            {fmt(filtered.reduce((s: number, r: any) => s + (r.paidAmount || 0), 0))}
+                                        </td>
+                                        <td className="px-4 py-3 text-right tabular-nums text-rose-500">
+                                            {fmt(filtered.reduce((s: number, r: any) => s + Math.max(0, (r.netSalary || 0) - (r.paidAmount || 0)), 0))}
                                         </td>
                                         <td colSpan={3} />
                                     </tr>
@@ -320,6 +393,7 @@ function SummaryCard({ icon, label, value, sub }: { icon: React.ReactNode; label
 function StatusBadge({ status }: { status: string }) {
     const map: Record<string, { cls: string; label: string }> = {
         paid: { cls: "bg-emerald-500/10 text-emerald-600 border-emerald-500/20", label: "Paid" },
+        partial: { cls: "bg-blue-500/10 text-blue-600 border-blue-500/20", label: "Partial" },
         pending: { cls: "bg-amber-500/10 text-amber-600 border-amber-500/20", label: "Pending" },
         hold: { cls: "bg-zinc-500/10 text-zinc-500 border-zinc-500/20", label: "On Hold" },
     };
@@ -332,27 +406,39 @@ function PayModal({ record, onClose, onSuccess }: { record: any | null; onClose:
     const [mode, setMode] = useState("cash");
     const [txnId, setTxnId] = useState("");
     const [remarks, setRemarks] = useState("");
+    const [customAmount, setCustomAmount] = useState("");
+
+    const dueAmount = record ? Math.max(0, (record.netSalary || 0) - (record.paidAmount || 0)) : 0;
+    const payAmount = customAmount ? Number(customAmount) : dueAmount;
 
     const payMut = useMutation({
         mutationFn: async () => {
+            if (payAmount <= 0 || payAmount > dueAmount) {
+                throw new Error(`Amount must be between ₹1 and ${dueAmount.toLocaleString("en-IN")}`);
+            }
             await api.post(`/salaries/${record._id}/pay`, {
-                amount: record.netSalary,
+                amount: payAmount,
                 mode,
                 transactionId: txnId || undefined,
                 remarks: remarks || undefined,
             });
         },
         onSuccess: () => {
-            toast.success("Salary payment recorded");
-            setMode("cash"); setTxnId(""); setRemarks("");
+            toast.success("Salary payment recorded", {
+                description: payAmount < dueAmount
+                    ? `₹${payAmount.toLocaleString("en-IN")} paid. ₹${(dueAmount - payAmount).toLocaleString("en-IN")} still due.`
+                    : "Full salary disbursed.",
+            });
+            setMode("cash"); setTxnId(""); setRemarks(""); setCustomAmount("");
             onSuccess();
         },
-        onError: (e: any) => toast.error(e.response?.data?.message ?? "Payment failed"),
+        onError: (e: any) => toast.error(e.response?.data?.message ?? e.message ?? "Payment failed"),
     });
 
     if (!record) return null;
     const allowTotal = (record.allowances || []).reduce((s: number, a: any) => s + a.amount, 0);
     const deductTotal = (record.deductions || []).reduce((s: number, d: any) => s + d.amount, 0);
+    const alreadyPaid = record.paidAmount || 0;
     const fmt = (n: number) => `₹${n.toLocaleString("en-IN")}`;
 
     return (
@@ -370,9 +456,38 @@ function PayModal({ record, onClose, onSuccess }: { record: any | null; onClose:
                     {deductTotal > 0 && <Row label="Total deductions" value={`-${fmt(deductTotal)}`} cls="text-rose-500 font-medium" border />}
                     <div className="flex justify-between font-semibold pt-2 border-t text-base">
                         <span>Net payable</span>
-                        <span className="text-emerald-600">{fmt(record.netSalary)}</span>
+                        <span>{fmt(record.netSalary)}</span>
                     </div>
+                    {alreadyPaid > 0 && (
+                        <>
+                            <div className="flex justify-between text-sm text-emerald-600">
+                                <span>Already paid</span>
+                                <span>{fmt(alreadyPaid)}</span>
+                            </div>
+                            <div className="flex justify-between font-semibold text-base text-rose-600 pt-1 border-t">
+                                <span>Remaining due</span>
+                                <span>{fmt(dueAmount)}</span>
+                            </div>
+                        </>
+                    )}
                 </div>
+
+                <div className="space-y-1.5">
+                    <Label className="text-xs text-muted-foreground">Payment amount</Label>
+                    <Input
+                        type="number"
+                        min={1}
+                        max={dueAmount}
+                        value={customAmount || dueAmount}
+                        onChange={(e) => setCustomAmount(e.target.value)}
+                        placeholder={`Max ${fmt(dueAmount)}`}
+                        className="h-9 text-sm"
+                    />
+                    {customAmount && Number(customAmount) < dueAmount && Number(customAmount) > 0 && (
+                        <p className="text-xs text-blue-600">Partial payment — ₹{(dueAmount - Number(customAmount)).toLocaleString("en-IN")} will remain due.</p>
+                    )}
+                </div>
+
                 <div className="grid gap-3 sm:grid-cols-2">
                     <div className="space-y-1.5">
                         <Label className="text-xs text-muted-foreground">Payment mode</Label>
@@ -392,8 +507,12 @@ function PayModal({ record, onClose, onSuccess }: { record: any | null; onClose:
                 </div>
                 <div className="flex gap-3 pt-1">
                     <Button variant="outline" className="flex-1" onClick={onClose} disabled={payMut.isPending}>Cancel</Button>
-                    <Button className="flex-1 bg-emerald-600 hover:bg-emerald-500" onClick={() => payMut.mutate()} disabled={payMut.isPending}>
-                        {payMut.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : `Pay ${fmt(record.netSalary)}`}
+                    <Button
+                        className="flex-1 bg-emerald-600 hover:bg-emerald-500"
+                        onClick={() => payMut.mutate()}
+                        disabled={payMut.isPending || payAmount <= 0 || payAmount > dueAmount}
+                    >
+                        {payMut.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : `Pay ${fmt(payAmount)}`}
                     </Button>
                 </div>
             </div>
@@ -465,9 +584,21 @@ function SlipViewer({ record, onClose }: { record: any | null; onClose: () => vo
                             <td className="px-3 py-2">Net Payable</td>
                             <td className="px-3 py-2 text-right tabular-nums text-emerald-600">{fmt(record.netSalary)}</td>
                         </tr>
+                        {(record.paidAmount || 0) > 0 && (
+                            <tr className="text-sm">
+                                <td className="px-3 py-2 text-emerald-600">Amount Paid</td>
+                                <td className="px-3 py-2 text-right tabular-nums text-emerald-600">{fmt(record.paidAmount)}</td>
+                            </tr>
+                        )}
+                        {record.status !== "paid" && (record.paidAmount || 0) > 0 && (
+                            <tr className="text-sm font-semibold">
+                                <td className="px-3 py-2 text-rose-500">Remaining Due</td>
+                                <td className="px-3 py-2 text-right tabular-nums text-rose-500">{fmt(record.netSalary - (record.paidAmount || 0))}</td>
+                            </tr>
+                        )}
                     </tbody>
                 </table>
-                {record.status === "paid" && (
+                {(record.status === "paid" || record.status === "partial") && (
                     <div className="rounded-lg border bg-emerald-50 dark:bg-emerald-500/5 p-3 text-xs space-y-1">
                         <div className="flex justify-between"><span className="text-muted-foreground">Paid on</span><span>{record.paymentDate ? new Date(record.paymentDate).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) : "—"}</span></div>
                         <div className="flex justify-between"><span className="text-muted-foreground">Mode</span><span className="capitalize">{record.paymentMode || "—"}</span></div>
