@@ -24,7 +24,7 @@ const staffSchema = z.object({
         UserRole.TRANSPORT_MANAGER,
         UserRole.SCHOOL_ADMIN,
     ]),
-    baseSalary: z.string().optional().default("0"),
+    baseSalary: z.string().min(1, "Base salary required"),
     joiningDate: z.string().min(1, "Joining date required"),
     subject: z.string().optional(),
 });
