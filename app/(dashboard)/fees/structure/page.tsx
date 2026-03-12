@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useForm, useFieldArray } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -67,6 +67,29 @@ export default function FeeStructurePage() {
             return res.data.data ?? [];
         },
     });
+
+    const { data: sessions } = useQuery({
+        queryKey: ["sessions-list"],
+        queryFn: async () => {
+            const res = await api.get("/sessions");
+            return res.data.data ?? [];
+        },
+    });
+
+    const sessionMonths = useMemo(() => {
+        const active = Array.isArray(sessions)
+            ? sessions.find((s: any) => s.isActive)
+            : null;
+        if (!active?.startDate || !active?.endDate) return 12;
+        const start = new Date(active.startDate);
+        const end = new Date(active.endDate);
+        if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return 12;
+        const months =
+            (end.getFullYear() - start.getFullYear()) * 12 +
+            (end.getMonth() - start.getMonth()) +
+            1;
+        return months > 0 ? months : 12;
+    }, [sessions]);
 
     const { data: classes = [] } = useQuery({
         queryKey: ["classes"],
@@ -221,6 +244,7 @@ export default function FeeStructurePage() {
                                 <TableRow className="bg-gray-50">
                                     <TableHead className="text-xs font-medium uppercase text-gray-500">Class</TableHead>
                                     <TableHead className="text-xs font-medium uppercase text-gray-500">Components</TableHead>
+                                    <TableHead className="text-xs font-medium uppercase text-gray-500">Per Month (₹)</TableHead>
                                     <TableHead className="text-xs font-medium uppercase text-gray-500">Total (₹)</TableHead>
                                     <TableHead className="text-right text-xs font-medium uppercase text-gray-500">Actions</TableHead>
                                 </TableRow>
@@ -229,6 +253,14 @@ export default function FeeStructurePage() {
                                 {structures.map((s: any) => {
                                     const comps = s.components?.length ? s.components : s.fees || [];
                                     const total = s.totalAmount ?? s.totalAnnualFee ?? 0;
+                                    const oneTimeTotal = comps.reduce(
+                                        (sum: number, c: any) =>
+                                            (c?.type === "one-time" ? sum + (c?.amount || 0) : sum),
+                                        0
+                                    );
+                                    const recurringAnnual = Math.max(0, total - oneTimeTotal);
+                                    const perMonth =
+                                        sessionMonths > 0 ? recurringAnnual / sessionMonths : 0;
                                     return (
                                         <TableRow key={s._id} className="border-gray-100">
                                             <TableCell className="font-medium">{s.class}</TableCell>
@@ -238,6 +270,9 @@ export default function FeeStructurePage() {
                                                     const typeLabel = c.type === "one-time" ? " (One-time)" : " (Monthly)";
                                                     return `${label}${typeLabel}`;
                                                 }).join(", ") || "—"}
+                                            </TableCell>
+                                            <TableCell className="font-semibold">
+                                                {recurringAnnual > 0 ? formatCurrency(perMonth) : "—"}
                                             </TableCell>
                                             <TableCell className="font-semibold">{formatCurrency(total)}</TableCell>
                                             <TableCell className="text-right">
