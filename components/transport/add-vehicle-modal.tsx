@@ -26,6 +26,10 @@ export function AddVehicleModal({ open, onOpenChange }: AddVehicleModalProps) {
     const [registrationNumber, setRegistrationNumber] = useState("");
     const [routeName, setRouteName] = useState("");
     const [capacity, setCapacity] = useState("");
+    const [driverName, setDriverName] = useState("");
+    const [driverPhone, setDriverPhone] = useState("");
+    const [conductorName, setConductorName] = useState("");
+    const [conductorPhone, setConductorPhone] = useState("");
 
     const addVehicle = useMutation({
         mutationFn: async (data: any) => {
@@ -48,6 +52,10 @@ export function AddVehicleModal({ open, onOpenChange }: AddVehicleModalProps) {
         setRegistrationNumber("");
         setRouteName("");
         setCapacity("");
+        setDriverName("");
+        setDriverPhone("");
+        setConductorName("");
+        setConductorPhone("");
     };
 
     const handleSubmit = () => {
@@ -60,6 +68,10 @@ export function AddVehicleModal({ open, onOpenChange }: AddVehicleModalProps) {
             registrationNumber: registrationNumber.toUpperCase(),
             routeName,
             capacity: Number(capacity),
+            driverName: driverName?.trim() || undefined,
+            driverPhone: driverPhone?.trim() || undefined,
+            conductorName: conductorName?.trim() || undefined,
+            conductorPhone: conductorPhone?.trim() || undefined,
         };
         addVehicle.mutate(payload);
     };
@@ -103,6 +115,38 @@ export function AddVehicleModal({ open, onOpenChange }: AddVehicleModalProps) {
                                 placeholder="e.g., 40"
                                 value={capacity}
                                 onChange={(e) => setCapacity(e.target.value)}
+                            />
+                        </div>
+                        <div className="space-y-2">
+                            <Label>Driver Name</Label>
+                            <Input
+                                placeholder="e.g., Raj Kumar"
+                                value={driverName}
+                                onChange={(e) => setDriverName(e.target.value)}
+                            />
+                        </div>
+                        <div className="space-y-2">
+                            <Label>Driver Phone</Label>
+                            <Input
+                                placeholder="e.g., 9876543210"
+                                value={driverPhone}
+                                onChange={(e) => setDriverPhone(e.target.value)}
+                            />
+                        </div>
+                        <div className="space-y-2">
+                            <Label>Conductor Name</Label>
+                            <Input
+                                placeholder="e.g., Amit Singh"
+                                value={conductorName}
+                                onChange={(e) => setConductorName(e.target.value)}
+                            />
+                        </div>
+                        <div className="space-y-2">
+                            <Label>Conductor Phone</Label>
+                            <Input
+                                placeholder="e.g., 9876543210"
+                                value={conductorPhone}
+                                onChange={(e) => setConductorPhone(e.target.value)}
                             />
                         </div>
                     </div>

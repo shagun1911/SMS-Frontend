@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useMemo, useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
     Bus,
     Plus,
@@ -10,7 +10,6 @@ import {
     MapPin,
     Navigation,
     Users,
-    ChevronRight,
     Loader2
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -20,10 +19,33 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { AddVehicleModal } from "@/components/transport/add-vehicle-modal";
 import { LockedFeatureGate } from "@/components/plan/locked-feature-gate";
+import {
+    Dialog,
+    DialogContent,
+    DialogHeader,
+    DialogTitle,
+} from "@/components/ui/dialog";
 import api from "@/lib/api";
+import { toast } from "sonner";
 
 export default function TransportPage() {
     const [isAddVehicleOpen, setIsAddVehicleOpen] = useState(false);
+    const [detailsOpen, setDetailsOpen] = useState(false);
+    const [selectedBusId, setSelectedBusId] = useState<string | null>(null);
+    const [editMode, setEditMode] = useState(false);
+    const [driverName, setDriverName] = useState("");
+    const [busNumber, setBusNumber] = useState("");
+    const [registrationNumber, setRegistrationNumber] = useState("");
+    const [routeName, setRouteName] = useState("");
+    const [capacity, setCapacity] = useState("");
+    const [driverPhone, setDriverPhone] = useState("");
+    const [conductorName, setConductorName] = useState("");
+    const [conductorPhone, setConductorPhone] = useState("");
+    const [assignSearch, setAssignSearch] = useState("");
+    const [selectedStudentIds, setSelectedStudentIds] = useState<Record<string, boolean>>({});
+
+    const queryClient = useQueryClient();
+
     const { data: transportData, isLoading } = useQuery({
         queryKey: ["transport-list"],
         queryFn: async () => {
@@ -33,6 +55,91 @@ export default function TransportPage() {
     });
 
     const fleet = transportData || [];
+
+    const { data: busDetails, isLoading: isDetailsLoading } = useQuery({
+        queryKey: ["transport-bus-details", selectedBusId],
+        enabled: !!selectedBusId && detailsOpen,
+        queryFn: async () => {
+            const res = await api.get(`/transport/${selectedBusId}/details`);
+            return res.data.data;
+        },
+    });
+
+    const bus = busDetails?.bus;
+    const students: any[] = Array.isArray(busDetails?.students) ? busDetails.students : [];
+
+    const { data: allStudents, isLoading: isAllStudentsLoading } = useQuery({
+        queryKey: ["students-list-transport"],
+        enabled: detailsOpen,
+        queryFn: async () => {
+            const res = await api.get("/students", { params: { limit: 200 } });
+            const list = res.data.data ?? [];
+            return Array.isArray(list) ? list : [];
+        },
+    });
+
+    const filteredAssignStudents = useMemo(() => {
+        const list: any[] = Array.isArray(allStudents) ? allStudents : [];
+        const q = assignSearch.trim().toLowerCase();
+        if (!q) return list;
+        return list.filter((s: any) => {
+            const full = `${s.firstName ?? ""} ${s.lastName ?? ""}`.trim().toLowerCase();
+            return (
+                full.includes(q) ||
+                String(s.admissionNumber ?? "").toLowerCase().includes(q) ||
+                String(s.phone ?? "").toLowerCase().includes(q) ||
+                String(s.username ?? "").toLowerCase().includes(q)
+            );
+        });
+    }, [allStudents, assignSearch]);
+
+    const updateBus = useMutation({
+        mutationFn: async (payload: any) => {
+            if (!selectedBusId) throw new Error("Missing bus id");
+            const res = await api.put(`/transport/${selectedBusId}`, payload);
+            return res.data?.data ?? res.data;
+        },
+        onSuccess: () => {
+            toast.success("Bus updated");
+            queryClient.invalidateQueries({ queryKey: ["transport-list"] });
+            queryClient.invalidateQueries({ queryKey: ["transport-bus-details", selectedBusId] });
+            setEditMode(false);
+        },
+        onError: (err: any) => {
+            toast.error(err?.response?.data?.message ?? "Unable to update bus");
+        },
+    });
+
+    const assignStudents = useMutation({
+        mutationFn: async (studentIds: string[]) => {
+            if (!selectedBusId) throw new Error("Missing bus id");
+            const res = await api.post(`/transport/${selectedBusId}/students`, { studentIds });
+            return res.data?.data ?? res.data;
+        },
+        onSuccess: () => {
+            toast.success("Students assigned");
+            queryClient.invalidateQueries({ queryKey: ["transport-bus-details", selectedBusId] });
+            setSelectedStudentIds({});
+        },
+        onError: (err: any) => {
+            toast.error(err?.response?.data?.message ?? "Unable to assign students");
+        },
+    });
+
+    const unassignStudents = useMutation({
+        mutationFn: async (studentIds: string[]) => {
+            if (!selectedBusId) throw new Error("Missing bus id");
+            const res = await api.delete(`/transport/${selectedBusId}/students`, { data: { studentIds } });
+            return res.data?.data ?? res.data;
+        },
+        onSuccess: () => {
+            toast.success("Student removed");
+            queryClient.invalidateQueries({ queryKey: ["transport-bus-details", selectedBusId] });
+        },
+        onError: (err: any) => {
+            toast.error(err?.response?.data?.message ?? "Unable to remove student");
+        },
+    });
 
     return (
         <LockedFeatureGate featureKey="transport" featureLabel="Transport">
@@ -101,7 +208,22 @@ export default function TransportPage() {
             ) : (
                 <div className="grid gap-6 md:grid-cols-2">
                     {Array.isArray(fleet) && fleet.length > 0 ? fleet.map((item: any) => (
-                        <Card key={item._id} className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm transition-shadow hover:shadow-md">
+                        <Card
+                            key={item._id}
+                            className="cursor-pointer overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm transition-shadow hover:shadow-md"
+                            onClick={() => {
+                                setSelectedBusId(item._id);
+                                setDetailsOpen(true);
+                            }}
+                            role="button"
+                            tabIndex={0}
+                            onKeyDown={(e) => {
+                                if (e.key === "Enter" || e.key === " ") {
+                                    setSelectedBusId(item._id);
+                                    setDetailsOpen(true);
+                                }
+                            }}
+                        >
                             <CardContent className="p-0">
                                 <div className="flex flex-col md:flex-row">
                                     <div className="flex w-full flex-col items-center justify-center border-b border-gray-100 bg-indigo-50/50 p-6 md:w-44 md:border-b-0 md:border-r">
@@ -149,6 +271,333 @@ export default function TransportPage() {
                 open={isAddVehicleOpen}
                 onOpenChange={setIsAddVehicleOpen}
             />
+
+            <Dialog
+                open={detailsOpen}
+                onOpenChange={(open) => {
+                    setDetailsOpen(open);
+                    if (!open) {
+                        setSelectedBusId(null);
+                        setEditMode(false);
+                        setAssignSearch("");
+                        setSelectedStudentIds({});
+                    }
+                }}
+            >
+                <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
+                    <DialogHeader>
+                        <div className="flex items-center justify-between gap-3">
+                            <DialogTitle>Bus Details</DialogTitle>
+                            {!!bus && (
+                                <div className="flex items-center gap-2">
+                                    {editMode ? (
+                                        <>
+                                            <Button
+                                                variant="outline"
+                                                onClick={() => {
+                                                    setEditMode(false);
+                                                    setBusNumber(bus.busNumber ?? "");
+                                                    setRegistrationNumber(bus.registrationNumber ?? "");
+                                                    setRouteName(bus.routeName ?? "");
+                                                    setCapacity(bus.capacity != null ? String(bus.capacity) : "");
+                                                    setDriverName(bus.driverName ?? "");
+                                                    setDriverPhone(bus.driverPhone ?? "");
+                                                    setConductorName(bus.conductorName ?? "");
+                                                    setConductorPhone(bus.conductorPhone ?? "");
+                                                }}
+                                            >
+                                                Cancel
+                                            </Button>
+                                            <Button
+                                                className="bg-indigo-600 hover:bg-indigo-500"
+                                                disabled={updateBus.isPending}
+                                                onClick={() => {
+                                                    updateBus.mutate({
+                                                        busNumber: busNumber?.trim() || bus.busNumber,
+                                                        registrationNumber: registrationNumber?.trim() || bus.registrationNumber,
+                                                        routeName: routeName?.trim() || bus.routeName,
+                                                        capacity: capacity ? Number(capacity) : bus.capacity,
+                                                        driverName: driverName?.trim() || "",
+                                                        driverPhone: driverPhone?.trim() || "",
+                                                        conductorName: conductorName?.trim() || "",
+                                                        conductorPhone: conductorPhone?.trim() || "",
+                                                    });
+                                                }}
+                                            >
+                                                {updateBus.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save"}
+                                            </Button>
+                                        </>
+                                    ) : (
+                                        <Button
+                                            variant="outline"
+                                            onClick={() => {
+                                                setEditMode(true);
+                                                setBusNumber(bus.busNumber ?? "");
+                                                setRegistrationNumber(bus.registrationNumber ?? "");
+                                                setRouteName(bus.routeName ?? "");
+                                                setCapacity(bus.capacity != null ? String(bus.capacity) : "");
+                                                setDriverName(bus.driverName ?? "");
+                                                setDriverPhone(bus.driverPhone ?? "");
+                                                setConductorName(bus.conductorName ?? "");
+                                                setConductorPhone(bus.conductorPhone ?? "");
+                                            }}
+                                        >
+                                            Edit
+                                        </Button>
+                                    )}
+                                </div>
+                            )}
+                        </div>
+                    </DialogHeader>
+
+                    {isDetailsLoading ? (
+                        <div className="flex h-48 items-center justify-center">
+                            <Loader2 className="h-7 w-7 animate-spin text-indigo-500" />
+                        </div>
+                    ) : !bus ? (
+                        <div className="rounded-xl border border-gray-200 bg-gray-50 p-4 text-sm text-gray-700">
+                            Unable to load bus details.
+                        </div>
+                    ) : (
+                        <div className="space-y-5">
+                            <div className="grid gap-3 md:grid-cols-3">
+                                <Card className="rounded-2xl border border-gray-200 shadow-sm">
+                                    <CardHeader className="pb-2">
+                                        <CardTitle className="text-sm">Bus</CardTitle>
+                                    </CardHeader>
+                                    <CardContent className="space-y-2 text-sm text-gray-700">
+                                        {editMode ? (
+                                            <>
+                                                <Input
+                                                    placeholder="Bus number"
+                                                    value={busNumber}
+                                                    onChange={(e) => setBusNumber(e.target.value)}
+                                                />
+                                                <Input
+                                                    placeholder="Registration number"
+                                                    value={registrationNumber}
+                                                    onChange={(e) => setRegistrationNumber(e.target.value)}
+                                                />
+                                                <Input
+                                                    placeholder="Route name"
+                                                    value={routeName}
+                                                    onChange={(e) => setRouteName(e.target.value)}
+                                                />
+                                                <Input
+                                                    type="number"
+                                                    placeholder="Capacity"
+                                                    value={capacity}
+                                                    onChange={(e) => setCapacity(e.target.value)}
+                                                />
+                                            </>
+                                        ) : (
+                                            <>
+                                                <div className="font-semibold text-gray-900">{bus.busNumber ?? "—"}</div>
+                                                <div className="text-xs text-gray-500">Reg: {bus.registrationNumber ?? "—"}</div>
+                                                <div className="mt-2 text-xs text-gray-500">Route</div>
+                                                <div className="font-medium text-gray-900">{bus.routeName ?? "—"}</div>
+                                            </>
+                                        )}
+                                    </CardContent>
+                                </Card>
+
+                                <Card className="rounded-2xl border border-gray-200 shadow-sm">
+                                    <CardHeader className="pb-2">
+                                        <CardTitle className="text-sm">Driver</CardTitle>
+                                    </CardHeader>
+                                    <CardContent className="space-y-2 text-sm text-gray-700">
+                                        {editMode ? (
+                                            <>
+                                                <Input
+                                                    placeholder="Driver name"
+                                                    value={driverName}
+                                                    onChange={(e) => setDriverName(e.target.value)}
+                                                />
+                                                <Input
+                                                    placeholder="Driver phone"
+                                                    value={driverPhone}
+                                                    onChange={(e) => setDriverPhone(e.target.value)}
+                                                />
+                                            </>
+                                        ) : (
+                                            <>
+                                                <div className="font-semibold text-gray-900">{bus.driverName ?? "—"}</div>
+                                                <div className="text-xs text-gray-500">{bus.driverPhone ?? "—"}</div>
+                                            </>
+                                        )}
+                                    </CardContent>
+                                </Card>
+
+                                <Card className="rounded-2xl border border-gray-200 shadow-sm">
+                                    <CardHeader className="pb-2">
+                                        <CardTitle className="text-sm">Conductor</CardTitle>
+                                    </CardHeader>
+                                    <CardContent className="space-y-2 text-sm text-gray-700">
+                                        {editMode ? (
+                                            <>
+                                                <Input
+                                                    placeholder="Conductor name"
+                                                    value={conductorName}
+                                                    onChange={(e) => setConductorName(e.target.value)}
+                                                />
+                                                <Input
+                                                    placeholder="Conductor phone"
+                                                    value={conductorPhone}
+                                                    onChange={(e) => setConductorPhone(e.target.value)}
+                                                />
+                                            </>
+                                        ) : (
+                                            <>
+                                                <div className="font-semibold text-gray-900">{bus.conductorName ?? "—"}</div>
+                                                <div className="text-xs text-gray-500">{bus.conductorPhone ?? "—"}</div>
+                                            </>
+                                        )}
+                                    </CardContent>
+                                </Card>
+                            </div>
+
+                            <Card className="rounded-2xl border border-gray-200 shadow-sm">
+                                <CardHeader className="pb-2">
+                                    <CardTitle className="text-sm">
+                                        Students on this bus{" "}
+                                        <span className="text-xs font-normal text-gray-500">
+                                            ({students.length})
+                                        </span>
+                                    </CardTitle>
+                                </CardHeader>
+                                <CardContent>
+                                    {students.length === 0 ? (
+                                        <div className="rounded-xl border border-gray-200 bg-gray-50 p-4 text-sm text-gray-700">
+                                            No students are assigned to this bus.
+                                        </div>
+                                    ) : (
+                                        <div className="rounded-xl border border-gray-200">
+                                            <table className="w-full text-sm">
+                                                <thead className="sticky top-0 bg-white">
+                                                    <tr className="border-b text-left text-xs font-medium uppercase tracking-wide text-gray-500">
+                                                        <th className="px-3 py-2">Student</th>
+                                                        <th className="px-3 py-2">Class</th>
+                                                        <th className="px-3 py-2">Adm No.</th>
+                                                        <th className="px-3 py-2">Phone</th>
+                                                        <th className="px-3 py-2 text-right">Action</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    {students.map((s: any) => (
+                                                        <tr key={s._id} className="border-b last:border-b-0">
+                                                            <td className="px-3 py-2 font-medium text-gray-900">
+                                                                {`${s.firstName ?? ""} ${s.lastName ?? ""}`.trim() || "—"}
+                                                            </td>
+                                                            <td className="px-3 py-2 text-gray-700">
+                                                                {s.class ? `Class ${s.class}` : "—"}{s.section ? ` · ${s.section}` : ""}
+                                                            </td>
+                                                            <td className="px-3 py-2 text-gray-700">{s.admissionNumber ?? "—"}</td>
+                                                            <td className="px-3 py-2 text-gray-700">{s.phone ?? "—"}</td>
+                                                            <td className="px-3 py-2 text-right">
+                                                                <Button
+                                                                    variant="outline"
+                                                                    className="h-8"
+                                                                    disabled={unassignStudents.isPending}
+                                                                    onClick={() => unassignStudents.mutate([s._id])}
+                                                                >
+                                                                    Remove
+                                                                </Button>
+                                                            </td>
+                                                        </tr>
+                                                    ))}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    )}
+                                </CardContent>
+                            </Card>
+
+                            <Card className="rounded-2xl border border-gray-200 shadow-sm">
+                                <CardHeader className="pb-2">
+                                    <CardTitle className="text-sm">Assign students to this route</CardTitle>
+                                </CardHeader>
+                                <CardContent className="space-y-3">
+                                    <div className="flex flex-col gap-2 md:flex-row md:items-center">
+                                        <Input
+                                            placeholder="Search by name / admission / phone / username..."
+                                            value={assignSearch}
+                                            onChange={(e) => setAssignSearch(e.target.value)}
+                                        />
+                                        <Button
+                                            className="bg-indigo-600 hover:bg-indigo-500"
+                                            disabled={assignStudents.isPending}
+                                            onClick={() => {
+                                                const ids = Object.entries(selectedStudentIds)
+                                                    .filter(([, v]) => v)
+                                                    .map(([k]) => k);
+                                                assignStudents.mutate(ids);
+                                            }}
+                                        >
+                                            {assignStudents.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Assign Selected"}
+                                        </Button>
+                                    </div>
+
+                                    {isAllStudentsLoading ? (
+                                        <div className="flex h-24 items-center justify-center">
+                                            <Loader2 className="h-6 w-6 animate-spin text-indigo-500" />
+                                        </div>
+                                    ) : (
+                                        <div className="rounded-xl border border-gray-200">
+                                            <table className="w-full text-sm">
+                                                <thead className="sticky top-0 bg-white">
+                                                    <tr className="border-b text-left text-xs font-medium uppercase tracking-wide text-gray-500">
+                                                        <th className="px-3 py-2">Select</th>
+                                                        <th className="px-3 py-2">Student</th>
+                                                        <th className="px-3 py-2">Class</th>
+                                                        <th className="px-3 py-2">Adm No.</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    {filteredAssignStudents.slice(0, 200).map((s: any) => {
+                                                        const already = students.some((x) => x._id === s._id);
+                                                        return (
+                                                            <tr key={s._id} className="border-b last:border-b-0">
+                                                                <td className="px-3 py-2">
+                                                                    <input
+                                                                        type="checkbox"
+                                                                        checked={!!selectedStudentIds[s._id]}
+                                                                        disabled={already}
+                                                                        onChange={(e) =>
+                                                                            setSelectedStudentIds((prev) => ({
+                                                                                ...prev,
+                                                                                [s._id]: e.target.checked,
+                                                                            }))
+                                                                        }
+                                                                    />
+                                                                </td>
+                                                                <td className="px-3 py-2 font-medium text-gray-900">
+                                                                    {`${s.firstName ?? ""} ${s.lastName ?? ""}`.trim() || "—"}
+                                                                    {already ? (
+                                                                        <span className="ml-2 text-xs font-medium text-emerald-700">
+                                                                            (Already on this bus)
+                                                                        </span>
+                                                                    ) : null}
+                                                                </td>
+                                                                <td className="px-3 py-2 text-gray-700">
+                                                                    {s.class ? `Class ${s.class}` : "—"}{s.section ? ` · ${s.section}` : ""}
+                                                                </td>
+                                                                <td className="px-3 py-2 text-gray-700">{s.admissionNumber ?? "—"}</td>
+                                                            </tr>
+                                                        );
+                                                    })}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    )}
+                                    <p className="text-xs text-gray-500">
+                                        Selecting students will assign them to this bus/route.
+                                    </p>
+                                </CardContent>
+                            </Card>
+                        </div>
+                    )}
+                </DialogContent>
+            </Dialog>
         </div>
         </LockedFeatureGate>
     );
