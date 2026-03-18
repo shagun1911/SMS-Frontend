@@ -131,12 +131,15 @@ export function Header() {
         ? masterAnnouncementsData.filter((a: any) => a.isActive)
         : [];
 
-    // Unread count
+    // Master admin: open/in‑progress tickets for display in dropdown
     const openMasterTickets = masterTickets.filter((t: any) => t.status !== "resolved");
+
+    // Unread count shown on bell:
+    // Keep behaviour intuitive and "real": the badge should
+    // only reflect items that can actually become "read".
+    // So we use ONLY per-user unread notifications here.
     const personalUnread = userNotifications.filter((n: any) => !n.isRead).length;
-    const schoolUnread = announcements.length + myTickets.filter((t: any) => t.status === "resolved").length + personalUnread;
-    const masterUnread = openMasterTickets.length + personalUnread;
-    const unreadCount = isMaster ? masterUnread : schoolUnread;
+    const unreadCount = personalUnread;
 
     const activeSess = Array.isArray(sessions)
         ? sessions.find((s: any) => s.isActive)

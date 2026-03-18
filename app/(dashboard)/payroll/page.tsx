@@ -39,6 +39,13 @@ export default function PayrollPage() {
     const [search, setSearch] = useState("");
     const [payRecord, setPayRecord] = useState<any | null>(null);
     const [slipRecord, setSlipRecord] = useState<any | null>(null);
+    const { data: school } = useQuery({
+        queryKey: ["school-me"],
+        queryFn: async () => {
+            const res = await api.get("/schools/me");
+            return res.data?.data ?? res.data;
+        },
+    });
 
     const qk = ["payroll", month, year];
 
@@ -369,7 +376,11 @@ export default function PayrollPage() {
                 />
 
                 {/* Slip Viewer */}
-                <SlipViewer record={slipRecord} onClose={() => setSlipRecord(null)} />
+                <SlipViewer
+                    record={slipRecord}
+                    school={school}
+                    onClose={() => setSlipRecord(null)}
+                />
             </div>
         </LockedFeatureGate>
     );
@@ -409,7 +420,18 @@ function PayModal({ record, onClose, onSuccess }: { record: any | null; onClose:
     const [customAmount, setCustomAmount] = useState("");
 
     const dueAmount = record ? Math.max(0, (record.netSalary || 0) - (record.paidAmount || 0)) : 0;
-    const payAmount = customAmount ? Number(customAmount) : dueAmount;
+
+    // Initialize the input with the full due amount when a record opens,
+    // but don't force it while the user is editing.
+    useEffect(() => {
+        if (record && dueAmount > 0) {
+            setCustomAmount(String(dueAmount));
+        } else {
+            setCustomAmount("");
+        }
+    }, [record?._id, dueAmount]);
+
+    const payAmount = customAmount ? Number(customAmount) : 0;
 
     const payMut = useMutation({
         mutationFn: async () => {
@@ -478,7 +500,7 @@ function PayModal({ record, onClose, onSuccess }: { record: any | null; onClose:
                         type="number"
                         min={1}
                         max={dueAmount}
-                        value={customAmount || dueAmount}
+                        value={customAmount}
                         onChange={(e) => setCustomAmount(e.target.value)}
                         placeholder={`Max ${fmt(dueAmount)}`}
                         className="h-9 text-sm"
@@ -530,7 +552,15 @@ function Row({ label, value, cls, indent, border }: { label: string; value: stri
 }
 
 /* ─── Slip Viewer ────────────────────────────────── */
-function SlipViewer({ record, onClose }: { record: any | null; onClose: () => void }) {
+function SlipViewer({
+    record,
+    school,
+    onClose,
+}: {
+    record: any | null;
+    school: any;
+    onClose: () => void;
+}) {
     if (!record) return null;
     const allowTotal = (record.allowances || []).reduce((s: number, a: any) => s + a.amount, 0);
     const deductTotal = (record.deductions || []).reduce((s: number, d: any) => s + d.amount, 0);
@@ -542,70 +572,192 @@ function SlipViewer({ record, onClose }: { record: any | null; onClose: () => vo
         const w = window.open("", "_blank", "width=600,height=700");
         if (!w) return;
         w.document.write(`<html><head><title>Salary Slip – ${record.staffId?.name}</title>
-            <style>body{font-family:system-ui,sans-serif;padding:32px;color:#111}
-            table{width:100%;border-collapse:collapse;margin:16px 0}
-            td,th{padding:8px 12px;border:1px solid #ddd;text-align:left;font-size:13px}
-            th{background:#f5f5f5;font-weight:600} h2{margin:0 0 4px} .right{text-align:right}
-            .total{font-weight:700;font-size:15px;border-top:2px solid #333}
-            </style></head><body>${el.innerHTML}</body></html>`);
+            <style>
+              body{font-family:system-ui,sans-serif;padding:28px;color:#111;background:#fff}
+              .slip-wrap{border:1px solid #e5e7eb;border-radius:14px;overflow:hidden;box-shadow:0 10px 30px rgba(0,0,0,0.04)}
+              .slip-header{display:flex;gap:14px;justify-content:space-between;align-items:flex-start;background:linear-gradient(135deg,#4f46e5 0%,#1d4ed8 40%,#0ea5e9 100%);color:#fff;padding:18px}
+              .slip-logo{width:56px;height:56px;border-radius:14px;background:#fff;display:flex;align-items:center;justify-content:center;overflow:hidden}
+              .slip-logo img{width:100%;height:100%;object-fit:cover}
+              .slip-school-name{font-size:18px;font-weight:800;line-height:1.15}
+              .slip-slip-title{font-size:13px;font-weight:600;opacity:0.95;margin-top:4px}
+              .slip-meta{padding:16px 18px}
+              .slip-meta-row{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;margin:4px 0;font-size:13px}
+              .slip-meta-row b{color:#0f172a}
+              table{width:100%;border-collapse:collapse;margin:0}
+              th,td{padding:10px 12px;border-bottom:1px solid #e5e7eb;text-align:left;font-size:13px}
+              th{background:#f5f7ff;color:#3730a3;font-weight:700;border-bottom:1px solid #e0e7ff}
+              .right{text-align:right}
+              .money{font-variant-numeric:tabular-nums}
+              .net{background:#ecfeff}
+              .positive{color:#059669;font-weight:700}
+              .negative{color:#e11d48;font-weight:700}
+              .slip-paid{background:#ecfdf3}
+              .slip-bottom{display:flex;justify-content:space-between;gap:18px;padding:16px 18px}
+              .sig-box{flex:1;border:1px dashed #94a3b8;border-radius:12px;padding:10px 12px;min-height:78px}
+              .sig-title{font-size:12px;color:#64748b;font-weight:700;text-transform:uppercase;letter-spacing:0.03em}
+              .sig-name{font-size:16px;font-weight:800;margin-top:8px;color:#0f172a}
+              .sig-img{max-width:150px;max-height:44px;object-fit:contain;margin-top:8px}
+              .stamp-box{flex:1;border:1px dashed #f59e0b;border-radius:12px;padding:10px 12px;min-height:78px;display:flex;flex-direction:column;align-items:center;justify-content:center}
+              .stamp-img{max-width:120px;max-height:52px;object-fit:contain}
+              .slip-footnote{padding:0 18px 18px;color:#64748b;font-size:12px}
+            </style>
+          </head><body>${el.innerHTML}</body></html>`);
         w.document.close();
         w.print();
     };
 
     return (
         <Modal isOpen={!!record} onClose={onClose} title="Salary Slip" description={`${record.staffId?.name ?? "Staff"} · ${record.month} ${record.year}`}>
-            <div id="salary-slip-content" className="space-y-4 text-sm">
-                <div className="grid grid-cols-2 gap-y-2 text-sm">
-                    <div><span className="text-muted-foreground">Employee:</span> <strong>{record.staffId?.name}</strong></div>
-                    <div><span className="text-muted-foreground">Role:</span> <span className="capitalize">{(record.staffId?.role || "").replace(/_/g, " ")}</span></div>
-                    <div><span className="text-muted-foreground">Period:</span> {record.month} {record.year}</div>
-                    <div><span className="text-muted-foreground">Status:</span> <StatusBadge status={record.status} /></div>
+            <div id="salary-slip-content" className="slip-wrap rounded-xl border border-gray-200 overflow-hidden shadow-sm">
+                <div className="slip-header flex items-start justify-between gap-4 bg-gradient-to-r from-indigo-600 via-blue-600 to-sky-500 text-white p-5">
+                    <div style={{ display: "flex", gap: 14, alignItems: "flex-start" }}>
+                        <div className="slip-logo w-14 h-14 rounded-2xl bg-white flex items-center justify-center overflow-hidden">
+                            {school?.logo ? (
+                                // eslint-disable-next-line @next/next/no-img-element
+                                <img className="w-full h-full object-cover" src={school.logo} alt="School logo" />
+                            ) : (
+                                <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                                    <span style={{ color: "#4f46e5", fontWeight: 900, fontSize: 18 }}>
+                                        {String(school?.schoolName ?? "S").charAt(0).toUpperCase()}
+                                    </span>
+                                </div>
+                            )}
+                        </div>
+                        <div>
+                            <div className="slip-school-name text-xl font-extrabold leading-tight">{school?.schoolName ?? "School Name"}</div>
+                            <div className="slip-slip-title text-xs font-semibold opacity-95 mt-1">Salary Slip</div>
+                        </div>
+                    </div>
+                    <div style={{ textAlign: "right" }}>
+                        <div style={{ fontWeight: 800, fontSize: 14, opacity: 0.95 }}>{record.month} {record.year}</div>
+                        <div style={{ marginTop: 6, display: "flex", justifyContent: "flex-end" }}>
+                            <StatusBadge status={record.status} />
+                        </div>
+                    </div>
                 </div>
-                <table className="w-full text-sm border rounded-lg overflow-hidden">
+
+                <div className="slip-meta p-4">
+                    <div className="slip-meta-row">
+                        <span style={{ color: "#64748b" }}>Employee</span>
+                        <b>{record.staffId?.name}</b>
+                    </div>
+                    <div className="slip-meta-row">
+                        <span style={{ color: "#64748b" }}>Role</span>
+                        <b className="capitalize">{(record.staffId?.role || "").replace(/_/g, " ")}</b>
+                    </div>
+                    <div className="slip-meta-row">
+                        <span style={{ color: "#64748b" }}>Net Payable</span>
+                        <b className="money positive">{fmt(record.netSalary)}</b>
+                    </div>
+                </div>
+
+                <table>
                     <thead>
-                        <tr className="bg-muted/40 text-xs font-medium text-muted-foreground uppercase">
-                            <th className="px-3 py-2 text-left">Component</th>
-                            <th className="px-3 py-2 text-right">Amount</th>
+                        <tr>
+                            <th>Component</th>
+                            <th className="right">Amount</th>
                         </tr>
                     </thead>
                     <tbody>
-                        <tr className="border-b"><td className="px-3 py-2">Base Salary</td><td className="px-3 py-2 text-right tabular-nums">{fmt(record.basicSalary)}</td></tr>
+                        <tr>
+                            <td>Base Salary</td>
+                            <td className="right money">{fmt(record.basicSalary)}</td>
+                        </tr>
                         {(record.allowances || []).map((a: any, i: number) => (
-                            <tr key={`a${i}`} className="border-b"><td className="px-3 py-2 pl-6 text-emerald-600">{a.title}</td><td className="px-3 py-2 text-right text-emerald-600 tabular-nums">+{fmt(a.amount)}</td></tr>
+                            <tr key={`a${i}`}>
+                                <td style={{ paddingLeft: 22, color: "#059669", fontWeight: 600 }}>{a.title}</td>
+                                <td className="right money" style={{ color: "#059669", fontWeight: 700 }}>+{fmt(a.amount)}</td>
+                            </tr>
                         ))}
                         {(record.deductions || []).map((d: any, i: number) => (
-                            <tr key={`d${i}`} className="border-b"><td className="px-3 py-2 pl-6 text-rose-500">{d.title}</td><td className="px-3 py-2 text-right text-rose-500 tabular-nums">-{fmt(d.amount)}</td></tr>
+                            <tr key={`d${i}`}>
+                                <td style={{ paddingLeft: 22, color: "#e11d48", fontWeight: 600 }}>{d.title}</td>
+                                <td className="right money" style={{ color: "#e11d48", fontWeight: 700 }}>-{fmt(d.amount)}</td>
+                            </tr>
                         ))}
-                        <tr className="border-t-2 font-semibold">
-                            <td className="px-3 py-2">Gross Salary</td>
-                            <td className="px-3 py-2 text-right tabular-nums">{fmt(record.totalSalary)}</td>
+
+                        <tr className="total">
+                            <td style={{ fontWeight: 800 }}>Gross Salary</td>
+                            <td className="right money" style={{ fontWeight: 800 }}>{fmt(record.totalSalary)}</td>
                         </tr>
-                        <tr className="font-semibold text-base">
-                            <td className="px-3 py-2">Net Payable</td>
-                            <td className="px-3 py-2 text-right tabular-nums text-emerald-600">{fmt(record.netSalary)}</td>
+
+                        <tr className="net">
+                            <td style={{ fontWeight: 900 }}>Net Payable</td>
+                            <td className="right money" style={{ fontWeight: 900, color: "#059669" }}>{fmt(record.netSalary)}</td>
                         </tr>
+
                         {(record.paidAmount || 0) > 0 && (
-                            <tr className="text-sm">
-                                <td className="px-3 py-2 text-emerald-600">Amount Paid</td>
-                                <td className="px-3 py-2 text-right tabular-nums text-emerald-600">{fmt(record.paidAmount)}</td>
+                            <tr className="slip-paid">
+                                <td style={{ color: "#059669", fontWeight: 800 }}>Amount Paid</td>
+                                <td className="right money" style={{ color: "#059669", fontWeight: 900 }}>{fmt(record.paidAmount)}</td>
                             </tr>
                         )}
+
                         {record.status !== "paid" && (record.paidAmount || 0) > 0 && (
-                            <tr className="text-sm font-semibold">
-                                <td className="px-3 py-2 text-rose-500">Remaining Due</td>
-                                <td className="px-3 py-2 text-right tabular-nums text-rose-500">{fmt(record.netSalary - (record.paidAmount || 0))}</td>
+                            <tr>
+                                <td style={{ color: "#e11d48", fontWeight: 800 }}>Remaining Due</td>
+                                <td className="right money" style={{ color: "#e11d48", fontWeight: 900 }}>{fmt(record.netSalary - (record.paidAmount || 0))}</td>
                             </tr>
                         )}
                     </tbody>
                 </table>
+
                 {(record.status === "paid" || record.status === "partial") && (
-                    <div className="rounded-lg border bg-emerald-50 dark:bg-emerald-500/5 p-3 text-xs space-y-1">
-                        <div className="flex justify-between"><span className="text-muted-foreground">Paid on</span><span>{record.paymentDate ? new Date(record.paymentDate).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) : "—"}</span></div>
-                        <div className="flex justify-between"><span className="text-muted-foreground">Mode</span><span className="capitalize">{record.paymentMode || "—"}</span></div>
-                        {record.transactionId && <div className="flex justify-between"><span className="text-muted-foreground">Txn ID</span><span>{record.transactionId}</span></div>}
-                        {record.remarks && <div className="flex justify-between"><span className="text-muted-foreground">Remarks</span><span>{record.remarks}</span></div>}
+                    <div style={{ padding: "14px 18px" }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", gap: 12, fontSize: 12, color: "#64748b" }}>
+                            <span>Paid on</span>
+                            <span style={{ color: "#0f172a", fontWeight: 700 }}>
+                                {record.paymentDate ? new Date(record.paymentDate).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) : "—"}
+                            </span>
+                        </div>
+                        <div style={{ display: "flex", justifyContent: "space-between", gap: 12, fontSize: 12, color: "#64748b", marginTop: 6 }}>
+                            <span>Mode</span>
+                            <span style={{ color: "#0f172a", fontWeight: 700, textTransform: "capitalize" }}>{record.paymentMode || "—"}</span>
+                        </div>
+                        {record.transactionId && (
+                            <div style={{ display: "flex", justifyContent: "space-between", gap: 12, fontSize: 12, color: "#64748b", marginTop: 6 }}>
+                                <span>Txn ID</span>
+                                <span style={{ color: "#0f172a", fontWeight: 700 }}>{record.transactionId}</span>
+                            </div>
+                        )}
+                        {record.remarks && (
+                            <div style={{ display: "flex", justifyContent: "space-between", gap: 12, fontSize: 12, color: "#64748b", marginTop: 6 }}>
+                                <span>Remarks</span>
+                                <span style={{ color: "#0f172a", fontWeight: 700 }}>{record.remarks}</span>
+                            </div>
+                        )}
                     </div>
                 )}
+
+                <div className="slip-bottom flex justify-between gap-6 p-4">
+                    <div className="sig-box flex-1 border border-dashed border-slate-400 rounded-xl p-3 min-h-[78px]">
+                        <div className="sig-title text-xs font-bold text-slate-500 uppercase tracking-wide">Principal Signature</div>
+                        {school?.principalSignature ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img className="sig-img max-w-[150px] max-h-[44px] object-contain mt-2" src={school.principalSignature} alt="Principal signature" />
+                        ) : (
+                            <div className="sig-name text-base font-extrabold mt-2 text-slate-900">{school?.principalName ?? "Principal"}</div>
+                        )}
+                        {!school?.principalSignature && (
+                            <div style={{ marginTop: 6, color: "#64748b", fontSize: 12 }}>
+                                {school?.principalName ?? "Principal"}
+                            </div>
+                        )}
+                    </div>
+                    <div className="stamp-box flex-1 border border-dashed border-amber-400 rounded-xl p-3 min-h-[78px] flex flex-col items-center justify-center">
+                        <div className="sig-title text-xs font-bold text-amber-600 uppercase tracking-wide">Principal Stamp</div>
+                        {school?.stamp ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img className="stamp-img max-w-[120px] max-h-[52px] object-contain" src={school.stamp} alt="Principal stamp" />
+                        ) : (
+                            <div style={{ fontSize: 12, fontWeight: 800, color: "#b45309" }}>STAMP</div>
+                        )}
+                    </div>
+                </div>
+
+                <div className="slip-footnote">
+                    Generated by SMS School Management System.
+                </div>
             </div>
             <div className="flex gap-3 pt-4">
                 <Button variant="outline" className="flex-1" onClick={onClose}>Close</Button>
