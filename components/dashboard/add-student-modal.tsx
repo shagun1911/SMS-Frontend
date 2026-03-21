@@ -40,7 +40,8 @@ const studentSchema = z.object({
     tcSubmitted: z.boolean().default(false),
     migrationSubmitted: z.boolean().default(false),
     initialDepositAmount: z.coerce.number().min(0).optional(),
-    concessionAmount: z.coerce.number().min(0).optional(),
+    // Concession should stay exact (no rounding drift). Force integer rupees only.
+    concessionAmount: z.coerce.number().int().min(0).optional(),
     depositPaymentMode: z.string().optional(),
     depositTransactionId: z.string().optional(),
     address: z.object({
@@ -358,7 +359,7 @@ export function AddStudentModal({ isOpen, onClose }: AddStudentModalProps) {
             <form onSubmit={handleSubmit(onSubmit)} className="space-y-8 max-h-[75vh] overflow-y-auto px-1 pr-4 scrollbar-hide">
 
                 {/* Section: Profile Image */}
-                <div className="flex flex-col items-center gap-4 py-4 bg-white/[0.02] border border-white/5 rounded-3xl">
+                <div className="flex flex-col items-center gap-4 py-4 bg-white/2 border border-white/5 rounded-3xl">
                     <div
                         className="relative group cursor-pointer"
                         onClick={() => document.getElementById("photo-upload")?.click()}
@@ -534,6 +535,7 @@ export function AddStudentModal({ isOpen, onClose }: AddStudentModalProps) {
                         <Input
                             {...register("concessionAmount")}
                             type="number"
+                            step={1}
                             placeholder="0"
                             min="0"
                             className="h-10 rounded-xl border-gray-200 bg-white"
@@ -614,7 +616,7 @@ export function AddStudentModal({ isOpen, onClose }: AddStudentModalProps) {
                                     </div>
                                 </div>
                             )}
-                            <p className="text-[10px] text-zinc-400 text-center max-w-[200px]">
+                            <p className="text-[10px] text-zinc-400 text-center max-w-50">
                                 This QR is dynamic and valid for this session only. Do not refresh the page.
                             </p>
                         </div>
@@ -687,7 +689,7 @@ export function AddStudentModal({ isOpen, onClose }: AddStudentModalProps) {
                     <Button
                         type="submit"
                         disabled={mutation.isPending || (["upi", "online"].includes(paymentMode || "") && depositAmount > 0 && status !== "COMPLETED")}
-                        className={`h-14 flex-[2] rounded-2xl font-bold shadow-xl active:scale-[0.98] transition-all ${status === "COMPLETED" ? "bg-emerald-600 hover:bg-emerald-500 shadow-emerald-500/20" : "bg-purple-600 hover:bg-purple-500 shadow-purple-500/20"}`}
+                        className={`h-14 flex-2 rounded-2xl font-bold shadow-xl active:scale-[0.98] transition-all ${status === "COMPLETED" ? "bg-emerald-600 hover:bg-emerald-500 shadow-emerald-500/20" : "bg-purple-600 hover:bg-purple-500 shadow-purple-500/20"}`}
                     >
                         {mutation.isPending ? <Loader2 className="h-5 w-5 animate-spin" /> : (
                             <div className="flex items-center gap-2">

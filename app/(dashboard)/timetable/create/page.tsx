@@ -9,18 +9,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import api from "@/lib/api";
 import { toast } from "sonner";
+import { buildScheduleColumnDtos } from "@/lib/timetableSchedule";
 
 const DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
-
-function parseTime(s: string): number {
-    const [h, m] = (s || "08:00").split(":").map(Number);
-    return (h || 0) * 60 + (m || 0);
-}
-function formatTime(mins: number): string {
-    const h = Math.floor(mins / 60);
-    const m = mins % 60;
-    return `${h}:${String(m).padStart(2, "0")}`;
-}
 
 export default function CreateTimetablePage() {
     const queryClient = useQueryClient();
@@ -49,29 +40,26 @@ export default function CreateTimetablePage() {
         },
     });
 
-    const periodCount = settings?.periodCount ?? 7;
-    const lunchAfterPeriod = settings?.lunchAfterPeriod ?? 4;
-    const firstPeriodStart = settings?.firstPeriodStart || "08:00";
-    const periodDuration = settings?.periodDurationMinutes ?? 40;
     const subjects: string[] = Array.isArray(settings?.subjects) ? settings.subjects : ["English", "Math", "Science", "Hindi", "SST", "Computer", "Art"];
 
     const periodSlots = useMemo(() => {
-        const out: { label: string; startTime: string; endTime: string; isLunch: boolean }[] = [];
-        let mins = parseTime(firstPeriodStart);
-        const lunchDur = periodDuration;
-        for (let i = 1; i <= periodCount; i++) {
-            if (i === lunchAfterPeriod + 1) {
-                out.push({ label: "LUNCH", startTime: formatTime(mins), endTime: formatTime(mins + lunchDur), isLunch: true });
-                mins += lunchDur;
-            }
-            const start = formatTime(mins);
-            mins += periodDuration;
-            const end = formatTime(mins);
-            out.push({ label: `P${i}`, startTime: start, endTime: end, isLunch: false });
-        }
-        if (lunchAfterPeriod === 0) out.unshift({ label: "LUNCH", startTime: firstPeriodStart, endTime: formatTime(parseTime(firstPeriodStart) + lunchDur), isLunch: true });
-        return out;
-    }, [periodCount, lunchAfterPeriod, firstPeriodStart, periodDuration]);
+        const cols = buildScheduleColumnDtos(settings ?? null);
+        return cols.map((sc) =>
+            sc.kind === "break"
+                ? {
+                      label: sc.shortLabel,
+                      startTime: "",
+                      endTime: sc.time,
+                      isBreak: true as const,
+                  }
+                : {
+                      label: sc.label,
+                      startTime: sc.startTime,
+                      endTime: sc.endTime,
+                      isBreak: false as const,
+                  }
+        );
+    }, [settings]);
 
     const [grid, setGrid] = useState<Record<string, { subject: string; teacherId: string }>>({});
 
@@ -105,7 +93,7 @@ export default function CreateTimetablePage() {
             const days = DAYS.map((_, dayIndex) => {
                 const dayOfWeek = dayIndex + 1;
                 const slots = periodSlots
-                    .filter((p) => !p.isLunch)
+                    .filter((p) => !p.isBreak)
                     .map((p) => {
                         const key = `${dayOfWeek}-${p.startTime}`;
                         const g = grid[key] || {};
@@ -150,7 +138,7 @@ export default function CreateTimetablePage() {
                                 <select
                                     value={classId}
                                     onChange={(e) => setClassId(e.target.value)}
-                                    className="h-10 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm min-w-[180px]"
+                                    className="h-10 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm min-w-45"
                                 >
                                     <option value="">Select class</option>
                                     {(classes as any[]).map((c: any) => (
@@ -176,10 +164,15 @@ export default function CreateTimetablePage() {
                                 <thead>
                                     <tr className="bg-gray-100">
                                         <th className="border border-gray-200 p-2 text-left font-semibold w-24">Day</th>
-                                        {periodSlots.map((p) => (
-                                            <th key={p.label} className={`border border-gray-200 p-1 text-center font-semibold ${p.isLunch ? "bg-amber-100" : ""}`}>
+                                        {periodSlots.map((p, si) => (
+                                            <th
+                                                key={`${p.isBreak ? "b" : "p"}-${si}-${p.label}`}
+                                                className={`border border-gray-200 p-1 text-center font-semibold ${p.isBreak ? "bg-amber-100" : ""}`}
+                                            >
                                                 <div>{p.label}</div>
-                                                <div className="text-xs font-normal text-gray-500">{p.startTime} – {p.endTime}</div>
+                                                <div className="text-xs font-normal text-gray-500">
+                                                    {p.isBreak ? p.endTime : `${p.startTime} – ${p.endTime}`}
+                                                </div>
                                             </th>
                                         ))}
                                     </tr>
@@ -190,18 +183,21 @@ export default function CreateTimetablePage() {
                                         return (
                                             <tr key={dayOfWeek}>
                                                 <td className="border border-gray-200 p-2 font-medium">{dayName}</td>
-                                                {periodSlots.map((p) => {
-                                                    if (p.isLunch) {
+                                                {periodSlots.map((p, pi) => {
+                                                    if (p.isBreak) {
                                                         return (
-                                                            <td key={p.label} className="border border-gray-200 p-1 bg-amber-50 text-center text-amber-700">
-                                                                LUNCH
+                                                            <td
+                                                                key={`b-${pi}-${p.label}`}
+                                                                className="border border-gray-200 p-1 bg-amber-50 text-center text-amber-700"
+                                                            >
+                                                                {p.label}
                                                             </td>
                                                         );
                                                     }
                                                     const key = `${dayOfWeek}-${p.startTime}`;
                                                     const val = grid[key] || { subject: "", teacherId: "" };
                                                     return (
-                                                        <td key={p.label} className="border border-gray-200 p-1 align-top">
+                                                        <td key={`p-${pi}-${p.label}`} className="border border-gray-200 p-1 align-top">
                                                             <div className="space-y-1">
                                                                 <select
                                                                     value={val.subject}

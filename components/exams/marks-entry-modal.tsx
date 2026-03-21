@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Loader2, Save } from "lucide-react";
@@ -16,10 +16,62 @@ interface MarksEntryModalProps {
     onOpenChange: (open: boolean) => void;
 }
 
+function parseMarks(v: unknown): number {
+    if (typeof v === "number" && !Number.isNaN(v)) return Math.max(0, v);
+    const n = parseFloat(String(v).replace(/[^0-9.-]/g, ""));
+    return Number.isNaN(n) ? 0 : Math.max(0, n);
+}
+
+type SubjectDef = { subject: string; maxMarks: number };
+
+/** Build student rows: init from scratch with zeros */
+function initStudentMarksFromStudents(students: any[], subjectDefs: SubjectDef[]) {
+    return students.map((s: any) => ({
+        studentId: s._id,
+        name: `${s.firstName} ${s.lastName}`,
+        subjects: subjectDefs.map((sub) => ({ ...sub, obtainedMarks: 0 })),
+    }));
+}
+
+/** Same student cohort (same ids, same count): align subject columns, preserve marks by column index */
+function mergeSubjectsIntoStudentMarks(
+    prev: any[],
+    students: any[],
+    subjectDefs: SubjectDef[]
+) {
+    const prevById = new Map(prev.map((p) => [String(p.studentId), p]));
+    const newIds = new Set(students.map((s: any) => String(s._id)));
+    const sameCohort =
+        prev.length > 0 &&
+        prev.length === students.length &&
+        students.every((s: any) => prevById.has(String(s._id))) &&
+        prev.every((p) => newIds.has(String(p.studentId)));
+
+    if (!sameCohort) {
+        return initStudentMarksFromStudents(students, subjectDefs);
+    }
+
+    return students.map((s: any) => {
+        const existing = prevById.get(String(s._id))!;
+        const aligned = subjectDefs.map((def, j) => ({
+            ...def,
+            obtainedMarks:
+                existing.subjects[j] !== undefined
+                    ? parseMarks(existing.subjects[j].obtainedMarks)
+                    : 0,
+        }));
+        return {
+            studentId: s._id,
+            name: `${s.firstName} ${s.lastName}`,
+            subjects: aligned,
+        };
+    });
+}
+
 export function MarksEntryModal({ exam, open, onOpenChange }: MarksEntryModalProps) {
     const queryClient = useQueryClient();
     const [selectedClass, setSelectedClass] = useState("");
-    const [subjects, setSubjects] = useState([{ subject: "Mathematics", maxMarks: 100 }]);
+    const [subjects, setSubjects] = useState<SubjectDef[]>([{ subject: "Mathematics", maxMarks: 100 }]);
     const [studentMarks, setStudentMarks] = useState<any[]>([]);
 
     const { data: students, isLoading } = useQuery({
@@ -32,17 +84,28 @@ export function MarksEntryModal({ exam, open, onOpenChange }: MarksEntryModalPro
         enabled: open && !!selectedClass,
     });
 
+    const syncMarksTable = useCallback(
+        (nextStudents: any[] | undefined, nextSubjects: SubjectDef[]) => {
+            if (!Array.isArray(nextStudents) || nextStudents.length === 0) {
+                setStudentMarks([]);
+                return;
+            }
+            setStudentMarks((prev) => mergeSubjectsIntoStudentMarks(prev, nextStudents, nextSubjects));
+        },
+        []
+    );
+
     useEffect(() => {
-        if (Array.isArray(students) && students.length > 0) {
-            setStudentMarks(
-                students.map((s: any) => ({
-                    studentId: s._id,
-                    name: `${s.firstName} ${s.lastName}`,
-                    subjects: subjects.map(sub => ({ ...sub, obtainedMarks: 0 })),
-                }))
-            );
+        syncMarksTable(students, subjects);
+    }, [students, subjects, syncMarksTable]);
+
+    useEffect(() => {
+        if (!open) {
+            setSelectedClass("");
+            setSubjects([{ subject: "Mathematics", maxMarks: 100 }]);
+            setStudentMarks([]);
         }
-    }, [students, subjects]);
+    }, [open]);
 
     const saveMarks = useMutation({
         mutationFn: async (data: any) => {
@@ -59,20 +122,21 @@ export function MarksEntryModal({ exam, open, onOpenChange }: MarksEntryModalPro
         },
     });
 
-    const parseMarks = (v: unknown): number => {
-        if (typeof v === "number" && !Number.isNaN(v)) return Math.max(0, v);
-        const n = parseFloat(String(v).replace(/[^0-9.-]/g, ""));
-        return Number.isNaN(n) ? 0 : Math.max(0, n);
-    };
-
     const handleMarksChange = (studentIndex: number, subjectIndex: number, value: string) => {
-        const newMarks = [...studentMarks];
-        newMarks[studentIndex].subjects[subjectIndex].obtainedMarks = parseMarks(value);
-        setStudentMarks(newMarks);
+        setStudentMarks((prev) => {
+            const next = prev.map((row) => ({
+                ...row,
+                subjects: row.subjects.map((s: any) => ({ ...s })),
+            }));
+            if (next[studentIndex]?.subjects[subjectIndex]) {
+                next[studentIndex].subjects[subjectIndex].obtainedMarks = parseMarks(value);
+            }
+            return next;
+        });
     };
 
     const handleSave = () => {
-        const results = studentMarks.map(sm => ({
+        const results = studentMarks.map((sm) => ({
             studentId: sm.studentId,
             subjects: sm.subjects.map((s: any) => ({
                 subject: s.subject,
@@ -84,7 +148,7 @@ export function MarksEntryModal({ exam, open, onOpenChange }: MarksEntryModalPro
     };
 
     const addSubject = () => {
-        setSubjects([...subjects, { subject: "", maxMarks: 100 }]);
+        setSubjects((prev) => [...prev, { subject: "", maxMarks: 100 }]);
     };
 
     return (
@@ -111,7 +175,7 @@ export function MarksEntryModal({ exam, open, onOpenChange }: MarksEntryModalPro
                             </select>
                         </div>
                         <div className="flex items-end">
-                            <Button variant="outline" onClick={addSubject} className="w-full">
+                            <Button type="button" variant="outline" onClick={addSubject} className="w-full">
                                 + Add Subject
                             </Button>
                         </div>
@@ -120,6 +184,9 @@ export function MarksEntryModal({ exam, open, onOpenChange }: MarksEntryModalPro
                     {subjects.length > 0 && (
                         <div className="space-y-2">
                             <Label>Subjects Configuration</Label>
+                            <p className="text-xs text-gray-500">
+                                Add all subjects first, then enter marks for every student. One save stores every subject.
+                            </p>
                             <div className="grid grid-cols-2 gap-2">
                                 {subjects.map((sub, idx) => (
                                     <div key={idx} className="flex gap-2">
@@ -164,14 +231,14 @@ export function MarksEntryModal({ exam, open, onOpenChange }: MarksEntryModalPro
                                                 <th className="p-2 font-medium">Student</th>
                                                 {subjects.map((sub, idx) => (
                                                     <th key={idx} className="p-2 font-medium">
-                                                        {sub.subject} (/{sub.maxMarks})
+                                                        {sub.subject || "—"} (/{sub.maxMarks})
                                                     </th>
                                                 ))}
                                             </tr>
                                         </thead>
                                         <tbody>
                                             {studentMarks.map((sm, sIdx) => (
-                                                <tr key={sIdx} className="border-t border-gray-100">
+                                                <tr key={sm.studentId} className="border-t border-gray-100">
                                                     <td className="p-2 text-gray-900">{sm.name}</td>
                                                     {sm.subjects.map((subj: any, subIdx: number) => (
                                                         <td key={subIdx} className="p-2">

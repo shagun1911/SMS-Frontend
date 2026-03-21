@@ -35,6 +35,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { AddStudentModal } from "@/components/dashboard/add-student-modal";
 import { EditStudentModal } from "@/components/dashboard/edit-student-modal";
 import { LockedFeatureGate } from "@/components/plan/locked-feature-gate";
+import { StudentProfileView } from "@/components/classes/class-detail-view";
 
 function parseCSV(text: string): Record<string, string>[] {
     const lines = text.trim().split(/\r?\n/);
@@ -170,6 +171,7 @@ export default function StudentsPage() {
     const [editStudent, setEditStudent] = useState<any | null>(null);
     const [passwordStudent, setPasswordStudent] = useState<any | null>(null);
     const [selectedClass, setSelectedClass] = useState("");
+    const [selectedStudentProfile, setSelectedStudentProfile] = useState<any | null>(null);
 
     const deleteMutation = useMutation({
         mutationFn: async (id: string) => {
@@ -294,6 +296,21 @@ export default function StudentsPage() {
 
     const students = data?.data || [];
 
+    if (selectedStudentProfile) {
+        return (
+            <LockedFeatureGate featureKey="students" featureLabel="Students">
+                <StudentProfileView
+                    student={selectedStudentProfile}
+                    classData={{
+                        className: selectedStudentProfile.class,
+                        section: selectedStudentProfile.section,
+                    }}
+                    onBack={() => setSelectedStudentProfile(null)}
+                />
+            </LockedFeatureGate>
+        );
+    }
+
     return (
         <LockedFeatureGate featureKey="students" featureLabel="Students">
             <div className="flex-1 space-y-4 sm:space-y-6">
@@ -403,7 +420,13 @@ export default function StudentsPage() {
                                         </AvatarFallback>
                                     </Avatar>
                                     <div className="flex-1 min-w-0">
-                                        <p className="font-semibold text-sm text-gray-900 truncate">{student.firstName} {student.lastName}</p>
+                                        <button
+                                            type="button"
+                                            className="font-semibold text-sm text-gray-900 truncate hover:text-indigo-600 transition-colors text-left"
+                                            onClick={() => setSelectedStudentProfile(student)}
+                                        >
+                                            {student.firstName} {student.lastName}
+                                        </button>
                                         <p className="text-xs text-gray-500">{student.admissionNumber} · {student.phone}</p>
                                         <div className="flex items-center gap-2 mt-2 flex-wrap">
                                             <Badge variant="outline" className="border-gray-200 bg-gray-50 text-gray-600 text-[10px]">Class {student.class}</Badge>
@@ -478,9 +501,13 @@ export default function StudentsPage() {
                                                             </AvatarFallback>
                                                         </Avatar>
                                                         <div className="flex flex-col">
-                                                            <span className="font-bold text-gray-900 group-hover:text-indigo-600 transition-colors">
+                                                            <button
+                                                                type="button"
+                                                                className="font-bold text-gray-900 group-hover:text-indigo-600 transition-colors text-left"
+                                                                onClick={() => setSelectedStudentProfile(student)}
+                                                            >
                                                                 {student.firstName} {student.lastName}
-                                                            </span>
+                                                            </button>
                                                             <span className="text-xs text-gray-500">{student.phone}</span>
                                                         </div>
                                                     </div>

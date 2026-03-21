@@ -183,7 +183,6 @@ export default function AdmitCardsPage() {
                                                     <div className="row"><span className="label font-semibold text-gray-600">Name:</span> {item.student?.firstName} {item.student?.lastName}</div>
                                                     <div className="row"><span className="label font-semibold text-gray-600">Admission No:</span> {item.student?.admissionNumber}</div>
                                                     <div className="row"><span className="label font-semibold text-gray-600">Class / Section:</span> {item.student?.class} - {item.student?.section}</div>
-                                                    <div className="row"><span className="label font-semibold text-gray-600">Roll No:</span> {item.student?.rollNumber ?? "—"}</div>
                                                     <div className="row"><span className="label font-semibold text-gray-600">Father:</span> {item.student?.fatherName}</div>
                                                 </div>
                                                 <div className="photo rounded border border-gray-300 bg-gray-100 flex items-center justify-center text-xs text-gray-400 w-20 h-24 shrink-0">

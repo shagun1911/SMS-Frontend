@@ -297,7 +297,7 @@ export default function SchoolDashboardPage() {
                             <Link href="/fees"><Banknote className="mr-1.5 h-4 w-4" /> Collect Fee</Link>
                         </Button>
                         <Button asChild variant="outline" size="sm" className="rounded-xl">
-                            <Link href="/staff"><Users className="mr-1.5 h-4 w-4" /> Payroll</Link>
+                            <Link href="/payroll"><Users className="mr-1.5 h-4 w-4" /> Payroll</Link>
                         </Button>
                         <Button asChild variant="outline" size="sm" className="rounded-xl">
                             <Link href="/timetable"><CalendarDays className="mr-1.5 h-4 w-4" /> Timetable</Link>

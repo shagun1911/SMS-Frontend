@@ -11,16 +11,7 @@ import api from "@/lib/api";
 import { toast } from "sonner";
 import { useAuthStore } from "@/store/authStore";
 import { UserRole } from "@/types";
-
-function parseTime(s: string): number {
-    const [h, m] = (s || "08:00").split(":").map(Number);
-    return (h || 0) * 60 + (m || 0);
-}
-function formatTime(mins: number): string {
-    const h = Math.floor(mins / 60);
-    const m = mins % 60;
-    return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
-}
+import { buildScheduleColumnDtos } from "@/lib/timetableSchedule";
 
 export default function TimetablePage() {
     const queryClient = useQueryClient();
@@ -47,35 +38,18 @@ export default function TimetablePage() {
     });
 
     const settings = gridData?.settings;
-    const periodCount = settings?.periodCount ?? 7;
-    const lunchAfterPeriod = settings?.lunchAfterPeriod ?? 4;
     const firstPeriodStart = settings?.firstPeriodStart || "08:00";
     const periodDuration = settings?.periodDurationMinutes ?? 40;
-    const lunchBreakDuration = settings?.lunchBreakDuration ?? 40;
     const subjects: string[] = Array.isArray(settings?.subjects) ? settings.subjects : ["English", "Math", "Science", "Hindi", "SST", "Computer", "Art"];
 
     const periodColumns = useMemo(() => {
-        const out: { label: string; time: string; isLunch: boolean }[] = [];
-        let mins = parseTime(firstPeriodStart);
-        for (let i = 1; i <= periodCount; i++) {
-            if (i === lunchAfterPeriod + 1) {
-                out.push({ label: "LUNCH", time: `${formatTime(mins)} (${lunchBreakDuration} min)`, isLunch: true });
-                mins += lunchBreakDuration;
-            }
-            const start = formatTime(mins);
-            mins += periodDuration;
-            const end = formatTime(mins);
-            out.push({ label: `P${i}`, time: `${start} – ${end}`, isLunch: false });
-        }
-        if (lunchAfterPeriod === 0) {
-            const start = firstPeriodStart;
-            out.unshift({ label: "LUNCH", time: `${start} (${lunchBreakDuration} min)`, isLunch: true });
-        }
-        return out;
-    }, [periodCount, lunchAfterPeriod, firstPeriodStart, periodDuration, lunchBreakDuration]);
+        const fromApi = gridData?.scheduleColumns;
+        if (Array.isArray(fromApi) && fromApi.length > 0) return fromApi;
+        return buildScheduleColumnDtos(settings ?? null);
+    }, [gridData?.scheduleColumns, settings]);
 
     const rows = gridData?.rows ?? [];
-    const totalCols = periodCount + 1;
+    const totalCols = gridData?.totalCols ?? periodColumns.length;
 
     const [grid, setGrid] = useState<Record<string, { subject: string; teacherId: string }>>({});
 
@@ -212,23 +186,27 @@ export default function TimetablePage() {
                         <CalendarDays className="h-5 w-5 text-indigo-600" /> Schedule (Mon–Sat same)
                     </CardTitle>
                     <p className="text-sm text-gray-500">
-                        First period: {firstPeriodStart} · Period: {periodDuration} min · Lunch: {lunchBreakDuration} min
+                        First period: {firstPeriodStart} · Period: {periodDuration} min · Breaks:{" "}
+                        {periodColumns
+                            .filter((c: any) => c.kind === "break")
+                            .map((c: any) => `${c.label} (${c.durationMinutes}m)`)
+                            .join(", ") || "—"}
                     </p>
                 </CardHeader>
                 <CardContent className="p-4 overflow-x-auto">
                     {rows.length === 0 ? (
                         <p className="py-8 text-center text-gray-500">No classes found. Add classes in Classes first, then save settings in Timetable Settings.</p>
                     ) : (
-                        <table className="w-full border-collapse text-sm min-w-[800px]">
+                        <table className="w-full border-collapse text-sm min-w-200">
                             <thead>
                                 <tr className="bg-gray-100">
                                     <th className="border border-gray-200 p-2 text-left font-semibold w-24 sticky left-0 bg-gray-100 z-10">Class</th>
-                                    {periodColumns.map((p) => (
+                                    {periodColumns.map((p: any, hci: number) => (
                                         <th
-                                            key={p.label}
-                                            className={`border border-gray-200 p-2 text-center font-semibold min-w-[100px] ${p.isLunch ? "bg-amber-100" : ""}`}
+                                            key={`${p.kind}-${hci}-${p.label}`}
+                                            className={`border border-gray-200 p-2 text-center font-semibold min-w-25 ${p.kind === "break" ? "bg-amber-100" : ""}`}
                                         >
-                                            <div>{p.label}</div>
+                                            <div>{p.kind === "break" ? p.shortLabel ?? p.label.toUpperCase() : p.label}</div>
                                             <div className="text-xs font-normal text-gray-500">{p.time}</div>
                                         </th>
                                     ))}
@@ -240,11 +218,14 @@ export default function TimetablePage() {
                                         <td className="border border-gray-200 p-2 font-medium sticky left-0 bg-white z-10">
                                             {row.className}{row.section ? ` – ${row.section}` : ""}
                                         </td>
-                                        {periodColumns.map((p, colIdx) => {
-                                            if (p.isLunch) {
+                                        {periodColumns.map((p: any, colIdx) => {
+                                            if (p.kind === "break") {
                                                 return (
-                                                    <td key={p.label} className="border border-gray-200 p-1 bg-amber-50 text-center text-amber-800 text-xs">
-                                                        LUNCH
+                                                    <td
+                                                        key={`b-${colIdx}-${p.label}`}
+                                                        className="border border-gray-200 p-1 bg-amber-50 text-center text-amber-800 text-xs"
+                                                    >
+                                                        {p.shortLabel ?? String(p.label).toUpperCase()}
                                                     </td>
                                                 );
                                             }
@@ -252,7 +233,7 @@ export default function TimetablePage() {
                                             const val = grid[key] ?? { subject: row.cells?.[colIdx]?.subject ?? "", teacherId: row.cells?.[colIdx]?.teacherId?._id ?? row.cells?.[colIdx]?.teacherId ?? "" };
                                             const assignedTeacher = (teachers as any[]).find((t: any) => t._id === val.teacherId);
                                             return (
-                                                <td key={p.label} className="border border-gray-200 p-1 align-top">
+                                                <td key={`p-${colIdx}-${p.label}`} className="border border-gray-200 p-1 align-top">
                                                     {canEdit ? (
                                                         <div className="space-y-1">
                                                             <input
