@@ -1,8 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
-import Link from "next/link";
 import {
   ArrowLeft,
   Search,
@@ -11,7 +10,7 @@ import {
   Mail,
   FileDown,
   IdCard,
-  ChevronRight,
+  TrendingUp,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -21,6 +20,15 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import api from "@/lib/api";
 import { useAuthStore } from "@/store/authStore";
 import { UserRole } from "@/types";
+import {
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+} from "recharts";
 
 function StatCard({
   label,
@@ -225,14 +233,25 @@ export function StudentProfileView({
           const results = res.data?.data ?? [];
           const match = results.find((r: any) => {
             const sid = r.studentId?._id || r.studentId;
-            return sid === student._id;
+            return String(sid) === String(student._id);
           });
           if (match) {
+            const sorted = [...results].sort(
+              (a: any, b: any) =>
+                (b.percentage || 0) - (a.percentage || 0) ||
+                (b.totalObtained || 0) - (a.totalObtained || 0)
+            );
+            const idx = sorted.findIndex((r: any) => {
+              const sid = r.studentId?._id || r.studentId;
+              return String(sid) === String(student._id);
+            });
+            const computedRank = idx >= 0 ? idx + 1 : undefined;
             allResults.push({
               ...match,
               examTitle: exam.title,
               examType: exam.type,
               examDate: exam.startDate,
+              rank: match.rank ?? computedRank,
             });
           }
         } catch {
@@ -265,6 +284,23 @@ export function StudentProfileView({
           results.length
         ).toFixed(1)
       : null;
+
+  const rankChartData = useMemo(() => {
+    return (examResults ?? [])
+      .filter((r: any) => r.rank != null && Number(r.rank) > 0)
+      .map((r: any) => ({
+        label: r.examTitle || "Exam",
+        fullTitle: r.examTitle || "Exam",
+        rank: Number(r.rank),
+        examDate: r.examDate ? new Date(r.examDate).getTime() : 0,
+      }))
+      .sort((a, b) => a.examDate - b.examDate);
+  }, [examResults]);
+
+  const rankYMax = useMemo(() => {
+    if (!rankChartData.length) return 5;
+    return Math.max(...rankChartData.map((d) => d.rank), 2) + 1;
+  }, [rankChartData]);
 
   const handleDownloadReportCard = async () => {
     try {
@@ -350,13 +386,6 @@ export function StudentProfileView({
           >
             <FileDown className="h-3.5 w-3.5" /> Report Card
           </Button>
-          {!isTeacher && (
-            <Link href="/students">
-              <Button variant="outline" size="sm" className="gap-1.5 text-xs">
-                Full Profile <ChevronRight className="h-3.5 w-3.5" />
-              </Button>
-            </Link>
-          )}
         </div>
       </div>
 
@@ -415,6 +444,76 @@ export function StudentProfileView({
           )}
         </div>
       </Card>
+
+      {!resultsLoading && rankChartData.length > 0 && (
+        <Card className="p-4 sm:p-5 border border-gray-200 shadow-sm">
+          <div className="flex items-center gap-2 mb-1">
+            <TrendingUp className="h-4 w-4 text-indigo-600 shrink-0" />
+            <h3 className="text-base font-semibold text-gray-900">
+              Exam rank progress
+            </h3>
+          </div>
+          <p className="text-xs text-gray-500 mb-4">
+            Rank in each test (lower is better). Hover a point for exam name and rank.
+          </p>
+          <div className="h-[260px] w-full min-h-[220px]">
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart
+                data={rankChartData}
+                margin={{ top: 12, right: 16, left: 8, bottom: 12 }}
+              >
+                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                <XAxis
+                  dataKey="label"
+                  tick={{ fontSize: 11, fill: "#6b7280" }}
+                  tickLine={false}
+                  axisLine={{ stroke: "#e5e7eb" }}
+                  interval={0}
+                  angle={rankChartData.length > 4 ? -25 : 0}
+                  textAnchor={rankChartData.length > 4 ? "end" : "middle"}
+                  height={rankChartData.length > 4 ? 56 : 40}
+                />
+                <YAxis
+                  reversed
+                  dataKey="rank"
+                  domain={[1, rankYMax]}
+                  allowDecimals={false}
+                  tick={{ fontSize: 11, fill: "#6b7280" }}
+                  tickLine={false}
+                  axisLine={{ stroke: "#e5e7eb" }}
+                  width={40}
+                />
+                <Tooltip
+                  cursor={{ stroke: "#c7d2fe", strokeWidth: 1 }}
+                  content={({ active, payload }) => {
+                    if (!active || !payload?.length) return null;
+                    const d = payload[0].payload as {
+                      fullTitle: string;
+                      rank: number;
+                    };
+                    return (
+                      <div className="rounded-lg border border-gray-200 bg-white px-3 py-2 shadow-lg text-sm">
+                        <p className="font-semibold text-gray-900">{d.fullTitle}</p>
+                        <p className="text-gray-600 mt-0.5">
+                          Rank: <span className="font-medium text-indigo-700">{d.rank}</span>
+                        </p>
+                      </div>
+                    );
+                  }}
+                />
+                <Line
+                  type="monotone"
+                  dataKey="rank"
+                  stroke="#4f46e5"
+                  strokeWidth={2}
+                  dot={{ r: 5, fill: "#4f46e5", strokeWidth: 2, stroke: "#fff" }}
+                  activeDot={{ r: 7 }}
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+        </Card>
+      )}
 
       <div>
         <h3 className="text-base font-semibold text-gray-900 mb-3">

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useLayoutEffect, useRef, useMemo } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Loader2, Save } from "lucide-react";
@@ -68,13 +68,80 @@ function mergeSubjectsIntoStudentMarks(
     });
 }
 
+function resultStudentId(r: any): string {
+    const sid = r.studentId;
+    if (sid && typeof sid === "object" && sid._id) return String(sid._id);
+    return String(sid ?? "");
+}
+
+/** Subject columns from saved exam results for this class (stable order) */
+function deriveSubjectDefsFromResults(resultsForClass: any[]): SubjectDef[] {
+    const seen = new Set<string>();
+    const out: SubjectDef[] = [];
+    for (const r of resultsForClass) {
+        for (const s of r.subjects || []) {
+            const name = String(s.subject || "").trim();
+            const key = name.toLowerCase();
+            if (!name || seen.has(key)) continue;
+            seen.add(key);
+            out.push({ subject: name, maxMarks: parseMarks(s.maxMarks) || 100 });
+        }
+    }
+    return out.length > 0 ? out : [{ subject: "Mathematics", maxMarks: 100 }];
+}
+
+function buildRowsFromServer(
+    students: any[],
+    subjectDefs: SubjectDef[],
+    resultsForClass: any[]
+) {
+    return students.map((s: any) => {
+        const res = resultsForClass.find((r: any) => resultStudentId(r) === String(s._id));
+        const subjects = subjectDefs.map((def) => {
+            const saved = res?.subjects?.find(
+                (x: any) =>
+                    String(x.subject || "")
+                        .trim()
+                        .toLowerCase() === def.subject.trim().toLowerCase()
+            );
+            return {
+                subject: def.subject,
+                maxMarks: def.maxMarks,
+                obtainedMarks: saved != null ? parseMarks(saved.obtainedMarks) : 0,
+            };
+        });
+        return {
+            studentId: s._id,
+            name: `${s.firstName} ${s.lastName}`,
+            subjects,
+        };
+    });
+}
+
 export function MarksEntryModal({ exam, open, onOpenChange }: MarksEntryModalProps) {
     const queryClient = useQueryClient();
     const [selectedClass, setSelectedClass] = useState("");
     const [subjects, setSubjects] = useState<SubjectDef[]>([{ subject: "Mathematics", maxMarks: 100 }]);
     const [studentMarks, setStudentMarks] = useState<any[]>([]);
 
-    const { data: students, isLoading } = useQuery({
+    /** After picking a class, re-apply server marks once results have loaded */
+    const pendingServerHydrationRef = useRef(false);
+
+    const { data: examResultsRaw, isLoading: resultsLoading, isFetching: resultsFetching } = useQuery({
+        queryKey: ["exam-results", exam?._id],
+        queryFn: async () => {
+            const res = await api.get(`/exams/${exam._id}/results`);
+            return res.data.data ?? res.data ?? [];
+        },
+        enabled: open && !!exam?._id,
+    });
+
+    const resultsForClass = useMemo(() => {
+        if (!selectedClass || !Array.isArray(examResultsRaw)) return [];
+        return examResultsRaw.filter((r: any) => String(r.class) === String(selectedClass));
+    }, [examResultsRaw, selectedClass]);
+
+    const { data: students, isLoading: studentsLoading } = useQuery({
         queryKey: ["students-by-class", selectedClass],
         queryFn: async () => {
             const res = await api.get("/students");
@@ -84,28 +151,67 @@ export function MarksEntryModal({ exam, open, onOpenChange }: MarksEntryModalPro
         enabled: open && !!selectedClass,
     });
 
-    const syncMarksTable = useCallback(
-        (nextStudents: any[] | undefined, nextSubjects: SubjectDef[]) => {
-            if (!Array.isArray(nextStudents) || nextStudents.length === 0) {
-                setStudentMarks([]);
-                return;
-            }
-            setStudentMarks((prev) => mergeSubjectsIntoStudentMarks(prev, nextStudents, nextSubjects));
-        },
-        []
-    );
-
     useEffect(() => {
-        syncMarksTable(students, subjects);
-    }, [students, subjects, syncMarksTable]);
+        if (selectedClass) pendingServerHydrationRef.current = true;
+    }, [selectedClass]);
 
     useEffect(() => {
         if (!open) {
             setSelectedClass("");
             setSubjects([{ subject: "Mathematics", maxMarks: 100 }]);
             setStudentMarks([]);
+            pendingServerHydrationRef.current = false;
         }
     }, [open]);
+
+    /**
+     * 1) When class is chosen: after students + exam results are ready, hydrate from API once.
+     * 2) Same class: merging subject columns preserves typed marks (add subject / rename max).
+     * Never clear the grid while students query is still loading (avoids wiping marks mid-fetch).
+     */
+    useLayoutEffect(() => {
+        if (!open || !selectedClass) {
+            if (!selectedClass) setStudentMarks([]);
+            return;
+        }
+
+        if (studentsLoading || students === undefined) {
+            return;
+        }
+
+        if (!students.length) {
+            setStudentMarks([]);
+            return;
+        }
+
+        if (examResultsRaw === undefined && resultsLoading) {
+            return;
+        }
+
+        if (pendingServerHydrationRef.current) {
+            if (resultsFetching) {
+                setStudentMarks((prev) => mergeSubjectsIntoStudentMarks(prev, students, subjects));
+                return;
+            }
+            pendingServerHydrationRef.current = false;
+            const defs = deriveSubjectDefsFromResults(resultsForClass);
+            setSubjects(defs);
+            setStudentMarks(buildRowsFromServer(students, defs, resultsForClass));
+            return;
+        }
+
+        setStudentMarks((prev) => mergeSubjectsIntoStudentMarks(prev, students, subjects));
+    }, [
+        open,
+        selectedClass,
+        students,
+        subjects,
+        studentsLoading,
+        resultsLoading,
+        resultsFetching,
+        examResultsRaw,
+        resultsForClass,
+    ]);
 
     const saveMarks = useMutation({
         mutationFn: async (data: any) => {
@@ -115,7 +221,7 @@ export function MarksEntryModal({ exam, open, onOpenChange }: MarksEntryModalPro
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ["exam-results", exam._id] });
             toast.success("Marks saved successfully");
-            onOpenChange(false);
+            pendingServerHydrationRef.current = true;
         },
         onError: (err: any) => {
             toast.error(err.response?.data?.message ?? "Failed to save marks");
@@ -151,6 +257,10 @@ export function MarksEntryModal({ exam, open, onOpenChange }: MarksEntryModalPro
         setSubjects((prev) => [...prev, { subject: "", maxMarks: 100 }]);
     };
 
+    const tableLoading = Boolean(
+        selectedClass && (studentsLoading || (examResultsRaw === undefined && resultsLoading))
+    );
+
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
@@ -185,7 +295,8 @@ export function MarksEntryModal({ exam, open, onOpenChange }: MarksEntryModalPro
                         <div className="space-y-2">
                             <Label>Subjects Configuration</Label>
                             <p className="text-xs text-gray-500">
-                                Add all subjects first, then enter marks for every student. One save stores every subject.
+                                Saved marks load automatically for this class. Add subjects, enter marks, then save — you
+                                can save again later; the modal stays open.
                             </p>
                             <div className="grid grid-cols-2 gap-2">
                                 {subjects.map((sub, idx) => (
@@ -219,7 +330,7 @@ export function MarksEntryModal({ exam, open, onOpenChange }: MarksEntryModalPro
                     {selectedClass && (
                         <div className="space-y-2">
                             <Label>Enter Marks for Students</Label>
-                            {isLoading ? (
+                            {tableLoading ? (
                                 <div className="flex h-32 items-center justify-center">
                                     <Loader2 className="h-6 w-6 animate-spin text-indigo-500" />
                                 </div>
@@ -270,7 +381,7 @@ export function MarksEntryModal({ exam, open, onOpenChange }: MarksEntryModalPro
                     <Button
                         className="flex-1 bg-indigo-600 hover:bg-indigo-500"
                         onClick={handleSave}
-                        disabled={!selectedClass || saveMarks.isPending}
+                        disabled={!selectedClass || saveMarks.isPending || tableLoading}
                     >
                         {saveMarks.isPending ? (
                             <Loader2 className="h-4 w-4 animate-spin" />
