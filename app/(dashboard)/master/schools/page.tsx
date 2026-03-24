@@ -3,7 +3,6 @@
 import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
-    Building2,
     Search,
     MoreVertical,
     CheckCircle2,
@@ -12,6 +11,7 @@ import {
     Calendar,
     Download,
     Eye,
+    Trash2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -67,16 +67,16 @@ export default function MasterSchoolsPage() {
         },
     });
 
-    const updateSchoolMutation = useMutation({
-        mutationFn: async ({ id, data: body }: { id: string; data: any }) => {
-            const res = await api.patch(`/master/schools/${id}`, body);
+    const deleteSchoolMutation = useMutation({
+        mutationFn: async (id: string) => {
+            const res = await api.delete(`/master/schools/${id}`);
             return res.data;
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ["master-schools"] });
-            toast.success("School updated.");
+            toast.success("School deleted with all related records.");
         },
-        onError: () => toast.error("Failed to update school."),
+        onError: () => toast.error("Failed to delete school."),
     });
 
     const putSubscriptionMutation = useMutation({
@@ -305,14 +305,16 @@ export default function MasterSchoolsPage() {
                                                             <XCircle className="mr-2 h-4 w-4" /> Suspend
                                                         </DropdownMenuItem>
                                                         <DropdownMenuItem
-                                                            onClick={() =>
-                                                                updateSchoolMutation.mutate({
-                                                                    id: row._id,
-                                                                    data: { isActive: !row.isActive },
-                                                                })
-                                                            }
+                                                            className="text-red-600 focus:text-red-600"
+                                                            onClick={() => {
+                                                                const confirmed = confirm(
+                                                                    `Delete ${row.schoolName} permanently?\n\nThis will also delete all linked students, staff, fees, exams/results, salaries, classes/sections, transport, fee structures, sessions, timetable data, notifications, support tickets, subscriptions, usage and the school record itself. This cannot be undone.`
+                                                                );
+                                                                if (!confirmed) return;
+                                                                deleteSchoolMutation.mutate(row._id);
+                                                            }}
                                                         >
-                                                            <Building2 className="mr-2 h-4 w-4" /> Toggle active
+                                                            <Trash2 className="mr-2 h-4 w-4" /> Delete school
                                                         </DropdownMenuItem>
                                                     </DropdownMenuContent>
                                                 </DropdownMenu>

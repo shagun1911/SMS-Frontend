@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { useAuthStore } from "@/store/authStore";
@@ -14,7 +15,6 @@ import {
     FileText,
     Settings,
     ShieldCheck,
-    School,
     Building2,
     CreditCard,
     Layers,
@@ -149,11 +149,17 @@ export function Sidebar({ className }: SidebarProps) {
         <div className={cn("h-screen border-r border-[hsl(var(--border))] bg-[hsl(var(--card))] w-64 shrink-0 flex flex-col", className)}>
             {/* Logo – fixed at top */}
             <div className="px-4 pt-5 pb-4 shrink-0">
-                <div className="flex items-center gap-3 rounded-xl border border-[hsl(var(--border))] bg-white px-4 py-3 shadow-sm transition-smooth">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-sm">
-                        <School className="h-5 w-5" />
+                <div className="flex items-center gap-3 rounded-xl border border-[hsl(var(--border))] bg-transparent px-4 py-3 shadow-none transition-smooth">
+                    <div className="flex h-10 w-42 items-center justify-center overflow-hidden rounded-xl">
+                        <Image
+                            src="/sms-logo-academis1.png"
+                            alt="Academis logo"
+                            width={168}
+                            height={40}
+                            className="h-27 w-42 object-cover object-bottom"
+                            priority
+                        />
                     </div>
-                    <span className="text-base font-bold tracking-tight text-[hsl(var(--foreground))]">SMS</span>
                 </div>
             </div>
 
@@ -171,7 +177,7 @@ export function Sidebar({ className }: SidebarProps) {
                             key={route.href}
                             href={locked ? "/plan" : route.href}
                             className={cn(
-                                "flex min-h-[40px] items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-smooth active:scale-[0.98]",
+                                "flex min-h-10 items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-smooth active:scale-[0.98]",
                                 isActive && !locked
                                     ? "bg-primary text-primary-foreground shadow-md"
                                     : "text-[hsl(var(--muted-foreground))] hover:bg-[hsl(var(--accent))] hover:text-[hsl(var(--accent-foreground))] border border-transparent hover:border-[hsl(var(--border))]",

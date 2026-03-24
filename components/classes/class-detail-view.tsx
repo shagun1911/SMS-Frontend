@@ -340,6 +340,26 @@ export function StudentProfileView({
     }
   };
 
+  const handleDownloadSingleExamReportCard = async (examId: string, examTitle?: string) => {
+    try {
+      const res = await api.get(`/exams/${examId}/report-card/${student._id}`, {
+        responseType: "blob",
+      });
+      const url = URL.createObjectURL(
+        new Blob([res.data], { type: "application/pdf" })
+      );
+      const a = document.createElement("a");
+      a.href = url;
+      const safeTitle = (examTitle || "exam").replace(/\s+/g, "-").toLowerCase();
+      a.download = `report-card-${safeTitle}-${student.firstName}-${student.lastName}.pdf`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      const { toast } = await import("sonner");
+      toast.error("Failed to generate exam report card");
+    }
+  };
+
   return (
     <div className="space-y-4 sm:space-y-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
@@ -567,6 +587,22 @@ export function StudentProfileView({
                       Grade {r.grade}
                     </Badge>
                   </div>
+                </div>
+                <div className="mb-3 flex justify-end">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="gap-1.5 text-xs"
+                    onClick={() =>
+                      handleDownloadSingleExamReportCard(
+                        r.examId?._id || r.examId || "",
+                        r.examTitle
+                      )
+                    }
+                    disabled={!r.examId}
+                  >
+                    <FileDown className="h-3.5 w-3.5" /> Report Card
+                  </Button>
                 </div>
                 {r.subjects && r.subjects.length > 0 && (
                   <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">

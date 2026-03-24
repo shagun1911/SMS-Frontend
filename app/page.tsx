@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { useState, useEffect } from "react";
 import {
   GraduationCap,
@@ -85,10 +86,16 @@ export default function LandingPage() {
       >
         <div className={`mx-auto flex max-w-6xl items-center justify-between px-4 transition-all duration-200 ${scrolled ? "h-12" : "h-14"}`}>
           <Link href="/" className="flex items-center gap-2 text-[hsl(var(--foreground))] transition-smooth hover:opacity-80">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[hsl(var(--primary))] text-white">
-              <School className="h-4 w-4" />
+            <div className="h-12 w-56 overflow-hidden rounded-md bg-white">
+              <Image
+                src="/sms-logo-academis1.png"
+                alt="Academis logo"
+                width={224}
+                height={48}
+                className="h-12 w-56 object-cover object-center"
+                priority
+              />
             </div>
-            <span className="font-semibold tracking-tight">SMS</span>
           </Link>
           <nav className="flex items-center gap-3 text-sm font-medium text-[hsl(var(--muted-foreground))]">
             <Link href="#features" className="transition-smooth hover:text-[hsl(var(--foreground))] hidden md:block">Features</Link>
@@ -375,11 +382,14 @@ export default function LandingPage() {
       <footer className="border-t border-[hsl(var(--border))] bg-[hsl(var(--card))] py-10">
         <div className="mx-auto max-w-6xl px-4">
           <div className="flex flex-col items-center justify-between gap-4 sm:flex-row">
-            <div className="flex items-center gap-2">
-              <div className="flex h-7 w-7 items-center justify-center rounded-md bg-[hsl(var(--primary))] text-white">
-                <School className="h-3.5 w-3.5" />
-              </div>
-              <span className="font-semibold text-[hsl(var(--foreground))] text-sm">SMS</span>
+            <div className="flex items-center gap-2 rounded-md bg-white px-1 py-0.5">
+              <Image
+                src="/sms-logo-academis1.png"
+                alt="Academis logo"
+                width={176}
+                height={40}
+                className="h-10 w-44 object-cover object-center"
+              />
             </div>
             <nav className="flex flex-wrap items-center justify-center gap-5 text-sm text-[hsl(var(--muted-foreground))]">
               <Link href="#features" className="transition-smooth hover:text-[hsl(var(--foreground))]">Features</Link>
