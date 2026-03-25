@@ -1,11 +1,21 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import api from "@/lib/api";
 import { Calendar, Loader2 } from "lucide-react";
 
 const DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+
+/** Backend stores dayOfWeek as 1 = Monday … 6 = Saturday (see admin timetable create). */
+const DAY_NAME_TO_NUM: Record<string, number> = {
+  Monday: 1,
+  Tuesday: 2,
+  Wednesday: 3,
+  Thursday: 4,
+  Friday: 5,
+  Saturday: 6,
+};
 
 export default function TeacherTimetablePage() {
   const [selectedClass, setSelectedClass] = useState("");
@@ -19,13 +29,28 @@ export default function TeacherTimetablePage() {
     },
   });
 
-  const classData = classes.find((c: any) => c.className === selectedClass);
+  const classNames = useMemo(() => {
+    const names = new Set<string>();
+    for (const c of classes as any[]) {
+      if (c?.className) names.add(String(c.className));
+    }
+    return [...names].sort();
+  }, [classes]);
+
+  const sectionsForClass = useMemo(() => {
+    if (!selectedClass) return [];
+    const secs = (classes as any[])
+      .filter((c) => c.className === selectedClass)
+      .map((c) => String(c.section ?? "").trim())
+      .filter(Boolean);
+    return [...new Set(secs)].sort();
+  }, [classes, selectedClass]);
 
   const { data: timetable = [], isLoading } = useQuery({
     queryKey: ["timetable", selectedClass, selectedSection],
     queryFn: async () => {
       const params = new URLSearchParams();
-      if (selectedClass) params.set("class", selectedClass);
+      if (selectedClass) params.set("className", selectedClass);
       if (selectedSection) params.set("section", selectedSection);
       const res = await api.get(`/timetable?${params}`);
       return res.data.data ?? [];
@@ -33,8 +58,10 @@ export default function TeacherTimetablePage() {
     enabled: !!selectedClass && !!selectedSection,
   });
 
-  const getDay = (dayName: string) =>
-    timetable.find((t: any) => t.dayOfWeek === dayName);
+  const getDay = (dayName: string) => {
+    const n = DAY_NAME_TO_NUM[dayName];
+    return timetable.find((t: any) => Number(t.dayOfWeek) === n);
+  };
 
   return (
     <div className="space-y-6">
@@ -50,12 +77,28 @@ export default function TeacherTimetablePage() {
         <div className="flex-1">
           <select
             value={selectedClass}
-            onChange={(e) => { setSelectedClass(e.target.value); setSelectedSection(""); }}
+            onChange={(e) => {
+              const name = e.target.value;
+              setSelectedClass(name);
+              if (!name) {
+                setSelectedSection("");
+                return;
+              }
+              const secs = [
+                ...new Set(
+                  (classes as any[])
+                    .filter((c) => c.className === name)
+                    .map((c) => String(c.section ?? "").trim())
+                    .filter(Boolean),
+                ),
+              ].sort();
+              setSelectedSection(secs.length === 1 ? secs[0] : "");
+            }}
             className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500 outline-none"
           >
             <option value="">Select Class</option>
-            {classes.map((c: any) => (
-              <option key={c._id} value={c.className}>Class {c.className}</option>
+            {classNames.map((name) => (
+              <option key={name} value={name}>Class {name}</option>
             ))}
           </select>
         </div>
@@ -67,7 +110,7 @@ export default function TeacherTimetablePage() {
             className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500 outline-none disabled:opacity-50"
           >
             <option value="">Select Section</option>
-            {classData?.sections?.map((s: string) => (
+            {sectionsForClass.map((s) => (
               <option key={s} value={s}>Section {s}</option>
             ))}
           </select>

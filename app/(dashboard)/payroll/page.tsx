@@ -293,6 +293,7 @@ export default function PayrollPage() {
                                         <th className="px-4 py-3 text-right">Basic</th>
                                         <th className="px-4 py-3 text-right">Allowances</th>
                                         <th className="px-4 py-3 text-right">Deductions</th>
+                                        <th className="px-4 py-3 text-right">Settled Extra</th>
                                         <th className="px-4 py-3 text-right">Net</th>
                                         <th className="px-4 py-3 text-right">Paid</th>
                                         <th className="px-4 py-3 text-right">Due</th>
@@ -305,6 +306,7 @@ export default function PayrollPage() {
                                     {filtered.map((r: any) => {
                                         const allowTotal = (r.allowances || []).reduce((s: number, a: any) => s + a.amount, 0);
                                         const deductTotal = (r.deductions || []).reduce((s: number, d: any) => s + d.amount, 0);
+                                        const settledExtraNet = r.settledExtraNet || 0;
                                         const paid = r.paidAmount || 0;
                                         const due = Math.max(0, (r.netSalary || 0) - paid);
                                         return (
@@ -316,6 +318,9 @@ export default function PayrollPage() {
                                                 <td className="px-4 py-3 text-right tabular-nums">{fmt(r.basicSalary)}</td>
                                                 <td className="px-4 py-3 text-right tabular-nums text-emerald-600">+{fmt(allowTotal)}</td>
                                                 <td className="px-4 py-3 text-right tabular-nums text-rose-500">-{fmt(deductTotal)}</td>
+                                                <td className={`px-4 py-3 text-right tabular-nums font-medium ${settledExtraNet >= 0 ? "text-emerald-600" : "text-rose-500"}`}>
+                                                    {settledExtraNet === 0 ? "—" : `${settledExtraNet > 0 ? "+" : "-"}${fmt(Math.abs(settledExtraNet))}`}
+                                                </td>
                                                 <td className="px-4 py-3 text-right tabular-nums font-semibold">{fmt(r.netSalary)}</td>
                                                 <td className="px-4 py-3 text-right tabular-nums text-emerald-600">{paid > 0 ? fmt(paid) : "—"}</td>
                                                 <td className="px-4 py-3 text-right tabular-nums text-rose-500 font-medium">{due > 0 ? fmt(due) : "—"}</td>
@@ -346,7 +351,7 @@ export default function PayrollPage() {
                                 </tbody>
                                 <tfoot>
                                     <tr className="border-t bg-muted/30 font-semibold text-xs">
-                                        <td className="px-4 py-3" colSpan={5}>Total ({filtered.length} staff)</td>
+                                        <td className="px-4 py-3" colSpan={6}>Total ({filtered.length} staff)</td>
                                         <td className="px-4 py-3 text-right tabular-nums">
                                             {fmt(filtered.reduce((s: number, r: any) => s + (r.netSalary || 0), 0))}
                                         </td>
@@ -564,6 +569,10 @@ function SlipViewer({
     if (!record) return null;
     const allowTotal = (record.allowances || []).reduce((s: number, a: any) => s + a.amount, 0);
     const deductTotal = (record.deductions || []).reduce((s: number, d: any) => s + d.amount, 0);
+    const settledOtherPayments = record.settledOtherPayments || [];
+    const settledBonusTotal = record.settledBonusTotal || 0;
+    const settledAdjustmentTotal = record.settledAdjustmentTotal || 0;
+    const settledExtraNet = record.settledExtraNet || 0;
     const fmt = (n: number) => `₹${n.toLocaleString("en-IN")}`;
 
     const handlePrint = () => {
@@ -675,6 +684,38 @@ function SlipViewer({
                                 <td className="right money" style={{ color: "#e11d48", fontWeight: 700 }}>-{fmt(d.amount)}</td>
                             </tr>
                         ))}
+
+                        {settledOtherPayments.map((sp: any) => (
+                            <tr key={`sp-${sp._id}`}>
+                                <td style={{ paddingLeft: 22, color: sp.type === "bonus" ? "#059669" : "#e11d48", fontWeight: 600 }}>
+                                    {sp.type === "bonus" ? "Bonus" : "Adjustment"} — {sp.title}
+                                    {sp.date ? (
+                                        <span style={{ marginLeft: 8, fontSize: 11, color: "#64748b", fontWeight: 500 }}>
+                                            ({new Date(sp.date).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}{" "}
+                                            {new Date(sp.date).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })})
+                                        </span>
+                                    ) : null}
+                                </td>
+                                <td
+                                    className="right money"
+                                    style={{ color: sp.type === "bonus" ? "#059669" : "#e11d48", fontWeight: 700 }}
+                                >
+                                    {sp.type === "bonus" ? "+" : "-"}{fmt(sp.amount)}
+                                </td>
+                            </tr>
+                        ))}
+
+                        {(settledBonusTotal > 0 || settledAdjustmentTotal > 0) && (
+                            <tr>
+                                <td style={{ fontWeight: 800 }}>Settled Extras (outside payroll)</td>
+                                <td
+                                    className="right money"
+                                    style={{ fontWeight: 800, color: settledExtraNet >= 0 ? "#059669" : "#e11d48" }}
+                                >
+                                    {settledExtraNet >= 0 ? "+" : "-"}{fmt(Math.abs(settledExtraNet))}
+                                </td>
+                            </tr>
+                        )}
 
                         <tr className="total">
                             <td style={{ fontWeight: 800 }}>Gross Salary</td>

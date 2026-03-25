@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, ArrowLeft, Mail, Phone, Calendar, Save, KeyRound, X, Copy, CalendarDays, Megaphone, Bus, Shield } from "lucide-react";
+import { Loader2, ArrowLeft, Mail, Phone, Calendar, Save, KeyRound, X, Copy, Megaphone, Shield } from "lucide-react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
@@ -154,7 +154,8 @@ export default function StaffProfilePage() {
       setName(staff.name ?? "");
       setEmail(staff.email ?? "");
       setPhone(staff.phone ?? "");
-      setPermissions(Array.isArray(staff.permissions) ? [...staff.permissions] : []);
+      const all = Array.isArray(staff.permissions) ? staff.permissions : [];
+      setPermissions(all.filter((p: string) => p === "manage_announcements"));
     }
   }, [staff]);
 
@@ -187,16 +188,17 @@ export default function StaffProfilePage() {
     updateMutation.mutate({ name, email, phone });
   };
 
-  const permissionsList = [
-    { key: "edit_timetable", label: "Edit timetable / change schedule", icon: CalendarDays },
-    { key: "manage_announcements", label: "Manage announcements", icon: Megaphone },
-    { key: "view_transport", label: "View bus routes (transport)", icon: Bus },
-  ];
+  const permissionsList = [{ key: "manage_announcements", label: "Manage announcements", icon: Megaphone }];
 
   const togglePermission = (key: string) => {
-    const next = permissions.includes(key) ? permissions.filter((p) => p !== key) : [...permissions, key];
-    setPermissions(next);
-    api.put(`/users/${staffId}`, { permissions: next }).then(() => {
+    const nextManaged = permissions.includes(key) ? permissions.filter((p) => p !== key) : [...permissions, key];
+    setPermissions(nextManaged);
+    const prev = Array.isArray(staff.permissions) ? staff.permissions : [];
+    const other = prev.filter(
+      (p: string) => p !== "manage_announcements" && p !== "edit_timetable" && p !== "view_transport"
+    );
+    const merged = [...other, ...nextManaged];
+    api.put(`/users/${staffId}`, { permissions: merged }).then(() => {
       queryClient.invalidateQueries({ queryKey: ["staff-profile", staffId] });
       queryClient.invalidateQueries({ queryKey: ["staff-list"] });
       toast.success("Access updated");
@@ -323,7 +325,7 @@ export default function StaffProfilePage() {
                   Access permissions
                 </Label>
                 <p className="text-sm text-gray-500">
-                  Grant this teacher access to extra features. By default teachers can only view the timetable.
+                  Timetable editing and bus routes are available to all teachers. Optionally allow posting school announcements.
                 </p>
                 <div className="flex flex-wrap gap-4 pt-2">
                   {permissionsList.map(({ key, label, icon: Icon }) => (

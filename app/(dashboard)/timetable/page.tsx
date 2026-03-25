@@ -9,15 +9,11 @@ import { CalendarDays, Loader2, Download, Printer, Eye, Save, Settings } from "l
 import { LockedFeatureGate } from "@/components/plan/locked-feature-gate";
 import api from "@/lib/api";
 import { toast } from "sonner";
-import { useAuthStore } from "@/store/authStore";
-import { UserRole } from "@/types";
 import { buildScheduleColumnDtos } from "@/lib/timetableSchedule";
 
 export default function TimetablePage() {
     const queryClient = useQueryClient();
-    const { user } = useAuthStore();
-    const isTeacher = user?.role === UserRole.TEACHER;
-    const canEdit = !isTeacher || (user?.permissions ?? []).includes("edit_timetable");
+    const canEdit = true;
     const [pdfAction, setPdfAction] = useState<"preview" | "download" | "print" | null>(null);
 
     const { data: gridData, isLoading } = useQuery({

@@ -11,10 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import api from "@/lib/api";
 import { toast } from "sonner";
-import { useRouter } from "next/navigation";
-import { useEffect, useMemo } from "react";
-import { useAuthStore } from "@/store/authStore";
-import { UserRole } from "@/types";
+import { useMemo } from "react";
 import { normalizeTimetableBreaks } from "@/lib/timetableSchedule";
 
 const breakRowSchema = z.object({
@@ -55,14 +52,6 @@ function breaksFromSettings(settings: any): FormValues["breaks"] {
 
 export default function TimetableSettingsPage() {
     const queryClient = useQueryClient();
-    const router = useRouter();
-    const { user } = useAuthStore();
-    const isTeacher = user?.role === UserRole.TEACHER;
-    const canEdit = !isTeacher || (user?.permissions ?? []).includes("edit_timetable");
-
-    useEffect(() => {
-        if (user && !canEdit) router.replace("/timetable");
-    }, [user, canEdit, router]);
 
     const { data: settings, isLoading } = useQuery({
         queryKey: ["timetable-settings"],

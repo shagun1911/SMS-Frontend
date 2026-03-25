@@ -45,10 +45,11 @@ export default function TeacherLayout({ children }: { children: React.ReactNode 
 
   if (!isAuthenticated || user?.role !== UserRole.TEACHER) return null;
 
-  const hasTransportAccess = Array.isArray(user?.permissions) && user.permissions.includes("view_transport");
-  const navItems = hasTransportAccess
-    ? [...baseNavItems.filter((i) => i.href !== "/teacher/profile"), { href: "/teacher/bus-routes", icon: Bus, label: "Bus routes" }, { href: "/teacher/profile", icon: UserCircle, label: "Profile" }]
-    : baseNavItems;
+  const navItems = [
+    ...baseNavItems.filter((i) => i.href !== "/teacher/profile"),
+    { href: "/teacher/bus-routes", icon: Bus, label: "Bus routes" },
+    { href: "/teacher/profile", icon: UserCircle, label: "Profile" },
+  ];
 
   const handleLogout = () => {
     logout();

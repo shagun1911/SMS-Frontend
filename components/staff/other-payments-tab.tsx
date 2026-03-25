@@ -69,7 +69,7 @@ export default function OtherPaymentsTab({ staffId }: OtherPaymentsTabProps) {
         <div>
           <h2 className="text-base font-semibold">Bonuses & Adjustments</h2>
           <p className="mt-0.5 text-sm text-muted-foreground">
-            One-time payments outside the regular salary structure. Included when generating monthly payroll.
+            One-time direct transactions outside regular monthly payroll. Recorded here as already settled entries.
           </p>
         </div>
         {!isAdding && (

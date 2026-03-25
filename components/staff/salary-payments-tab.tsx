@@ -49,6 +49,14 @@ export default function SalaryPaymentsTab({ staffId, compact }: SalaryPaymentsTa
     },
   });
 
+  const { data: otherPaymentsData } = useQuery({
+    queryKey: ["other-payments", staffId],
+    queryFn: async () => {
+      const res = await api.get(`/salary-other-payments/staff/${staffId}`);
+      return res.data.data || [];
+    },
+  });
+
   const records = [...(data || [])].sort((a: any, b: any) => {
     const getSortTime = (r: any) => {
       if (r.paymentDate) return new Date(r.paymentDate).getTime();
@@ -58,8 +66,24 @@ export default function SalaryPaymentsTab({ staffId, compact }: SalaryPaymentsTa
     };
     return getSortTime(b) - getSortTime(a);
   });
+  const otherPayments = otherPaymentsData || [];
 
   const fmt = (n: number) => `₹${n?.toLocaleString("en-IN")}`;
+
+  const settledByMonth = useMemo(() => {
+    const map = new Map<string, { bonus: number; adjustment: number; items: any[] }>();
+    for (const p of otherPayments) {
+      const date = p?.date ? new Date(p.date) : null;
+      if (!date || Number.isNaN(date.getTime())) continue;
+      const key = `${date.toLocaleString("en-US", { month: "long" })}-${date.getFullYear()}`;
+      const curr = map.get(key) || { bonus: 0, adjustment: 0, items: [] };
+      if (p.type === "bonus") curr.bonus += Number(p.amount || 0);
+      else curr.adjustment += Number(p.amount || 0);
+      curr.items.push(p);
+      map.set(key, curr);
+    }
+    return map;
+  }, [otherPayments]);
 
   // All hooks above early returns — Rules of Hooks
   const monthOptions = useMemo(() => {
@@ -201,6 +225,7 @@ export default function SalaryPaymentsTab({ staffId, compact }: SalaryPaymentsTa
                 <tr className="border-b text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
                   <th className="pb-2.5 pr-4">Month</th>
                   <th className="pb-2.5 pr-4 text-right">Net Payable</th>
+                  <th className="pb-2.5 pr-4 text-right">Settled Extra</th>
                   <th className="pb-2.5 pr-4 text-right">Paid</th>
                   <th className="pb-2.5 pr-4 text-right">Due</th>
                   <th className="pb-2.5 pr-4 text-center">Status</th>
@@ -210,10 +235,23 @@ export default function SalaryPaymentsTab({ staffId, compact }: SalaryPaymentsTa
                 </tr>
               </thead>
               <tbody>
-                {visibleRecords.map((r: any) => (
+                {visibleRecords.map((r: any) => {
+                  const key = `${r.month}-${r.year}`;
+                  const settled = settledByMonth.get(key);
+                  const settledNet = (settled?.bonus || 0) - (settled?.adjustment || 0);
+                  return (
                   <tr key={r._id} className="border-b last:border-0 hover:bg-muted/30 transition-colors">
                     <td className="py-3 pr-4 font-medium">{r.month} {r.year}</td>
                     <td className="py-3 pr-4 text-right font-semibold tabular-nums">{fmt(r.netSalary)}</td>
+                    <td className="py-3 pr-4 text-right font-medium tabular-nums">
+                      {!settled ? (
+                        <span className="text-muted-foreground">—</span>
+                      ) : (
+                        <span className={settledNet >= 0 ? "text-emerald-600" : "text-rose-600"}>
+                          {settledNet >= 0 ? "+" : "-"}{fmt(Math.abs(settledNet))}
+                        </span>
+                      )}
+                    </td>
                     <td className="py-3 pr-4 text-right font-medium text-emerald-600 tabular-nums">{fmt(r.paidAmount || 0)}</td>
                     <td className="py-3 pr-4 text-right font-medium text-rose-600 tabular-nums">{fmt(r.netSalary - (r.paidAmount || 0))}</td>
                     <td className="py-3 pr-4 text-center">
@@ -265,7 +303,8 @@ export default function SalaryPaymentsTab({ staffId, compact }: SalaryPaymentsTa
                       </td>
                     )}
                   </tr>
-                ))}
+                  );
+                })}
               </tbody>
             </table>
           </div>
@@ -426,6 +465,14 @@ export default function SalaryPaymentsTab({ staffId, compact }: SalaryPaymentsTa
       {viewingHistory && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm px-4">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 space-y-4">
+            {(() => {
+              const settledKey = `${viewingHistory.month}-${viewingHistory.year}`;
+              const settled = settledByMonth.get(settledKey);
+              const settledItems = (settled?.items || []).slice().sort((a: any, b: any) => {
+                return new Date(b.date).getTime() - new Date(a.date).getTime();
+              });
+              return (
+                <>
             <div className="flex items-start justify-between">
               <div>
                 <h3 className="text-lg font-bold">Payment History</h3>
@@ -484,6 +531,52 @@ export default function SalaryPaymentsTab({ staffId, compact }: SalaryPaymentsTa
             </div>
 
             <div className="space-y-3 max-h-[60vh] overflow-y-auto">
+              {settledItems.length > 0 && (
+                <div className="space-y-2">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    Settled Bonuses & Adjustments
+                  </p>
+                  {settledItems.map((sp: any) => (
+                    <div
+                      key={`settled-${sp._id}`}
+                      className="flex justify-between items-center bg-slate-50 p-3 rounded-lg border"
+                    >
+                      <div>
+                        <p className={`text-sm font-semibold ${sp.type === "bonus" ? "text-emerald-700" : "text-rose-600"}`}>
+                          {sp.type === "bonus" ? "+" : "-"}
+                          {fmt(sp.amount)}
+                        </p>
+                        <p className="text-xs text-slate-700 mt-0.5">
+                          {sp.title || (sp.type === "bonus" ? "Bonus" : "Adjustment")}
+                        </p>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          {new Date(sp.date).toLocaleDateString("en-IN", {
+                            day: "2-digit",
+                            month: "short",
+                            year: "numeric",
+                          })}{" "}
+                          ·{" "}
+                          {new Date(sp.date).toLocaleTimeString("en-IN", {
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          })}
+                        </p>
+                      </div>
+                      <Badge
+                        variant="outline"
+                        className={`text-[10px] capitalize ${
+                          sp.type === "bonus"
+                            ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                            : "bg-rose-50 text-rose-700 border-rose-200"
+                        }`}
+                      >
+                        {sp.type}
+                      </Badge>
+                    </div>
+                  ))}
+                </div>
+              )}
+
               {viewingHistory.paymentHistory?.map((ph: any, i: number) => (
                 <div key={i} className="flex justify-between items-center bg-muted/30 p-3 rounded-lg border">
                   <div>
@@ -501,6 +594,9 @@ export default function SalaryPaymentsTab({ staffId, compact }: SalaryPaymentsTa
             <div className="pt-2">
               <Button onClick={() => setViewingHistory(null)} className="w-full">Close</Button>
             </div>
+                </>
+              );
+            })()}
           </div>
         </div>
       )}

@@ -3,22 +3,16 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
-import { useAuthStore } from "@/store/authStore";
-import { UserRole } from "@/types";
-
 export default function TimetableLayout({
     children,
 }: {
     children: React.ReactNode;
 }) {
     const pathname = usePathname();
-    const { user } = useAuthStore();
-    const isTeacher = user?.role === UserRole.TEACHER;
-    const canEdit = !isTeacher || (user?.permissions ?? []).includes("edit_timetable");
 
     const tabs = [
         { label: "Timetable", href: "/timetable" },
-        ...(canEdit ? [{ label: "Settings", href: "/timetable/settings" }] : []),
+        { label: "Settings", href: "/timetable/settings" },
     ];
 
     return (
