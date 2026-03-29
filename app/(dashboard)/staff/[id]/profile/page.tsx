@@ -4,6 +4,7 @@ import { useParams, useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { useState, useEffect, useMemo } from "react";
 import api from "@/lib/api";
+import { formatStaffRoleLabel } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -231,7 +232,7 @@ export default function StaffProfilePage() {
               <div>
                 <CardTitle className="text-xl">{staff.name}</CardTitle>
                 <Badge variant="secondary" className="mt-1">
-                  {staff.role?.replace("_", " ")}
+                  {formatStaffRoleLabel(staff.role || "", staff.staffRoleTitle)}
                 </Badge>
               </div>
             </div>

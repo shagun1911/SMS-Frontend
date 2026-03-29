@@ -14,20 +14,38 @@ import { Select } from "@/components/ui/select";
 import { Loader2, ShieldCheck, Camera, X } from "lucide-react";
 import { UserRole } from "@/types";
 
-const staffSchema = z.object({
-    name: z.string().min(3, "Full name required"),
-    email: z.string().email("Invalid email"),
-    phone: z.string().min(10, "Valid phone needed"),
-    role: z.enum([
-        UserRole.TEACHER,
-        UserRole.ACCOUNTANT,
-        UserRole.TRANSPORT_MANAGER,
-        UserRole.SCHOOL_ADMIN,
-    ]),
-    baseSalary: z.string().min(1, "Base salary required"),
-    joiningDate: z.string().min(1, "Joining date required"),
-    subject: z.string().optional(),
-});
+const staffSchema = z
+    .object({
+        name: z.string().min(3, "Full name required"),
+        email: z.string().email("Invalid email"),
+        phone: z.string().min(10, "Valid phone needed"),
+        role: z.enum([
+            UserRole.TEACHER,
+            UserRole.ACCOUNTANT,
+            UserRole.TRANSPORT_MANAGER,
+            UserRole.SCHOOL_ADMIN,
+            UserRole.BUS_DRIVER,
+            UserRole.CONDUCTOR,
+            UserRole.CLEANING_STAFF,
+            UserRole.STAFF_OTHER,
+        ]),
+        baseSalary: z.string().min(1, "Base salary required"),
+        joiningDate: z.string().min(1, "Joining date required"),
+        subject: z.string().optional(),
+        staffRoleTitle: z.string().optional(),
+    })
+    .superRefine((data, ctx) => {
+        if (data.role === UserRole.STAFF_OTHER) {
+            const t = (data.staffRoleTitle || "").trim();
+            if (t.length < 2) {
+                ctx.addIssue({
+                    code: z.ZodIssueCode.custom,
+                    message: "Enter the specific role",
+                    path: ["staffRoleTitle"],
+                });
+            }
+        }
+    });
 
 type StaffValues = z.infer<typeof staffSchema>;
 
@@ -55,6 +73,7 @@ export function AddStaffModal({ isOpen, onClose }: AddStaffModalProps) {
         resolver: zodResolver(staffSchema),
         defaultValues: {
             role: UserRole.TEACHER,
+            staffRoleTitle: "",
         }
     });
 
@@ -63,6 +82,9 @@ export function AddStaffModal({ isOpen, onClose }: AddStaffModalProps) {
     useEffect(() => {
         if (selectedRole === UserRole.SCHOOL_ADMIN) {
             setValue("baseSalary", "0");
+        }
+        if (selectedRole !== UserRole.STAFF_OTHER) {
+            setValue("staffRoleTitle", "");
         }
     }, [selectedRole, setValue]);
 
@@ -101,12 +123,20 @@ export function AddStaffModal({ isOpen, onClose }: AddStaffModalProps) {
     };
 
     const mutation = useMutation({
-        mutationFn: (data: StaffValues) => api.post("/users", {
-            ...data,
-            baseSalary: Number(data.baseSalary),
-            joiningDate: data.joiningDate ? new Date(data.joiningDate).toISOString() : undefined,
-            ...(photoUrl ? { photo: photoUrl } : {}),
-        }),
+        mutationFn: (data: StaffValues) =>
+            api.post("/users", {
+                name: data.name,
+                email: data.email,
+                phone: data.phone,
+                role: data.role,
+                baseSalary: Number(data.baseSalary),
+                joiningDate: data.joiningDate ? new Date(data.joiningDate).toISOString() : undefined,
+                ...(data.subject?.trim() ? { subject: data.subject.trim() } : {}),
+                ...(data.role === UserRole.STAFF_OTHER
+                    ? { staffRoleTitle: (data.staffRoleTitle || "").trim() }
+                    : {}),
+                ...(photoUrl ? { photo: photoUrl } : {}),
+            }),
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ["staff-list"] });
             toast.success("Staff Member Enrolled", {
@@ -212,6 +242,10 @@ export function AddStaffModal({ isOpen, onClose }: AddStaffModalProps) {
                             { label: "Teacher", value: UserRole.TEACHER },
                             { label: "Accountant", value: UserRole.ACCOUNTANT },
                             { label: "Transport Manager", value: UserRole.TRANSPORT_MANAGER },
+                            { label: "Bus Driver", value: UserRole.BUS_DRIVER },
+                            { label: "Conductor", value: UserRole.CONDUCTOR },
+                            { label: "Cleaning Staff", value: UserRole.CLEANING_STAFF },
+                            { label: "Others", value: UserRole.STAFF_OTHER },
                             { label: "School Admin", value: UserRole.SCHOOL_ADMIN },
                         ]}
                         {...register("role")}
@@ -232,6 +266,22 @@ export function AddStaffModal({ isOpen, onClose }: AddStaffModalProps) {
                         {errors.baseSalary && selectedRole !== UserRole.SCHOOL_ADMIN && <p className="text-[10px] text-red-400 ml-1">{errors.baseSalary.message}</p>}
                     </div>
                 </div>
+
+                {selectedRole === UserRole.STAFF_OTHER && (
+                    <div className="space-y-2 animate-in fade-in slide-in-from-top-2 duration-300">
+                        <label className="text-xs font-bold uppercase tracking-wider text-zinc-500 ml-1">
+                            Specify role <span className="text-red-500">*</span>
+                        </label>
+                        <Input
+                            {...register("staffRoleTitle")}
+                            placeholder="e.g. Librarian, Security Guard"
+                            className="h-11 rounded-xl border-gray-200 bg-white"
+                        />
+                        {errors.staffRoleTitle && (
+                            <p className="text-[10px] text-red-400 ml-1">{errors.staffRoleTitle.message}</p>
+                        )}
+                    </div>
+                )}
 
                 <div className="space-y-2">
                     <label className="text-xs font-bold uppercase tracking-wider text-zinc-500 ml-1">Joining Date</label>

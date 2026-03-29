@@ -5,6 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import api from "@/lib/api";
+import { formatStaffRoleLabel } from "@/lib/utils";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -82,8 +83,8 @@ export default function StaffDetailPage() {
             <div>
               <h1 className="text-xl font-bold tracking-tight">{staff.name}</h1>
               <div className="mt-1 flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
-                <Badge variant="secondary" className="font-medium capitalize">
-                  {(staff.role || "").replace(/_/g, " ")}
+                <Badge variant="secondary" className="font-medium">
+                  {formatStaffRoleLabel(staff.role || "", staff.staffRoleTitle)}
                 </Badge>
                 {staff.email && <span>{staff.email}</span>}
                 {staff.phone && <span>· {staff.phone}</span>}

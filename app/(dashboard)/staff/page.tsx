@@ -31,6 +31,7 @@ import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import api from "@/lib/api";
+import { formatStaffRoleLabel } from "@/lib/utils";
 import { toast } from "sonner";
 
 import {
@@ -49,6 +50,7 @@ interface StaffMember {
     email: string;
     phone: string;
     role: string;
+    staffRoleTitle?: string;
     baseSalary?: number;
     photo?: string;
     plainPassword?: string;
@@ -199,7 +201,7 @@ function StaffCard({ member, onOpenProfile }: StaffCardProps) {
                             <div>
                                 <h3 className="font-semibold text-lg text-gray-900">{member.name}</h3>
                                 <Badge variant="secondary" className="mt-1 text-xs">
-                                    {member.role.replace('_', ' ')}
+                                    {formatStaffRoleLabel(member.role, member.staffRoleTitle)}
                                 </Badge>
                             </div>
                         </div>
@@ -268,6 +270,10 @@ const ROLE_TABS = [
     { label: "Teacher", value: "teacher" },
     { label: "Accountant", value: "accountant" },
     { label: "Transport Manager", value: "transport_manager" },
+    { label: "Bus Driver", value: "bus_driver" },
+    { label: "Conductor", value: "conductor" },
+    { label: "Cleaning Staff", value: "cleaning_staff" },
+    { label: "Other", value: "staff_other" },
 ] as const;
 
 // ── School Admin Card (credentials + edit) ───────────────────────────────────
@@ -474,7 +480,8 @@ export default function StaffPage() {
         const matchesSearch =
             member.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
             member.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            member.role.toLowerCase().includes(searchTerm.toLowerCase());
+            member.role.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            (member.staffRoleTitle || "").toLowerCase().includes(searchTerm.toLowerCase());
         return matchesRole && matchesSearch;
     });
 

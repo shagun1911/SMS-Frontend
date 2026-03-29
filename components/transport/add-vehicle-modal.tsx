@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMemo, useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -14,6 +14,8 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import api from "@/lib/api";
+import { UserRole } from "@/types";
+import { TransportStaffSelect } from "@/components/transport/transport-staff-select";
 
 interface AddVehicleModalProps {
     open: boolean;
@@ -26,10 +28,37 @@ export function AddVehicleModal({ open, onOpenChange }: AddVehicleModalProps) {
     const [registrationNumber, setRegistrationNumber] = useState("");
     const [routeName, setRouteName] = useState("");
     const [capacity, setCapacity] = useState("");
+    const [driverUserId, setDriverUserId] = useState("");
     const [driverName, setDriverName] = useState("");
     const [driverPhone, setDriverPhone] = useState("");
+    const [conductorUserId, setConductorUserId] = useState("");
     const [conductorName, setConductorName] = useState("");
     const [conductorPhone, setConductorPhone] = useState("");
+
+    const { data: staffData = [] } = useQuery({
+        queryKey: ["staff-list"],
+        queryFn: async () => {
+            const res = await api.get("/users");
+            return res.data.data ?? [];
+        },
+        enabled: open,
+    });
+
+    const busDrivers = useMemo(
+        () =>
+            (staffData as any[]).filter(
+                (u) => u.role === UserRole.BUS_DRIVER && u.isActive !== false
+            ),
+        [staffData]
+    );
+
+    const busConductors = useMemo(
+        () =>
+            (staffData as any[]).filter(
+                (u) => u.role === UserRole.CONDUCTOR && u.isActive !== false
+            ),
+        [staffData]
+    );
 
     const addVehicle = useMutation({
         mutationFn: async (data: any) => {
@@ -52,8 +81,10 @@ export function AddVehicleModal({ open, onOpenChange }: AddVehicleModalProps) {
         setRegistrationNumber("");
         setRouteName("");
         setCapacity("");
+        setDriverUserId("");
         setDriverName("");
         setDriverPhone("");
+        setConductorUserId("");
         setConductorName("");
         setConductorPhone("");
     };
@@ -117,37 +148,48 @@ export function AddVehicleModal({ open, onOpenChange }: AddVehicleModalProps) {
                                 onChange={(e) => setCapacity(e.target.value)}
                             />
                         </div>
-                        <div className="space-y-2">
-                            <Label>Driver Name</Label>
-                            <Input
-                                placeholder="e.g., Raj Kumar"
-                                value={driverName}
-                                onChange={(e) => setDriverName(e.target.value)}
-                            />
-                        </div>
-                        <div className="space-y-2">
-                            <Label>Driver Phone</Label>
-                            <Input
-                                placeholder="e.g., 9876543210"
-                                value={driverPhone}
-                                onChange={(e) => setDriverPhone(e.target.value)}
-                            />
-                        </div>
-                        <div className="space-y-2">
-                            <Label>Conductor Name</Label>
-                            <Input
-                                placeholder="e.g., Amit Singh"
-                                value={conductorName}
-                                onChange={(e) => setConductorName(e.target.value)}
-                            />
-                        </div>
-                        <div className="space-y-2">
-                            <Label>Conductor Phone</Label>
-                            <Input
-                                placeholder="e.g., 9876543210"
-                                value={conductorPhone}
-                                onChange={(e) => setConductorPhone(e.target.value)}
-                            />
+                        <div className="col-span-2 space-y-3 rounded-lg border border-dashed border-muted-foreground/25 bg-muted/20 p-3">
+                            <p className="text-xs font-medium text-muted-foreground">
+                                Assign crew from <span className="font-semibold text-foreground">Staff</span> (roles: Bus
+                                Driver / Conductor). Register them first if the lists are empty.
+                            </p>
+                            <div className="grid gap-3 sm:grid-cols-2">
+                                <TransportStaffSelect
+                                    label="Driver"
+                                    members={busDrivers.map((u: any) => ({
+                                        _id: u._id,
+                                        name: u.name,
+                                        phone: u.phone,
+                                    }))}
+                                    valueId={driverUserId}
+                                    placeholder="Select bus driver…"
+                                    onChange={(m) => {
+                                        setDriverUserId(m?._id ?? "");
+                                        setDriverName(m?.name ?? "");
+                                        setDriverPhone(m?.phone ?? "");
+                                    }}
+                                />
+                                <TransportStaffSelect
+                                    label="Conductor"
+                                    members={busConductors.map((u: any) => ({
+                                        _id: u._id,
+                                        name: u.name,
+                                        phone: u.phone,
+                                    }))}
+                                    valueId={conductorUserId}
+                                    placeholder="Select conductor…"
+                                    onChange={(m) => {
+                                        setConductorUserId(m?._id ?? "");
+                                        setConductorName(m?.name ?? "");
+                                        setConductorPhone(m?.phone ?? "");
+                                    }}
+                                />
+                            </div>
+                            {busDrivers.length === 0 && busConductors.length === 0 && (
+                                <p className="text-xs text-amber-800">
+                                    No drivers or conductors found. Add personnel under Staff → Register New Personnel.
+                                </p>
+                            )}
                         </div>
                     </div>
                 </div>

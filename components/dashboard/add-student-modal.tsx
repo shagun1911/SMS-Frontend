@@ -42,6 +42,8 @@ const studentSchema = z.object({
     initialDepositAmount: z.coerce.number().min(0).optional(),
     // Concession should stay exact (no rounding drift). Force integer rupees only.
     concessionAmount: z.coerce.number().int().min(0).optional(),
+    /** % of annual recurring (monthly × session months) fee only; one-time fees excluded. */
+    concessionPercent: z.coerce.number().min(0).max(100).optional(),
     depositPaymentMode: z.string().optional(),
     depositTransactionId: z.string().optional(),
     address: z.object({
@@ -87,6 +89,8 @@ export function AddStudentModal({ isOpen, onClose }: AddStudentModalProps) {
     const selectedClass = watch("class");
     const depositAmount = watch("initialDepositAmount") || 0;
     const concessionAmount = watch("concessionAmount") || 0;
+    const concessionPercentRaw = watch("concessionPercent");
+    const concessionPercent = Math.min(100, Math.max(0, Number(concessionPercentRaw) || 0));
     const paymentMode = watch("depositPaymentMode");
 
     // Payment States
@@ -218,10 +222,10 @@ export function AddStudentModal({ isOpen, onClose }: AddStudentModalProps) {
         return oneTimeTotal;
     }, [feeStructure]);
 
-    // Live concession breakdown shown as helper text
+    // Live concession breakdown: flat + % of annual recurring (monthly) total only — not one-time fees.
     const concessionBreakdown = useMemo(() => {
         const s: any = feeStructure;
-        if (!s || concessionAmount <= 0) return null;
+        if (!s) return null;
 
         const components =
             Array.isArray(s.components) && s.components.length > 0
@@ -239,7 +243,6 @@ export function AddStudentModal({ isOpen, onClose }: AddStudentModalProps) {
 
         if (monthlyTotal <= 0) return null;
 
-        // Derive session month count from fee structure totals when available
         const structureTotal = s.totalAmount ?? s.totalAnnualFee ?? 0;
         const sessionMonths =
             structureTotal > 0 && monthlyTotal > 0
@@ -247,12 +250,30 @@ export function AddStudentModal({ isOpen, onClose }: AddStudentModalProps) {
                 : 12;
 
         const annualMonthly = monthlyTotal * sessionMonths;
-        const adjustedAnnualMonthly = Math.max(0, annualMonthly - concessionAmount);
+        const fromPercent =
+            concessionPercent > 0 ? Math.round((annualMonthly * concessionPercent) / 100) : 0;
+        const flat = Math.max(0, Math.round(Number(concessionAmount) || 0));
+        const totalConcession = Math.min(annualMonthly, flat + fromPercent);
+
+        if (totalConcession <= 0) return null;
+
+        const adjustedAnnualMonthly = Math.max(0, annualMonthly - totalConcession);
         const adjustedPerMonth = Math.round(adjustedAnnualMonthly / sessionMonths);
         const newTotalYearly = adjustedAnnualMonthly + oneTimeTotal;
 
-        return { sessionMonths, annualMonthly, adjustedAnnualMonthly, adjustedPerMonth, newTotalYearly, monthlyTotal };
-    }, [feeStructure, concessionAmount]);
+        return {
+            sessionMonths,
+            annualMonthly,
+            adjustedAnnualMonthly,
+            adjustedPerMonth,
+            newTotalYearly,
+            monthlyTotal,
+            flat,
+            fromPercent,
+            totalConcession,
+            concessionPercent,
+        };
+    }, [feeStructure, concessionAmount, concessionPercent]);
 
     // Auto-fill initial deposit with suggested amount when available and empty
     useEffect(() => {
@@ -527,36 +548,86 @@ export function AddStudentModal({ isOpen, onClose }: AddStudentModalProps) {
                         </div>
                     </div>
 
-                    {/* Concession Amount */}
+                    {/* Concession: fixed + % of annual recurring (monthly) fees only */}
                     <div className="space-y-2">
-                        <label className="text-[10px] font-bold uppercase tracking-widest text-zinc-500 ml-1">
-                            Concession Amount <span className="text-zinc-400 normal-case font-normal">(optional — reduces total monthly fees)</span>
-                        </label>
-                        <Input
-                            {...register("concessionAmount")}
-                            type="number"
-                            step={1}
-                            placeholder="0"
-                            min="0"
-                            className="h-10 rounded-xl border-gray-200 bg-white"
-                        />
+                        <p className="text-[10px] text-zinc-400 ml-1 normal-case">
+                            Concessions apply only to <span className="font-medium text-zinc-500">monthly</span> fees. One-time admission fees are unchanged.
+                        </p>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                                <label className="text-[10px] font-bold uppercase tracking-widest text-zinc-500 ml-1">
+                                    Concession amount{" "}
+                                    <span className="text-zinc-400 normal-case font-normal">(₹ / year off monthly total)</span>
+                                </label>
+                                <Input
+                                    {...register("concessionAmount")}
+                                    type="number"
+                                    step={1}
+                                    placeholder="0"
+                                    min="0"
+                                    className="h-10 rounded-xl border-gray-200 bg-white"
+                                />
+                            </div>
+                            <div className="space-y-2">
+                                <label className="text-[10px] font-bold uppercase tracking-widest text-zinc-500 ml-1">
+                                    Concession %{" "}
+                                    <span className="text-zinc-400 normal-case font-normal">(of annual monthly fees)</span>
+                                </label>
+                                <Input
+                                    {...register("concessionPercent")}
+                                    type="number"
+                                    step="0.01"
+                                    placeholder="0"
+                                    min="0"
+                                    max="100"
+                                    className="h-10 rounded-xl border-gray-200 bg-white"
+                                />
+                            </div>
+                        </div>
                         {concessionBreakdown ? (
                             <div className="mt-1 rounded-xl border border-amber-100 bg-amber-50/60 px-4 py-3 text-[11px] text-amber-800 space-y-1">
                                 <p className="font-semibold text-amber-900">Fee breakdown after concession</p>
                                 <div className="grid grid-cols-2 gap-x-4 gap-y-0.5 mt-1">
                                     <span className="text-zinc-500">Original monthly/month</span>
                                     <span className="font-medium">₹{concessionBreakdown.monthlyTotal.toLocaleString("en-IN")}</span>
-                                    <span className="text-zinc-500">Total monthly ({concessionBreakdown.sessionMonths} months)</span>
+                                    <span className="text-zinc-500">Annual monthly total ({concessionBreakdown.sessionMonths} mo.)</span>
                                     <span className="font-medium">₹{concessionBreakdown.annualMonthly.toLocaleString("en-IN")}</span>
-                                    <span className="text-zinc-500">Concession</span>
-                                    <span className="font-semibold text-red-600">− ₹{concessionAmount.toLocaleString("en-IN")}</span>
+                                    {concessionBreakdown.flat > 0 ? (
+                                        <>
+                                            <span className="text-zinc-500">Flat concession</span>
+                                            <span className="font-semibold text-red-600">
+                                                − ₹{concessionBreakdown.flat.toLocaleString("en-IN")}
+                                            </span>
+                                        </>
+                                    ) : null}
+                                    {concessionBreakdown.fromPercent > 0 ? (
+                                        <>
+                                            <span className="text-zinc-500">
+                                                From {concessionBreakdown.concessionPercent}% (monthly annual)
+                                            </span>
+                                            <span className="font-semibold text-red-600">
+                                                − ₹{concessionBreakdown.fromPercent.toLocaleString("en-IN")}
+                                            </span>
+                                        </>
+                                    ) : null}
+                                    <span className="text-zinc-500 font-medium">Total concession (capped)</span>
+                                    <span className="font-semibold text-red-700">
+                                        − ₹{concessionBreakdown.totalConcession.toLocaleString("en-IN")}
+                                    </span>
                                     <span className="text-zinc-500">Adjusted monthly/month</span>
-                                    <span className="font-semibold text-teal-700">₹{concessionBreakdown.adjustedPerMonth.toLocaleString("en-IN")}</span>
+                                    <span className="font-semibold text-teal-700">
+                                        ₹{concessionBreakdown.adjustedPerMonth.toLocaleString("en-IN")}
+                                    </span>
                                     <span className="text-zinc-500 border-t border-amber-100 pt-1">New total yearly fee</span>
-                                    <span className="font-bold text-indigo-700 border-t border-amber-100 pt-1">₹{concessionBreakdown.newTotalYearly.toLocaleString("en-IN")}</span>
+                                    <span className="font-bold text-indigo-700 border-t border-amber-100 pt-1">
+                                        ₹{concessionBreakdown.newTotalYearly.toLocaleString("en-IN")}
+                                    </span>
+                                    <span className="text-zinc-500 col-span-2 text-[10px] normal-case pt-1">
+                                        One-time fees at admission are added separately and are not discounted here.
+                                    </span>
                                 </div>
                             </div>
-                        ) : concessionAmount > 0 && !feeStructure ? (
+                        ) : (concessionAmount > 0 || concessionPercent > 0) && !feeStructure ? (
                             <p className="text-[10px] text-zinc-400 ml-1">Select a class first to see the adjusted fee breakdown.</p>
                         ) : null}
                     </div>

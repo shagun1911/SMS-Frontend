@@ -27,12 +27,17 @@ import {
 } from "@/components/ui/dialog";
 import api from "@/lib/api";
 import { toast } from "sonner";
+import { UserRole } from "@/types";
+import { TransportStaffSelect } from "@/components/transport/transport-staff-select";
+import { matchStaffMemberId } from "@/lib/transportStaff";
 
 export default function TransportPage() {
     const [isAddVehicleOpen, setIsAddVehicleOpen] = useState(false);
     const [detailsOpen, setDetailsOpen] = useState(false);
     const [selectedBusId, setSelectedBusId] = useState<string | null>(null);
     const [editMode, setEditMode] = useState(false);
+    const [driverStaffId, setDriverStaffId] = useState("");
+    const [conductorStaffId, setConductorStaffId] = useState("");
     const [driverName, setDriverName] = useState("");
     const [busNumber, setBusNumber] = useState("");
     const [registrationNumber, setRegistrationNumber] = useState("");
@@ -45,6 +50,30 @@ export default function TransportPage() {
     const [selectedStudentIds, setSelectedStudentIds] = useState<Record<string, boolean>>({});
 
     const queryClient = useQueryClient();
+
+    const { data: staffData = [] } = useQuery({
+        queryKey: ["staff-list"],
+        queryFn: async () => {
+            const res = await api.get("/users");
+            return res.data.data ?? [];
+        },
+    });
+
+    const busDrivers = useMemo(
+        () =>
+            (staffData as any[]).filter(
+                (u) => u.role === UserRole.BUS_DRIVER && u.isActive !== false
+            ),
+        [staffData]
+    );
+
+    const busConductors = useMemo(
+        () =>
+            (staffData as any[]).filter(
+                (u) => u.role === UserRole.CONDUCTOR && u.isActive !== false
+            ),
+        [staffData]
+    );
 
     const { data: transportData, isLoading } = useQuery({
         queryKey: ["transport-list"],
@@ -281,6 +310,8 @@ export default function TransportPage() {
                         setEditMode(false);
                         setAssignSearch("");
                         setSelectedStudentIds({});
+                        setDriverStaffId("");
+                        setConductorStaffId("");
                     }
                 }}
             >
@@ -304,6 +335,20 @@ export default function TransportPage() {
                                                     setDriverPhone(bus.driverPhone ?? "");
                                                     setConductorName(bus.conductorName ?? "");
                                                     setConductorPhone(bus.conductorPhone ?? "");
+                                                    setDriverStaffId(
+                                                        matchStaffMemberId(
+                                                            busDrivers,
+                                                            bus.driverName,
+                                                            bus.driverPhone
+                                                        )
+                                                    );
+                                                    setConductorStaffId(
+                                                        matchStaffMemberId(
+                                                            busConductors,
+                                                            bus.conductorName,
+                                                            bus.conductorPhone
+                                                        )
+                                                    );
                                                 }}
                                             >
                                                 Cancel
@@ -340,6 +385,20 @@ export default function TransportPage() {
                                                 setDriverPhone(bus.driverPhone ?? "");
                                                 setConductorName(bus.conductorName ?? "");
                                                 setConductorPhone(bus.conductorPhone ?? "");
+                                                setDriverStaffId(
+                                                    matchStaffMemberId(
+                                                        busDrivers,
+                                                        bus.driverName,
+                                                        bus.driverPhone
+                                                    )
+                                                );
+                                                setConductorStaffId(
+                                                    matchStaffMemberId(
+                                                        busConductors,
+                                                        bus.conductorName,
+                                                        bus.conductorPhone
+                                                    )
+                                                );
                                             }}
                                         >
                                             Edit
@@ -407,18 +466,46 @@ export default function TransportPage() {
                                     </CardHeader>
                                     <CardContent className="space-y-2 text-sm text-gray-700">
                                         {editMode ? (
-                                            <>
-                                                <Input
-                                                    placeholder="Driver name"
-                                                    value={driverName}
-                                                    onChange={(e) => setDriverName(e.target.value)}
+                                            <div className="space-y-2">
+                                                <TransportStaffSelect
+                                                    label="Bus driver (staff)"
+                                                    members={busDrivers.map((u: any) => ({
+                                                        _id: u._id,
+                                                        name: u.name,
+                                                        phone: u.phone,
+                                                    }))}
+                                                    valueId={driverStaffId}
+                                                    placeholder="Select driver…"
+                                                    onChange={(m) => {
+                                                        setDriverStaffId(m?._id ?? "");
+                                                        setDriverName(m?.name ?? "");
+                                                        setDriverPhone(m?.phone ?? "");
+                                                    }}
                                                 />
-                                                <Input
-                                                    placeholder="Driver phone"
-                                                    value={driverPhone}
-                                                    onChange={(e) => setDriverPhone(e.target.value)}
-                                                />
-                                            </>
+                                                {!driverStaffId && (driverName || driverPhone) ? (
+                                                    <>
+                                                        <p className="text-xs text-amber-800">
+                                                            This driver is not in your staff list. Update manually or
+                                                            choose from the list.
+                                                        </p>
+                                                        <Input
+                                                            placeholder="Driver name"
+                                                            value={driverName}
+                                                            onChange={(e) => setDriverName(e.target.value)}
+                                                        />
+                                                        <Input
+                                                            placeholder="Driver phone"
+                                                            value={driverPhone}
+                                                            onChange={(e) => setDriverPhone(e.target.value)}
+                                                        />
+                                                    </>
+                                                ) : null}
+                                                {driverStaffId && (driverName || driverPhone) ? (
+                                                    <p className="text-xs text-muted-foreground">
+                                                        {driverPhone ? `Phone: ${driverPhone}` : "No phone on file"}
+                                                    </p>
+                                                ) : null}
+                                            </div>
                                         ) : (
                                             <>
                                                 <div className="font-semibold text-gray-900">{bus.driverName ?? "—"}</div>
@@ -434,18 +521,46 @@ export default function TransportPage() {
                                     </CardHeader>
                                     <CardContent className="space-y-2 text-sm text-gray-700">
                                         {editMode ? (
-                                            <>
-                                                <Input
-                                                    placeholder="Conductor name"
-                                                    value={conductorName}
-                                                    onChange={(e) => setConductorName(e.target.value)}
+                                            <div className="space-y-2">
+                                                <TransportStaffSelect
+                                                    label="Conductor (staff)"
+                                                    members={busConductors.map((u: any) => ({
+                                                        _id: u._id,
+                                                        name: u.name,
+                                                        phone: u.phone,
+                                                    }))}
+                                                    valueId={conductorStaffId}
+                                                    placeholder="Select conductor…"
+                                                    onChange={(m) => {
+                                                        setConductorStaffId(m?._id ?? "");
+                                                        setConductorName(m?.name ?? "");
+                                                        setConductorPhone(m?.phone ?? "");
+                                                    }}
                                                 />
-                                                <Input
-                                                    placeholder="Conductor phone"
-                                                    value={conductorPhone}
-                                                    onChange={(e) => setConductorPhone(e.target.value)}
-                                                />
-                                            </>
+                                                {!conductorStaffId && (conductorName || conductorPhone) ? (
+                                                    <>
+                                                        <p className="text-xs text-amber-800">
+                                                            This conductor is not in your staff list. Update manually or
+                                                            choose from the list.
+                                                        </p>
+                                                        <Input
+                                                            placeholder="Conductor name"
+                                                            value={conductorName}
+                                                            onChange={(e) => setConductorName(e.target.value)}
+                                                        />
+                                                        <Input
+                                                            placeholder="Conductor phone"
+                                                            value={conductorPhone}
+                                                            onChange={(e) => setConductorPhone(e.target.value)}
+                                                        />
+                                                    </>
+                                                ) : null}
+                                                {conductorStaffId && (conductorName || conductorPhone) ? (
+                                                    <p className="text-xs text-muted-foreground">
+                                                        {conductorPhone ? `Phone: ${conductorPhone}` : "No phone on file"}
+                                                    </p>
+                                                ) : null}
+                                            </div>
                                         ) : (
                                             <>
                                                 <div className="font-semibold text-gray-900">{bus.conductorName ?? "—"}</div>

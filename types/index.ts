@@ -4,6 +4,10 @@ export enum UserRole {
     TEACHER = 'teacher',
     ACCOUNTANT = 'accountant',
     TRANSPORT_MANAGER = 'transport_manager',
+    BUS_DRIVER = 'bus_driver',
+    CONDUCTOR = 'conductor',
+    CLEANING_STAFF = 'cleaning_staff',
+    STAFF_OTHER = 'staff_other',
 }
 
 export interface IUser {
@@ -13,6 +17,7 @@ export interface IUser {
     role: UserRole;
     schoolId?: string;
     photo?: string;
+    staffRoleTitle?: string;
     subject?: string;
     isActive: boolean;
     mustChangePassword?: boolean;
