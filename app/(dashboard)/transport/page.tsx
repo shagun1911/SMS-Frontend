@@ -336,18 +336,22 @@ export default function TransportPage() {
                                                     setConductorName(bus.conductorName ?? "");
                                                     setConductorPhone(bus.conductorPhone ?? "");
                                                     setDriverStaffId(
-                                                        matchStaffMemberId(
-                                                            busDrivers,
-                                                            bus.driverName,
-                                                            bus.driverPhone
-                                                        )
+                                                        bus.driverUserId
+                                                            ? String(bus.driverUserId)
+                                                            : matchStaffMemberId(
+                                                                  busDrivers,
+                                                                  bus.driverName,
+                                                                  bus.driverPhone
+                                                              )
                                                     );
                                                     setConductorStaffId(
-                                                        matchStaffMemberId(
-                                                            busConductors,
-                                                            bus.conductorName,
-                                                            bus.conductorPhone
-                                                        )
+                                                        bus.conductorUserId
+                                                            ? String(bus.conductorUserId)
+                                                            : matchStaffMemberId(
+                                                                  busConductors,
+                                                                  bus.conductorName,
+                                                                  bus.conductorPhone
+                                                              )
                                                     );
                                                 }}
                                             >
@@ -366,6 +370,8 @@ export default function TransportPage() {
                                                         driverPhone: driverPhone?.trim() || "",
                                                         conductorName: conductorName?.trim() || "",
                                                         conductorPhone: conductorPhone?.trim() || "",
+                                                        driverUserId: driverStaffId || "",
+                                                        conductorUserId: conductorStaffId || "",
                                                     });
                                                 }}
                                             >
@@ -386,18 +392,22 @@ export default function TransportPage() {
                                                 setConductorName(bus.conductorName ?? "");
                                                 setConductorPhone(bus.conductorPhone ?? "");
                                                 setDriverStaffId(
-                                                    matchStaffMemberId(
-                                                        busDrivers,
-                                                        bus.driverName,
-                                                        bus.driverPhone
-                                                    )
+                                                    bus.driverUserId
+                                                        ? String(bus.driverUserId)
+                                                        : matchStaffMemberId(
+                                                              busDrivers,
+                                                              bus.driverName,
+                                                              bus.driverPhone
+                                                          )
                                                 );
                                                 setConductorStaffId(
-                                                    matchStaffMemberId(
-                                                        busConductors,
-                                                        bus.conductorName,
-                                                        bus.conductorPhone
-                                                    )
+                                                    bus.conductorUserId
+                                                        ? String(bus.conductorUserId)
+                                                        : matchStaffMemberId(
+                                                              busConductors,
+                                                              bus.conductorName,
+                                                              bus.conductorPhone
+                                                          )
                                                 );
                                             }}
                                         >

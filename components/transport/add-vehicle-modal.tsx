@@ -103,6 +103,8 @@ export function AddVehicleModal({ open, onOpenChange }: AddVehicleModalProps) {
             driverPhone: driverPhone?.trim() || undefined,
             conductorName: conductorName?.trim() || undefined,
             conductorPhone: conductorPhone?.trim() || undefined,
+            driverUserId: driverUserId || "",
+            conductorUserId: conductorUserId || "",
         };
         addVehicle.mutate(payload);
     };
