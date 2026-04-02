@@ -27,7 +27,7 @@ import { useEffect, useRef } from "react";
 
 const studentSchema = z.object({
     firstName: z.string().min(2, "First name required"),
-    lastName: z.string().min(2, "Last name required"),
+    lastName: z.string().max(200),
     fatherName: z.string().min(2, "Father name required"),
     motherName: z.string().min(2, "Mother name required"),
     dateOfBirth: z.string().min(1, "DOB required"),
@@ -150,11 +150,12 @@ export function AddStudentModal({ isOpen, onClose }: AddStudentModalProps) {
         try {
             const firstName = watch("firstName");
             const lastName = watch("lastName");
+            const studentName = [firstName, lastName].map((s) => (s || "").trim()).filter(Boolean).join(" ");
             const res = await api.post("/payments/generate-qr", {
                 amount: depositAmount,
                 metadata: {
                     type: "admission_deposit",
-                    studentName: `${firstName} ${lastName}`,
+                    studentName: studentName || firstName?.trim() || "Student",
                 }
             });
             setQrData(res.data.data.qrData);
@@ -430,7 +431,7 @@ export function AddStudentModal({ isOpen, onClose }: AddStudentModalProps) {
                             {errors.firstName && <p className="text-[10px] text-red-400 ml-1">{errors.firstName.message}</p>}
                         </div>
                         <div className="space-y-2">
-                            <label className="text-[10px] font-bold uppercase tracking-widest text-zinc-500 ml-1">Last Name</label>
+                            <label className="text-[10px] font-bold uppercase tracking-widest text-zinc-500 ml-1">Last Name <span className="text-zinc-400 normal-case">(optional)</span></label>
                             <Input {...register("lastName")} placeholder="Doe" className="h-10 rounded-xl border-gray-200 bg-white" />
                             {errors.lastName && <p className="text-[10px] text-red-400 ml-1">{errors.lastName.message}</p>}
                         </div>
