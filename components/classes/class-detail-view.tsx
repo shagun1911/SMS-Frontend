@@ -17,6 +17,14 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuLabel,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import api from "@/lib/api";
 import { useAuthStore } from "@/store/authStore";
 import { UserRole } from "@/types";
@@ -220,6 +228,7 @@ export function StudentProfileView({
   const { user } = useAuthStore();
   const isTeacher = user?.role === UserRole.TEACHER;
   const sec = classData.section ?? classData.sections?.[0] ?? "A";
+  const [selectedReportExamIds, setSelectedReportExamIds] = useState<string[]>([]);
 
   const { data: examResults, isLoading: resultsLoading } = useQuery({
     queryKey: ["student-exam-results", student._id],
@@ -302,6 +311,21 @@ export function StudentProfileView({
     return Math.max(...rankChartData.map((d) => d.rank), 2) + 1;
   }, [rankChartData]);
 
+  const reportCardExamOptions = useMemo(() => {
+    const seen = new Set<string>();
+    const out: Array<{ examId: string; examTitle: string }> = [];
+    for (const r of results) {
+      const examId = String((r as any)?.examId?._id || (r as any)?.examId || "").trim();
+      if (!examId || seen.has(examId)) continue;
+      seen.add(examId);
+      out.push({
+        examId,
+        examTitle: String((r as any)?.examTitle || "Exam"),
+      });
+    }
+    return out;
+  }, [results]);
+
   const handleDownloadReportCard = async () => {
     try {
       const res = await api.get(`/exams/report-card/${student._id}`, {
@@ -318,6 +342,28 @@ export function StudentProfileView({
     } catch {
       const { toast } = await import("sonner");
       toast.error("No exam results found to generate report card");
+    }
+  };
+
+  const handleDownloadSelectedCombinedReportCard = async (examIds: string[]) => {
+    if (!examIds.length) return;
+    try {
+      const params = new URLSearchParams();
+      params.set("examIds", examIds.join(","));
+      const res = await api.get(`/exams/report-card/${student._id}?${params.toString()}`, {
+        responseType: "blob",
+      });
+      const url = URL.createObjectURL(
+        new Blob([res.data], { type: "application/pdf" })
+      );
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `report-card-selected-exams-${student.firstName}-${student.lastName}.pdf`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      const { toast } = await import("sonner");
+      toast.error("Failed to generate combined selected-exams report card");
     }
   };
 
@@ -360,6 +406,17 @@ export function StudentProfileView({
     }
   };
 
+  const toggleSelectedExam = (examId: string) => {
+    setSelectedReportExamIds((prev) =>
+      prev.includes(examId) ? prev.filter((id) => id !== examId) : [...prev, examId]
+    );
+  };
+
+  const handleDownloadSelectedExamReportCards = async () => {
+    if (!selectedReportExamIds.length) return;
+    await handleDownloadSelectedCombinedReportCard(selectedReportExamIds);
+  };
+
   return (
     <div className="space-y-4 sm:space-y-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
@@ -398,14 +455,45 @@ export function StudentProfileView({
           >
             <IdCard className="h-3.5 w-3.5" /> ID Card
           </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            className="gap-1.5 text-xs"
-            onClick={handleDownloadReportCard}
-          >
-            <FileDown className="h-3.5 w-3.5" /> Report Card
-          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-1.5 text-xs"
+                disabled={resultsLoading || reportCardExamOptions.length === 0}
+              >
+                <FileDown className="h-3.5 w-3.5" /> Report Card
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-56">
+              <DropdownMenuLabel>Report Card</DropdownMenuLabel>
+              <DropdownMenuItem onClick={handleDownloadReportCard}>
+                All Exams
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              {reportCardExamOptions.map((opt) => (
+                <DropdownMenuItem
+                  key={opt.examId}
+                  className="flex items-center justify-between"
+                  onClick={() => toggleSelectedExam(opt.examId)}
+                  onSelect={(e) => e.preventDefault()}
+                >
+                  <span>{opt.examTitle}</span>
+                  <span className="text-indigo-600">
+                    {selectedReportExamIds.includes(opt.examId) ? "✓" : ""}
+                  </span>
+                </DropdownMenuItem>
+              ))}
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                disabled={selectedReportExamIds.length === 0}
+                onClick={handleDownloadSelectedExamReportCards}
+              >
+                Download Selected Exams
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
 
@@ -667,6 +755,7 @@ export function StudentProfileView({
                     <tr className="border-b bg-gray-50 text-xs text-gray-500 uppercase tracking-wider">
                       <th className="px-4 py-2.5 text-left">Date</th>
                       <th className="px-4 py-2.5 text-right">Amount</th>
+                      <th className="px-4 py-2.5 text-left">Payment Detail</th>
                       <th className="px-4 py-2.5 text-left">Mode</th>
                       <th className="px-4 py-2.5 text-left">Receipt</th>
                     </tr>
@@ -691,6 +780,9 @@ export function StudentProfileView({
                         </td>
                         <td className="px-4 py-2.5 text-right font-semibold text-emerald-600">
                           {fmt(p.amountPaid)}
+                        </td>
+                        <td className="px-4 py-2.5 text-gray-600">
+                          {p.paymentDetail || "Fee paid"}
                         </td>
                         <td className="px-4 py-2.5 capitalize text-gray-500">
                           {p.paymentMode || "—"}

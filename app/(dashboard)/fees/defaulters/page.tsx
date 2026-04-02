@@ -97,7 +97,7 @@ export default function DefaultersPage() {
     const downloadCsv = (which: "overdue" | "current") => {
         const headers = which === "current"
             ? ["Admission No", "Student Name", "Father Name", "Class", "Section", "Month Fee", "Paid (Month)", "Due (Month)"]
-            : ["Admission No", "Student Name", "Father Name", "Class", "Section", "Total Fee", "Paid", "Due"];
+            : ["Admission No", "Student Name", "Father Name", "Class", "Section", "Expected (Till Last Month)", "Paid (Till Last Month)", "Due (Till Last Month)"];
         const source = which === "overdue" ? filteredOverdue : filteredCurrentPending;
         const rows = source.map((d: any) => [
             d.admissionNumber,
@@ -105,9 +105,9 @@ export default function DefaultersPage() {
             d.fatherName || "",
             d.class || "",
             d.section || "",
-            which === "current" ? (d.currentMonthTotal ?? 0) : (d.totalYearlyFee ?? 0),
-            which === "current" ? (d.currentMonthPaid ?? 0) : (d.paidAmount ?? 0),
-            which === "current" ? (d.currentMonthDue ?? 0) : (d.dueAmount ?? 0),
+            which === "current" ? (d.currentMonthTotal ?? 0) : (d.expectedTillPrev ?? 0),
+            which === "current" ? (d.currentMonthPaid ?? 0) : (d.paidTillPrev ?? 0),
+            which === "current" ? (d.currentMonthDue ?? 0) : (d.previousMonthDue ?? 0),
         ]);
         const csv = [headers.join(","), ...rows.map((r: any[]) => r.join(","))].join("\n");
         const blob = new Blob([csv], { type: "text/csv" });
@@ -201,9 +201,9 @@ export default function DefaultersPage() {
                                     <TableHead className="text-xs font-medium uppercase text-gray-500">Admission No</TableHead>
                                     <TableHead className="text-xs font-medium uppercase text-gray-500">Student</TableHead>
                                     <TableHead className="text-xs font-medium uppercase text-gray-500">Class</TableHead>
-                                    <TableHead className="text-xs font-medium uppercase text-gray-500">Total Fee</TableHead>
-                                    <TableHead className="text-xs font-medium uppercase text-gray-500">Paid</TableHead>
-                                    <TableHead className="text-xs font-medium uppercase text-amber-600">Due</TableHead>
+                                    <TableHead className="text-xs font-medium uppercase text-gray-500">Expected (Till Last Month)</TableHead>
+                                    <TableHead className="text-xs font-medium uppercase text-gray-500">Paid (Till Last Month)</TableHead>
+                                    <TableHead className="text-xs font-medium uppercase text-amber-600">Due (Till Last Month)</TableHead>
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
@@ -215,9 +215,9 @@ export default function DefaultersPage() {
                                             {d.fatherName && <span className="block text-xs text-gray-500">{d.fatherName}</span>}
                                         </TableCell>
                                         <TableCell>{d.class} {d.section}</TableCell>
-                                        <TableCell>{formatCurrency(d.totalYearlyFee ?? 0)}</TableCell>
-                                        <TableCell>{formatCurrency(d.paidAmount ?? 0)}</TableCell>
-                                        <TableCell className="font-semibold text-amber-600">{formatCurrency(d.dueAmount ?? 0)}</TableCell>
+                                        <TableCell>{formatCurrency(d.expectedTillPrev ?? 0)}</TableCell>
+                                        <TableCell>{formatCurrency(d.paidTillPrev ?? 0)}</TableCell>
+                                        <TableCell className="font-semibold text-amber-600">{formatCurrency(d.previousMonthDue ?? 0)}</TableCell>
                                     </TableRow>
                                 ))}
                             </TableBody>

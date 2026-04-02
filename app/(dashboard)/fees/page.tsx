@@ -185,9 +185,8 @@ export default function FeesPage() {
             const name = p.studentId
                 ? `${p.studentId.firstName ?? ""} ${p.studentId.lastName ?? ""}`.toLowerCase()
                 : "";
-            const adm = (p.studentId?.admissionNumber ?? "").toString().toLowerCase();
             const receipt = (p.receiptNumber ?? "").toLowerCase();
-            return name.includes(q) || adm.includes(q) || receipt.includes(q);
+            return name.includes(q) || receipt.includes(q);
         });
     }, [payments, searchTerm]);
 
@@ -292,21 +291,24 @@ export default function FeesPage() {
                 </Card>
             </div>
 
+            <div className="flex justify-end">
+                <div className="relative w-full sm:w-80">
+                    <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+                    <Input
+                        placeholder="Filter transactions (student / receipt)"
+                        className="h-9 pl-9 text-sm border-gray-200 bg-white"
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                    />
+                </div>
+            </div>
+
             <Card className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
                 <CardHeader className="border-b border-gray-100 bg-gray-50/50">
                     <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                         <CardTitle className="text-base sm:text-lg font-semibold flex items-center gap-2 text-gray-900">
                             <Banknote className="h-5 w-5 text-indigo-600" /> Payment Records — {MONTHS[selectedMonth - 1]} {selectedYear}
                         </CardTitle>
-                        <div className="relative w-full sm:w-64">
-                            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-                            <Input
-                                placeholder="Search student or receipt..."
-                                className="h-9 pl-9 text-sm border-gray-200 bg-white"
-                                value={searchTerm}
-                                onChange={(e) => setSearchTerm(e.target.value)}
-                            />
-                        </div>
                     </div>
                 </CardHeader>
                 <CardContent className="p-0 overflow-x-auto">
@@ -325,14 +327,27 @@ export default function FeesPage() {
                                     <TableHead className="text-xs font-medium uppercase text-gray-500">Receipt</TableHead>
                                     <TableHead className="text-xs font-medium uppercase text-gray-500">Date</TableHead>
                                     <TableHead className="text-xs font-medium uppercase text-gray-500">Student</TableHead>
+                                    <TableHead className="text-xs font-medium uppercase text-gray-500">Payment Detail</TableHead>
                                     <TableHead className="text-xs font-medium uppercase text-gray-500">Payment Mode</TableHead>
                                     <TableHead className="text-xs font-medium uppercase text-gray-500">Amount</TableHead>
                                     <TableHead className="text-right text-xs font-medium uppercase text-gray-500">Actions</TableHead>
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
-                                {filteredPayments.map((payment: any) => (
-                                    <TableRow key={payment._id} className="border-gray-100 hover:bg-gray-50/50">
+                                {filteredPayments.map((payment: any, idx: number) => {
+                                    const rowKey =
+                                        String(
+                                            payment._id ??
+                                            payment.id ??
+                                            [
+                                                payment.receiptNumber ?? "no-receipt",
+                                                payment.studentId?._id ?? payment.studentId ?? "no-student",
+                                                payment.paymentDate ?? "no-date",
+                                                idx,
+                                            ].join("-")
+                                        );
+                                    return (
+                                    <TableRow key={rowKey} className="border-gray-100 hover:bg-gray-50/50">
                                         <TableCell className="font-mono text-xs text-gray-600">
                                             {payment.receiptNumber ?? `RC-${String(payment._id).slice(-6)}`}
                                         </TableCell>
@@ -346,6 +361,16 @@ export default function FeesPage() {
                                                     : "Unknown"}
                                             </div>
                                             <div className="text-xs text-gray-500">Adm: {payment.studentId?.admissionNumber ?? "N/A"}</div>
+                                        </TableCell>
+                                        <TableCell className="text-sm text-gray-600 capitalize">
+                                            <div className="text-sm text-gray-700">
+                                                {payment.paymentDetail ?? "Fee paid"}
+                                            </div>
+                                            {Array.isArray(payment.appliedMonths) && payment.appliedMonths.length > 1 ? (
+                                                <div className="text-xs text-gray-500">
+                                                    Applied to: {payment.appliedMonths.join(", ")}
+                                                </div>
+                                            ) : null}
                                         </TableCell>
                                         <TableCell className="text-sm text-gray-600 capitalize">
                                             {payment.paymentMode ?? "—"}
@@ -364,7 +389,8 @@ export default function FeesPage() {
                                             </Button>
                                         </TableCell>
                                     </TableRow>
-                                ))}
+                                    );
+                                })}
                             </TableBody>
                         </Table>
                     )}

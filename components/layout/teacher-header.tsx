@@ -1,5 +1,6 @@
 "use client";
 
+import { useMemo, useState } from "react";
 import { useAuthStore } from "@/store/authStore";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
@@ -16,6 +17,9 @@ import api from "@/lib/api";
 export function TeacherHeader() {
     const { user } = useAuthStore();
     const qc = useQueryClient();
+    const [notifOpen, setNotifOpen] = useState(false);
+    const [pendingReadIds, setPendingReadIds] = useState<Set<string>>(new Set());
+    const [markAllPending, setMarkAllPending] = useState(false);
 
     const { data: userNotificationsData } = useQuery({
         queryKey: ["user-notifications"],
@@ -24,15 +28,19 @@ export function TeacherHeader() {
             return res.data?.data ?? [];
         },
         enabled: !!user,
-        refetchInterval: 30_000,
+        refetchInterval: 10_000,
     });
 
     const markAsReadMut = useMutation({
         mutationFn: async (id: string) => {
             return api.patch(`/user-notifications/${id}/read`);
         },
-        onSuccess: () => {
-            qc.invalidateQueries({ queryKey: ["user-notifications"] });
+        onSuccess: (_data, id) => {
+            setPendingReadIds((prev) => {
+                const next = new Set(prev);
+                next.add(id);
+                return next;
+            });
         }
     });
 
@@ -40,18 +48,41 @@ export function TeacherHeader() {
         mutationFn: async () => {
             return api.patch(`/user-notifications/read-all`);
         },
+        onMutate: () => {
+            setMarkAllPending(true);
+        },
         onSuccess: () => {
-            qc.invalidateQueries({ queryKey: ["user-notifications"] });
+            setMarkAllPending(true);
         }
     });
 
     const userNotifications: any[] = Array.isArray(userNotificationsData) ? userNotificationsData : [];
-    const unreadCount = userNotifications.filter((n: any) => !n.isRead).length;
+    const unreadNotifications = useMemo(
+        () => userNotifications.filter((n: any) => !n.isRead),
+        [userNotifications]
+    );
+    const visibleNotifications = useMemo(() => {
+        if (markAllPending) return unreadNotifications;
+        return unreadNotifications.filter((n: any) => !pendingReadIds.has(String(n._id)));
+    }, [unreadNotifications, pendingReadIds, markAllPending]);
+    const unreadCount = markAllPending
+        ? 0
+        : Math.max(0, unreadNotifications.length - pendingReadIds.size);
 
     return (
         <header className="sticky top-0 z-30 w-full bg-slate-50 border-b border-transparent flex items-center justify-end h-14 px-4 sm:px-6">
             <div className="flex shrink-0 items-center gap-1 sm:gap-2">
-                <DropdownMenu>
+                <DropdownMenu
+                    open={notifOpen}
+                    onOpenChange={(open) => {
+                        setNotifOpen(open);
+                        if (!open) {
+                            setPendingReadIds(new Set());
+                            setMarkAllPending(false);
+                            qc.invalidateQueries({ queryKey: ["user-notifications"] });
+                        }
+                    }}
+                >
                     <DropdownMenuTrigger asChild>
                         <Button variant="ghost" size="icon" className="relative h-9 w-9 rounded-xl hover:bg-slate-200/50">
                             <Bell className="h-5 w-5 text-slate-500" />
@@ -74,7 +105,7 @@ export function TeacherHeader() {
                                         className="h-6 px-2 text-xs text-primary font-medium hover:bg-primary/10"
                                         disabled={markAllAsReadMut.isPending}
                                     >
-                                        Mark all read
+                                        Mark all as read
                                     </Button>
                                 )}
                                 {unreadCount > 0 && (
@@ -85,20 +116,21 @@ export function TeacherHeader() {
                             </div>
                         </div>
                         <div className="max-h-[400px] overflow-y-auto scrollbar-thin">
-                            {userNotifications.length > 0 ? (
+                            {visibleNotifications.length > 0 ? (
                                 <>
                                     <DropdownMenuLabel className="px-4 pt-3 pb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                                         Personal Alerts
                                     </DropdownMenuLabel>
-                                    {userNotifications.map((n: any) => {
+                                    {visibleNotifications.map((n: any) => {
                                         const isUnread = !n.isRead;
+                                        const isPendingRead = markAllPending || pendingReadIds.has(String(n._id));
                                         return (
                                             <DropdownMenuItem
                                                 key={n._id}
-                                                className={`flex items-start gap-3 px-4 py-3 cursor-pointer rounded-none focus:bg-muted/50 ${isUnread ? 'bg-primary/5' : ''}`}
+                                                className={`flex items-start gap-3 px-4 py-3 cursor-pointer rounded-none transition-opacity duration-200 focus:bg-muted/50 ${isUnread ? 'bg-primary/5' : ''} ${isPendingRead ? 'opacity-40' : ''}`}
                                                 onClick={(e) => {
                                                     e.preventDefault();
-                                                    if (isUnread) markAsReadMut.mutate(n._id);
+                                                    if (isUnread && !isPendingRead) markAsReadMut.mutate(String(n._id));
                                                 }}
                                             >
                                                 <div className="relative mt-0.5 shrink-0">

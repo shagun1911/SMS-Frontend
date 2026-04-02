@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useMemo, useState } from "react";
 import { useAuthStore } from "@/store/authStore";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
@@ -40,6 +41,61 @@ export function Header() {
     const router = useRouter();
     const isMaster = user?.role === "superadmin";
     const qc = useQueryClient();
+    const [notifOpen, setNotifOpen] = useState(false);
+    const [pendingReadIds, setPendingReadIds] = useState<Set<string>>(new Set());
+    const [markAllPending, setMarkAllPending] = useState(false);
+    const [seenMasterTicketIds, setSeenMasterTicketIds] = useState<Set<string>>(new Set());
+    const [seenMasterAnnouncementIds, setSeenMasterAnnouncementIds] = useState<Set<string>>(new Set());
+    const [seenSchoolTicketIds, setSeenSchoolTicketIds] = useState<Set<string>>(new Set());
+    const [seenSchoolAnnouncementIds, setSeenSchoolAnnouncementIds] = useState<Set<string>>(new Set());
+
+    const masterTicketSeenStorageKey = user?._id ? `ssms-master-seen-tickets:${user._id}` : null;
+    const masterAnnouncementSeenStorageKey = user?._id ? `ssms-master-seen-announcements:${user._id}` : null;
+    const schoolTicketSeenStorageKey = user?._id ? `ssms-school-seen-tickets:${user._id}` : null;
+    const schoolAnnouncementSeenStorageKey = user?._id ? `ssms-school-seen-announcements:${user._id}` : null;
+
+    useEffect(() => {
+        if (!user?._id) {
+            setSeenMasterTicketIds(new Set());
+            setSeenMasterAnnouncementIds(new Set());
+            setSeenSchoolTicketIds(new Set());
+            setSeenSchoolAnnouncementIds(new Set());
+            return;
+        }
+
+        try {
+            if (isMaster) {
+                const rawTickets = masterTicketSeenStorageKey
+                    ? localStorage.getItem(masterTicketSeenStorageKey)
+                    : null;
+                const rawAnnouncements = masterAnnouncementSeenStorageKey
+                    ? localStorage.getItem(masterAnnouncementSeenStorageKey)
+                    : null;
+
+                setSeenMasterTicketIds(new Set(rawTickets ? (JSON.parse(rawTickets) as string[]) : []));
+                setSeenMasterAnnouncementIds(new Set(rawAnnouncements ? (JSON.parse(rawAnnouncements) as string[]) : []));
+                setSeenSchoolTicketIds(new Set());
+                setSeenSchoolAnnouncementIds(new Set());
+            } else {
+                const rawTickets = schoolTicketSeenStorageKey
+                    ? localStorage.getItem(schoolTicketSeenStorageKey)
+                    : null;
+                const rawAnnouncements = schoolAnnouncementSeenStorageKey
+                    ? localStorage.getItem(schoolAnnouncementSeenStorageKey)
+                    : null;
+
+                setSeenSchoolTicketIds(new Set(rawTickets ? (JSON.parse(rawTickets) as string[]) : []));
+                setSeenSchoolAnnouncementIds(new Set(rawAnnouncements ? (JSON.parse(rawAnnouncements) as string[]) : []));
+                setSeenMasterTicketIds(new Set());
+                setSeenMasterAnnouncementIds(new Set());
+            }
+        } catch {
+            setSeenMasterTicketIds(new Set());
+            setSeenMasterAnnouncementIds(new Set());
+            setSeenSchoolTicketIds(new Set());
+            setSeenSchoolAnnouncementIds(new Set());
+        }
+    }, [isMaster, user?._id]);
 
     // Personal user notifications (for ALL roles)
     const { data: userNotificationsData } = useQuery({
@@ -49,15 +105,19 @@ export function Header() {
             return res.data?.data ?? [];
         },
         enabled: !!user,
-        refetchInterval: 30_000,
+        refetchInterval: 10_000,
     });
 
     const markAsReadMut = useMutation({
         mutationFn: async (id: string) => {
             return api.patch(`/user-notifications/${id}/read`);
         },
-        onSuccess: () => {
-            qc.invalidateQueries({ queryKey: ["user-notifications"] });
+        onSuccess: (_data, id) => {
+            setPendingReadIds((prev) => {
+                const next = new Set(prev);
+                next.add(id);
+                return next;
+            });
         }
     });
 
@@ -65,8 +125,11 @@ export function Header() {
         mutationFn: async () => {
             return api.patch(`/user-notifications/read-all`);
         },
+        onMutate: () => {
+            setMarkAllPending(true);
+        },
         onSuccess: () => {
-            qc.invalidateQueries({ queryKey: ["user-notifications"] });
+            setMarkAllPending(true);
         }
     });
 
@@ -134,12 +197,34 @@ export function Header() {
     // Master admin: open/in‑progress tickets for display in dropdown
     const openMasterTickets = masterTickets.filter((t: any) => t.status !== "resolved");
 
+    const unseenMasterTickets = openMasterTickets.filter((t: any) => !seenMasterTicketIds.has(String(t._id)));
+    const unseenMasterAnnouncements = masterAnnouncements.filter((a: any) => !seenMasterAnnouncementIds.has(String(a._id)));
+
+    // School admin: only show tickets that master has acted on.
+    // New school-submitted tickets start as `open`; we don't want those in the school bell.
+    const handledSchoolTickets = myTickets.filter((t: any) => t.status !== "open");
+    const unseenSchoolTickets = handledSchoolTickets.filter((t: any) => !seenSchoolTicketIds.has(String(t._id)));
+    const unseenSchoolAnnouncements = announcements.filter((a: any) => !seenSchoolAnnouncementIds.has(String(a._id)));
+
     // Unread count shown on bell:
     // Keep behaviour intuitive and "real": the badge should
     // only reflect items that can actually become "read".
     // So we use ONLY per-user unread notifications here.
-    const personalUnread = userNotifications.filter((n: any) => !n.isRead).length;
-    const unreadCount = personalUnread;
+    const unreadNotifications = useMemo(
+        () => userNotifications.filter((n: any) => !n.isRead),
+        [userNotifications]
+    );
+    const visibleNotifications = useMemo(() => {
+        if (markAllPending) return unreadNotifications;
+        return unreadNotifications.filter((n: any) => !pendingReadIds.has(String(n._id)));
+    }, [unreadNotifications, pendingReadIds, markAllPending]);
+    const personalUnread = markAllPending
+        ? 0
+        : Math.max(0, unreadNotifications.length - pendingReadIds.size);
+    /** Bell badge: personal unread + (master) unseen tickets/announcements */
+    const masterAlertCount = isMaster ? unseenMasterTickets.length + unseenMasterAnnouncements.length : 0;
+    const schoolAlertCount = !isMaster ? unseenSchoolTickets.length + unseenSchoolAnnouncements.length : 0;
+    const totalBellCount = personalUnread + (isMaster ? masterAlertCount : schoolAlertCount);
 
     const activeSess = Array.isArray(sessions)
         ? sessions.find((s: any) => s.isActive)
@@ -174,7 +259,7 @@ export function Header() {
                                     className="h-9 min-w-0 gap-1.5 rounded-xl border-[hsl(var(--border))] bg-white text-xs font-medium text-[hsl(var(--foreground))] hover:bg-[hsl(var(--muted))] sm:gap-2 sm:text-sm"
                                 >
                                     <Calendar className="h-4 w-4 shrink-0 text-primary" />
-                                    <span className="truncate max-w-[100px] sm:max-w-none">{activeSess.sessionYear ?? "Session"}</span>
+                                    <span className="truncate max-w-25 sm:max-w-none">{activeSess.sessionYear ?? "Session"}</span>
                                     <ChevronDown className="h-3.5 w-3.5 shrink-0 text-[hsl(var(--muted-foreground))]" />
                                 </Button>
                             </DropdownMenuTrigger>
@@ -199,13 +284,23 @@ export function Header() {
 
                 <div className="flex shrink-0 items-center gap-1 sm:gap-2">
                     {/* Notification Bell */}
-                    <DropdownMenu>
+                    <DropdownMenu
+                        open={notifOpen}
+                        onOpenChange={(open) => {
+                            setNotifOpen(open);
+                            if (!open) {
+                                setPendingReadIds(new Set());
+                                setMarkAllPending(false);
+                                qc.invalidateQueries({ queryKey: ["user-notifications"] });
+                            }
+                        }}
+                    >
                         <DropdownMenuTrigger asChild>
                             <Button variant="ghost" size="icon" className="relative h-9 w-9 rounded-xl hover:bg-[hsl(var(--muted))]">
                                 <Bell className="h-4 w-4 text-[hsl(var(--muted-foreground))]" />
-                                {unreadCount > 0 && (
-                                    <span className="absolute right-1 top-1 flex h-4 w-4 items-center justify-center rounded-full bg-primary text-[10px] font-bold text-white ring-2 ring-white">
-                                        {unreadCount > 9 ? "9+" : unreadCount}
+                                {totalBellCount > 0 && (
+                                    <span className="absolute -right-0.5 -top-0.5 flex min-h-4 min-w-4 items-center justify-center rounded-full bg-destructive px-1 text-[10px] font-bold leading-none text-white ring-2 ring-white">
+                                        {totalBellCount > 99 ? "99+" : totalBellCount}
                                     </span>
                                 )}
                             </Button>
@@ -225,33 +320,34 @@ export function Header() {
                                             className="h-6 px-2 text-xs text-primary font-medium hover:bg-primary/10"
                                             disabled={markAllAsReadMut.isPending}
                                         >
-                                            Mark all read
+                                            Mark all as read
                                         </Button>
                                     )}
-                                    {unreadCount > 0 && (
+                                    {totalBellCount > 0 && (
                                         <span className="rounded-full bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary">
-                                            {unreadCount} new
+                                            {totalBellCount} new
                                         </span>
                                     )}
                                 </div>
                             </div>
 
-                            <div className="max-h-[400px] overflow-y-auto scrollbar-thin">
+                            <div className="max-h-100 overflow-y-auto scrollbar-thin">
                                 {/* ── PERSONAL ALERTS ── */}
-                                {userNotifications.length > 0 && (
+                                {visibleNotifications.length > 0 && (
                                     <>
                                         <DropdownMenuLabel className="px-4 pt-3 pb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                                             Personal Alerts
                                         </DropdownMenuLabel>
-                                        {userNotifications.map((n: any) => {
+                                        {visibleNotifications.map((n: any) => {
                                             const isUnread = !n.isRead;
+                                            const isPendingRead = markAllPending || pendingReadIds.has(String(n._id));
                                             return (
                                                 <DropdownMenuItem
                                                     key={n._id}
-                                                    className={`flex items-start gap-3 px-4 py-3 cursor-pointer rounded-none focus:bg-muted/50 ${isUnread ? 'bg-primary/5' : ''}`}
+                                                    className={`flex items-start gap-3 px-4 py-3 cursor-pointer rounded-none transition-opacity duration-200 focus:bg-muted/50 ${isUnread ? 'bg-primary/5' : ''} ${isPendingRead ? 'opacity-40' : ''}`}
                                                     onClick={(e) => {
                                                         e.preventDefault();
-                                                        if (isUnread) markAsReadMut.mutate(n._id);
+                                                        if (isUnread && !isPendingRead) markAsReadMut.mutate(String(n._id));
                                                     }}
                                                 >
                                                     <div className="relative mt-0.5 shrink-0">
@@ -274,16 +370,35 @@ export function Header() {
                                 {/* ── SCHOOL ADMIN VIEW ── */}
                                 {!isMaster && (
                                     <>
-                                        {announcements.length > 0 && (
+                                        {unseenSchoolAnnouncements.length > 0 && (
                                             <>
                                                 <DropdownMenuLabel className="px-4 pt-3 pb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                                                     Announcements
                                                 </DropdownMenuLabel>
-                                                {announcements.map((a: any) => {
+                                                {unseenSchoolAnnouncements.map((a: any) => {
                                                     const Icon = PRIORITY_ICONS[a.priority] ?? Info;
                                                     const color = PRIORITY_COLORS[a.priority] ?? PRIORITY_COLORS.info;
                                                     return (
-                                                        <DropdownMenuItem key={a._id} className="flex items-start gap-3 px-4 py-3 cursor-default rounded-none focus:bg-muted/50">
+                                                        <DropdownMenuItem
+                                                            key={a._id}
+                                                            className="flex items-start gap-3 px-4 py-3 cursor-pointer rounded-none focus:bg-muted/50"
+                                                            onClick={() => {
+                                                                const idStr = String(a._id);
+                                                                setSeenSchoolAnnouncementIds((prev) => {
+                                                                    const next = new Set(prev);
+                                                                    next.add(idStr);
+                                                                    if (schoolAnnouncementSeenStorageKey) {
+                                                                        try {
+                                                                            localStorage.setItem(
+                                                                                schoolAnnouncementSeenStorageKey,
+                                                                                JSON.stringify(Array.from(next))
+                                                                            );
+                                                                        } catch {}
+                                                                    }
+                                                                    return next;
+                                                                });
+                                                            }}
+                                                        >
                                                             <Icon className={`mt-0.5 h-4 w-4 shrink-0 ${color}`} />
                                                             <div className="min-w-0 flex-1">
                                                                 <p className="text-sm font-medium leading-snug">{a.title}</p>
@@ -298,17 +413,36 @@ export function Header() {
                                             </>
                                         )}
 
-                                        {myTickets.length > 0 && (
+                                        {unseenSchoolTickets.length > 0 && (
                                             <>
                                                 <DropdownMenuLabel className="px-4 pt-3 pb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                                                     Support tickets
                                                 </DropdownMenuLabel>
-                                                {myTickets.slice(0, 5).map((t: any) => {
+                                                {unseenSchoolTickets.slice(0, 5).map((t: any) => {
                                                     const Icon = TICKET_STATUS_ICON[t.status] ?? MessageSquare;
                                                     const color = TICKET_STATUS_COLOR[t.status] ?? TICKET_STATUS_COLOR.open;
                                                     return (
                                                         <DropdownMenuItem key={t._id} asChild className="rounded-none focus:bg-muted/50">
-                                                            <Link href="/support" className="flex items-start gap-3 px-4 py-3">
+                                                            <Link
+                                                                href="/support"
+                                                                className="flex items-start gap-3 px-4 py-3"
+                                                                onClick={() => {
+                                                                    const idStr = String(t._id);
+                                                                    setSeenSchoolTicketIds((prev) => {
+                                                                        const next = new Set(prev);
+                                                                        next.add(idStr);
+                                                                        if (schoolTicketSeenStorageKey) {
+                                                                            try {
+                                                                                localStorage.setItem(
+                                                                                    schoolTicketSeenStorageKey,
+                                                                                    JSON.stringify(Array.from(next))
+                                                                                );
+                                                                            } catch {}
+                                                                        }
+                                                                        return next;
+                                                                    });
+                                                                }}
+                                                            >
                                                                 <Icon className={`mt-0.5 h-4 w-4 shrink-0 ${color}`} />
                                                                 <div className="min-w-0 flex-1">
                                                                     <p className="text-sm font-medium leading-snug truncate">{t.subject}</p>
@@ -325,7 +459,7 @@ export function Header() {
                                             </>
                                         )}
 
-                                        {announcements.length === 0 && myTickets.length === 0 && userNotifications.length === 0 && (
+                                        {unseenSchoolAnnouncements.length === 0 && unseenSchoolTickets.length === 0 && visibleNotifications.length === 0 && (
                                             <div className="px-4 py-8 text-center flex flex-col items-center justify-center gap-2">
                                                 <Bell className="h-8 w-8 text-muted-foreground/30" />
                                                 <p className="text-sm text-muted-foreground">No notifications right now.</p>
@@ -333,7 +467,25 @@ export function Header() {
                                         )}
 
                                         <DropdownMenuItem asChild className="rounded-none rounded-b-xl focus:bg-muted/50">
-                                            <Link href="/support" className="flex items-center gap-2 px-4 py-3 text-sm text-primary font-medium">
+                                            <Link
+                                                href="/support"
+                                                className="flex items-center gap-2 px-4 py-3 text-sm text-primary font-medium"
+                                                    onClick={() => {
+                                                    setSeenSchoolTicketIds((prev) => {
+                                                        const next = new Set(prev);
+                                                            unseenSchoolTickets.forEach((t: any) => next.add(String(t._id)));
+                                                        if (schoolTicketSeenStorageKey) {
+                                                            try {
+                                                                localStorage.setItem(
+                                                                    schoolTicketSeenStorageKey,
+                                                                    JSON.stringify(Array.from(next))
+                                                                );
+                                                            } catch {}
+                                                        }
+                                                        return next;
+                                                    });
+                                                }}
+                                            >
                                                 <Headphones className="h-4 w-4" /> View all support tickets
                                             </Link>
                                         </DropdownMenuItem>
@@ -343,17 +495,33 @@ export function Header() {
                                 {/* ── MASTER ADMIN VIEW ── */}
                                 {isMaster && (
                                     <>
-                                        {openMasterTickets.length > 0 && (
+                                        {unseenMasterTickets.length > 0 && (
                                             <>
                                                 <DropdownMenuLabel className="px-4 pt-3 pb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                                                     Open tickets
                                                 </DropdownMenuLabel>
-                                                {openMasterTickets.slice(0, 5).map((t: any) => {
+                                                {unseenMasterTickets.slice(0, 5).map((t: any) => {
                                                     const Icon = TICKET_STATUS_ICON[t.status] ?? MessageSquare;
                                                     const color = TICKET_STATUS_COLOR[t.status] ?? TICKET_STATUS_COLOR.open;
                                                     return (
                                                         <DropdownMenuItem key={t._id} asChild className="rounded-none focus:bg-muted/50">
-                                                            <Link href="/master/support" className="flex items-start gap-3 px-4 py-3">
+                                                            <Link
+                                                                href="/master/support"
+                                                                className="flex items-start gap-3 px-4 py-3"
+                                                                onClick={() => {
+                                                                    const idStr = String(t._id);
+                                                                    setSeenMasterTicketIds((prev) => {
+                                                                        const next = new Set(prev);
+                                                                        next.add(idStr);
+                                                                        if (masterTicketSeenStorageKey) {
+                                                                            try {
+                                                                                localStorage.setItem(masterTicketSeenStorageKey, JSON.stringify(Array.from(next)));
+                                                                            } catch {}
+                                                                        }
+                                                                        return next;
+                                                                    });
+                                                                }}
+                                                            >
                                                                 <Icon className={`mt-0.5 h-4 w-4 shrink-0 ${color}`} />
                                                                 <div className="min-w-0 flex-1">
                                                                     <p className="text-sm font-medium leading-snug truncate">{t.subject}</p>
@@ -369,17 +537,33 @@ export function Header() {
                                             </>
                                         )}
 
-                                        {masterAnnouncements.length > 0 && (
+                                        {unseenMasterAnnouncements.length > 0 && (
                                             <>
                                                 <DropdownMenuLabel className="px-4 pt-3 pb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                                                     Active announcements
                                                 </DropdownMenuLabel>
-                                                {masterAnnouncements.slice(0, 3).map((a: any) => {
+                                                {unseenMasterAnnouncements.slice(0, 3).map((a: any) => {
                                                     const Icon = PRIORITY_ICONS[a.priority] ?? Info;
                                                     const color = PRIORITY_COLORS[a.priority] ?? PRIORITY_COLORS.info;
                                                     return (
                                                         <DropdownMenuItem key={a._id} asChild className="rounded-none focus:bg-muted/50">
-                                                            <Link href="/master/announcements" className="flex items-start gap-3 px-4 py-3">
+                                                            <Link
+                                                                href="/master/announcements"
+                                                                className="flex items-start gap-3 px-4 py-3"
+                                                                onClick={() => {
+                                                                    const idStr = String(a._id);
+                                                                    setSeenMasterAnnouncementIds((prev) => {
+                                                                        const next = new Set(prev);
+                                                                        next.add(idStr);
+                                                                        if (masterAnnouncementSeenStorageKey) {
+                                                                            try {
+                                                                                localStorage.setItem(masterAnnouncementSeenStorageKey, JSON.stringify(Array.from(next)));
+                                                                            } catch {}
+                                                                        }
+                                                                        return next;
+                                                                    });
+                                                                }}
+                                                            >
                                                                 <Icon className={`mt-0.5 h-4 w-4 shrink-0 ${color}`} />
                                                                 <div className="min-w-0 flex-1">
                                                                     <p className="text-sm font-medium leading-snug">{a.title}</p>
@@ -393,7 +577,7 @@ export function Header() {
                                             </>
                                         )}
 
-                                        {openMasterTickets.length === 0 && masterAnnouncements.length === 0 && (
+                                        {unseenMasterTickets.length === 0 && unseenMasterAnnouncements.length === 0 && (
                                             <div className="px-4 py-8 text-center text-sm text-muted-foreground">
                                                 No pending tickets or active announcements.
                                             </div>
@@ -401,12 +585,42 @@ export function Header() {
 
                                         <div className="flex border-t">
                                             <DropdownMenuItem asChild className="flex-1 rounded-none rounded-bl-xl focus:bg-muted/50">
-                                                <Link href="/master/support" className="flex items-center justify-center gap-2 px-4 py-3 text-sm text-primary font-medium">
+                                                <Link
+                                                    href="/master/support"
+                                                    className="flex items-center justify-center gap-2 px-4 py-3 text-sm text-primary font-medium"
+                                                    onClick={() => {
+                                                        setSeenMasterTicketIds((prev) => {
+                                                            const next = new Set(prev);
+                                                            unseenMasterTickets.forEach((t: any) => next.add(String(t._id)));
+                                                            if (masterTicketSeenStorageKey) {
+                                                                try {
+                                                                    localStorage.setItem(masterTicketSeenStorageKey, JSON.stringify(Array.from(next)));
+                                                                } catch {}
+                                                            }
+                                                            return next;
+                                                        });
+                                                    }}
+                                                >
                                                     <Headphones className="h-4 w-4" /> Support
                                                 </Link>
                                             </DropdownMenuItem>
                                             <DropdownMenuItem asChild className="flex-1 rounded-none rounded-br-xl focus:bg-muted/50 border-l">
-                                                <Link href="/master/announcements" className="flex items-center justify-center gap-2 px-4 py-3 text-sm text-primary font-medium">
+                                                <Link
+                                                    href="/master/announcements"
+                                                    className="flex items-center justify-center gap-2 px-4 py-3 text-sm text-primary font-medium"
+                                                    onClick={() => {
+                                                        setSeenMasterAnnouncementIds((prev) => {
+                                                            const next = new Set(prev);
+                                                            unseenMasterAnnouncements.forEach((a: any) => next.add(String(a._id)));
+                                                            if (masterAnnouncementSeenStorageKey) {
+                                                                try {
+                                                                    localStorage.setItem(masterAnnouncementSeenStorageKey, JSON.stringify(Array.from(next)));
+                                                                } catch {}
+                                                            }
+                                                            return next;
+                                                        });
+                                                    }}
+                                                >
                                                     <Megaphone className="h-4 w-4" /> Announcements
                                                 </Link>
                                             </DropdownMenuItem>

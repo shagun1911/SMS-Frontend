@@ -153,7 +153,7 @@ export function NewExamModal({ open, onOpenChange }: NewExamModalProps) {
                                                     : "bg-gray-200 text-gray-700 hover:bg-gray-300"
                                             }`}
                                         >
-                                            Class {cls.className}
+                                            Class {cls.className}-{cls.section ?? "A"}
                                         </Badge>
                                     ))
                                 ) : (
