@@ -55,7 +55,7 @@ export function AppDownloadInfo({ role, backHref = "/" }: AppDownloadInfoProps) 
                 </li>
                 <li className="flex items-center gap-2">
                   <span className="font-medium">•</span>
-                  <span>Choose <strong>{isTeacher ? "Teacher" : "Student"}</strong> and sign in with your {isTeacher ? "school email and password" : "username and password"}.</span>
+                  <span>Choose <strong>{isTeacher ? "Teacher" : "Student"}</strong> and sign in with your {isTeacher ? "registered mobile number (or school email) and password" : "username and password"}.</span>
                 </li>
               </ul>
             </div>

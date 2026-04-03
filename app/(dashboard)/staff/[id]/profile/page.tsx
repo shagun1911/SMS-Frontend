@@ -15,10 +15,19 @@ import { Loader2, ArrowLeft, Mail, Phone, Calendar, Save, KeyRound, X, Copy, Meg
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
-function SetCredentialsModal({ staff, onClose }: { staff: { _id: string; name: string; email: string; phone: string; role?: string }; onClose: () => void }) {
+function SetCredentialsModal({
+  staff,
+  onClose,
+}: {
+  staff: { _id: string; name: string; email?: string; phone: string; username?: string; role?: string };
+  onClose: () => void;
+}) {
+  const loginId = (staff.username || staff.phone || staff.email || "").trim();
+
   const defaultPassword = useMemo(() => {
     const firstName = (staff.name || "").split(" ")[0].toLowerCase();
-    const lastFour = (staff.phone || "").slice(-4);
+    const digits = (staff.phone || "").replace(/\D/g, "");
+    const lastFour = digits.slice(-4) || "1234";
     return firstName + lastFour;
   }, [staff.name, staff.phone]);
 
@@ -58,17 +67,21 @@ function SetCredentialsModal({ staff, onClose }: { staff: { _id: string; name: s
         <div className="mb-5 rounded-xl bg-emerald-50 p-4 space-y-2">
           <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-emerald-800">Portal login</p>
           <div className="flex items-center justify-between">
-            <span className="text-xs text-emerald-600">Email</span>
+            <span className="text-xs text-emerald-600">Login (mobile)</span>
             <div className="flex items-center gap-2">
-              <span className="font-mono text-sm font-bold text-emerald-900">{staff.email}</span>
-              <button type="button" onClick={() => handleCopy(staff.email)} className="text-emerald-500 hover:text-emerald-700">
+              <span className="font-mono text-sm font-bold text-emerald-900">{loginId || "—"}</span>
+              <button
+                type="button"
+                onClick={() => loginId && handleCopy(loginId)}
+                className="text-emerald-500 hover:text-emerald-700"
+              >
                 <Copy className="h-3.5 w-3.5" />
               </button>
             </div>
           </div>
           <p className="mt-2 text-xs text-emerald-600">
             {isTeacher ? "Teacher logs in at: " : "Staff logs in at: "}
-            <span className="font-medium">/teacher/login</span> or School Login with this email
+            <span className="font-medium">/teacher/login</span> or School Login using this mobile number (email still works if set)
           </p>
         </div>
 
@@ -101,10 +114,14 @@ function SetCredentialsModal({ staff, onClose }: { staff: { _id: string; name: s
             <p className="text-sm font-medium text-emerald-700">Password has been set. Share with {staff.name} securely:</p>
             <div className="rounded-xl border border-emerald-200 bg-white p-3 space-y-2">
               <div className="flex items-center justify-between">
-                <span className="text-xs text-gray-500">Email</span>
+                <span className="text-xs text-gray-500">Login (mobile)</span>
                 <div className="flex items-center gap-2">
-                  <span className="font-mono text-sm font-bold">{staff.email}</span>
-                  <button type="button" onClick={() => handleCopy(staff.email)} className="text-emerald-500 hover:text-emerald-700">
+                  <span className="font-mono text-sm font-bold">{loginId || "—"}</span>
+                  <button
+                    type="button"
+                    onClick={() => loginId && handleCopy(loginId)}
+                    className="text-emerald-500 hover:text-emerald-700"
+                  >
                     <Copy className="h-3.5 w-3.5" />
                   </button>
                 </div>

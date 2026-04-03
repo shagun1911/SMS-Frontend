@@ -20,12 +20,28 @@ import {
 } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 
-const loginSchema = z.object({
+const masterLoginSchema = z.object({
     email: z.string().email({ message: "Invalid email address" }),
     password: z.string().min(6, { message: "Password must be at least 6 characters" }),
 });
 
-type LoginValues = z.infer<typeof loginSchema>;
+const schoolLoginSchema = z.object({
+    email: z
+        .string()
+        .min(1, { message: "Required" })
+        .refine(
+            (v) => {
+                const t = v.trim();
+                if (t.includes("@")) {
+                    return z.string().email().safeParse(t).success;
+                }
+                const digits = t.replace(/\D/g, "");
+                return digits.length >= 10 && digits.length <= 15;
+            },
+            { message: "Enter your registered mobile (10–15 digits) or school email" }
+        ),
+    password: z.string().min(6, { message: "Password must be at least 6 characters" }),
+});
 
 function LoginContent() {
     const router = useRouter();
@@ -36,6 +52,9 @@ function LoginContent() {
     const qc = useQueryClient(); // Initialized qc
 
     const isMaster = portal === "master";
+
+    const loginSchema = isMaster ? masterLoginSchema : schoolLoginSchema;
+    type LoginValues = z.infer<typeof masterLoginSchema> | z.infer<typeof schoolLoginSchema>;
 
     const {
         register,
@@ -48,7 +67,15 @@ function LoginContent() {
     const onSubmit = async (data: LoginValues) => {
         setIsLoading(true);
         try {
-            const response = await api.post("/auth/login", { ...data, portal });
+            const response = await api.post("/auth/login", {
+                password: data.password,
+                portal,
+                ...(isMaster
+                    ? { email: (data as z.infer<typeof masterLoginSchema>).email.trim() }
+                    : {
+                          identifier: (data as z.infer<typeof schoolLoginSchema>).email.trim(),
+                      }),
+            });
             const { user, accessToken, refreshToken, redirectTo } = response.data;
 
             if (isMaster && user.role !== "superadmin") {
@@ -123,7 +150,7 @@ function LoginContent() {
                                     <input
                                         {...register("email")}
                                         className="h-12 w-full rounded-xl border border-[hsl(var(--input))] bg-[hsl(var(--background))] pl-11 pr-4 text-sm outline-none transition-smooth placeholder:text-[hsl(var(--muted-foreground))] focus:border-[hsl(var(--ring))] focus:ring-2 focus:ring-[hsl(var(--ring))]/20"
-                                        placeholder="Email address"
+                                        placeholder={isMaster ? "Email address" : "Mobile number or email"}
                                         disabled={isLoading}
                                     />
                                     {errors.email && (
