@@ -14,11 +14,27 @@ import { Select } from "@/components/ui/select";
 import { Loader2, ShieldCheck, Camera, X } from "lucide-react";
 import { UserRole } from "@/types";
 
+function normalizePhoneDigitsInput(raw: string): string {
+    let d = raw.replace(/\D/g, "");
+    if (d.length >= 12 && d.startsWith("91")) {
+        d = d.slice(-10);
+    }
+    if (d.length === 11 && d.startsWith("0")) {
+        d = d.slice(1);
+    }
+    while (d.length > 15) {
+        d = d.slice(-15);
+    }
+    return d;
+}
+
+const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
 const staffSchema = z
     .object({
         name: z.string().min(3, "Full name required"),
-        email: z.string().email("Invalid email"),
-        phone: z.string().min(10, "Valid phone needed"),
+        email: z.string(),
+        phone: z.string().min(1, "Phone number required"),
         role: z.enum([
             UserRole.TEACHER,
             UserRole.ACCOUNTANT,
@@ -29,12 +45,62 @@ const staffSchema = z
             UserRole.CLEANING_STAFF,
             UserRole.STAFF_OTHER,
         ]),
-        baseSalary: z.string().min(1, "Base salary required"),
+        baseSalary: z.string(),
         joiningDate: z.string().min(1, "Joining date required"),
         subject: z.string().optional(),
         staffRoleTitle: z.string().optional(),
     })
     .superRefine((data, ctx) => {
+        const emailTrim = (data.email ?? "").trim();
+        if (data.role === UserRole.SCHOOL_ADMIN) {
+            if (!emailTrim) {
+                ctx.addIssue({
+                    code: z.ZodIssueCode.custom,
+                    message: "Email is required for school admin accounts",
+                    path: ["email"],
+                });
+            } else if (!emailPattern.test(emailTrim)) {
+                ctx.addIssue({
+                    code: z.ZodIssueCode.custom,
+                    message: "Invalid email address",
+                    path: ["email"],
+                });
+            }
+        } else if (emailTrim && !emailPattern.test(emailTrim)) {
+            ctx.addIssue({
+                code: z.ZodIssueCode.custom,
+                message: "Invalid email address",
+                path: ["email"],
+            });
+        }
+
+        const raw = (data.phone ?? "").trim();
+        const d = normalizePhoneDigitsInput(raw);
+        if (d.length < 10 || d.length > 15) {
+            ctx.addIssue({
+                code: z.ZodIssueCode.custom,
+                message: "Enter a valid phone number (10–15 digits)",
+                path: ["phone"],
+            });
+        }
+
+        if (data.role !== UserRole.SCHOOL_ADMIN) {
+            const salaryRaw = String(data.baseSalary ?? "").trim();
+            if (!salaryRaw) {
+                ctx.addIssue({
+                    code: z.ZodIssueCode.custom,
+                    message: "Base salary required",
+                    path: ["baseSalary"],
+                });
+            } else if (Number.isNaN(Number(salaryRaw))) {
+                ctx.addIssue({
+                    code: z.ZodIssueCode.custom,
+                    message: "Enter a valid amount",
+                    path: ["baseSalary"],
+                });
+            }
+        }
+
         if (data.role === UserRole.STAFF_OTHER) {
             const t = (data.staffRoleTitle || "").trim();
             if (t.length < 2) {
@@ -42,6 +108,17 @@ const staffSchema = z
                     code: z.ZodIssueCode.custom,
                     message: "Enter the specific role",
                     path: ["staffRoleTitle"],
+                });
+            }
+        }
+
+        if (data.role === UserRole.TEACHER) {
+            const s = (data.subject || "").trim();
+            if (s.length < 1) {
+                ctx.addIssue({
+                    code: z.ZodIssueCode.custom,
+                    message: "Primary subject is required for teachers",
+                    path: ["subject"],
                 });
             }
         }
@@ -74,7 +151,13 @@ export function AddStaffModal({ isOpen, onClose }: AddStaffModalProps) {
         defaultValues: {
             role: UserRole.TEACHER,
             staffRoleTitle: "",
-        }
+            name: "",
+            email: "",
+            phone: "",
+            baseSalary: "",
+            joiningDate: "",
+            subject: "",
+        },
     });
 
     const selectedRole = watch("role");
@@ -123,20 +206,34 @@ export function AddStaffModal({ isOpen, onClose }: AddStaffModalProps) {
     };
 
     const mutation = useMutation({
-        mutationFn: (data: StaffValues) =>
-            api.post("/users", {
-                name: data.name,
-                email: data.email,
-                phone: data.phone,
+        mutationFn: (data: StaffValues) => {
+            const salaryRaw = String(data.baseSalary ?? "").trim();
+            const baseSalary =
+                data.role === UserRole.SCHOOL_ADMIN
+                    ? 0
+                    : Number(salaryRaw);
+            const emailTrim = (data.email ?? "").trim();
+            const body: Record<string, unknown> = {
+                name: data.name.trim(),
+                phone: data.phone.trim(),
                 role: data.role,
-                baseSalary: Number(data.baseSalary),
-                joiningDate: data.joiningDate ? new Date(data.joiningDate).toISOString() : undefined,
-                ...(data.subject?.trim() ? { subject: data.subject.trim() } : {}),
-                ...(data.role === UserRole.STAFF_OTHER
-                    ? { staffRoleTitle: (data.staffRoleTitle || "").trim() }
-                    : {}),
+                baseSalary,
+                joiningDate: new Date(data.joiningDate).toISOString(),
                 ...(photoUrl ? { photo: photoUrl } : {}),
-            }),
+            };
+            if (data.role === UserRole.SCHOOL_ADMIN) {
+                body.email = emailTrim.toLowerCase();
+            } else if (emailTrim) {
+                body.email = emailTrim.toLowerCase();
+            }
+            if (data.role === UserRole.TEACHER) {
+                body.subject = (data.subject ?? "").trim();
+            }
+            if (data.role === UserRole.STAFF_OTHER) {
+                body.staffRoleTitle = (data.staffRoleTitle || "").trim();
+            }
+            return api.post("/users", body);
+        },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ["staff-list"] });
             toast.success("Staff Member Enrolled", {
@@ -163,7 +260,7 @@ export function AddStaffModal({ isOpen, onClose }: AddStaffModalProps) {
             isOpen={isOpen}
             onClose={onClose}
             title="Register New Staff"
-            description="Enter professional details and payroll baseline for the new member."
+            description="All fields are required except email. Email is optional for most roles and required only when the member role is School Admin."
             className="max-w-lg"
         >
             <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
@@ -217,19 +314,32 @@ export function AddStaffModal({ isOpen, onClose }: AddStaffModalProps) {
                 </div>
 
                 <div className="space-y-2">
-                    <label className="text-xs font-bold uppercase tracking-wider text-zinc-500 ml-1">Full Name</label>
+                    <label className="text-xs font-bold uppercase tracking-wider text-zinc-500 ml-1">Full name</label>
                     <Input {...register("name")} placeholder="Prof. Jane Cooper" className="h-11 rounded-xl border-gray-200 bg-white" />
                     {errors.name && <p className="text-[10px] text-red-400 ml-1">{errors.name.message}</p>}
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
-                        <label className="text-xs font-bold uppercase tracking-wider text-zinc-500 ml-1">Email Address</label>
-                        <Input {...register("email")} placeholder="jane@school.edu" className="h-11 rounded-xl border-gray-200 bg-white" />
+                        <label className="text-xs font-bold uppercase tracking-wider text-zinc-500 ml-1">
+                            Email address{" "}
+                            {selectedRole === UserRole.SCHOOL_ADMIN ? (
+                                <span className="text-red-500">*</span>
+                            ) : (
+                                <span className="font-normal normal-case text-zinc-400">(optional)</span>
+                            )}
+                        </label>
+                        <Input
+                            {...register("email")}
+                            type="email"
+                            autoComplete="email"
+                            placeholder="jane@school.edu"
+                            className="h-11 rounded-xl border-gray-200 bg-white"
+                        />
                         {errors.email && <p className="text-[10px] text-red-400 ml-1">{errors.email.message}</p>}
                     </div>
                     <div className="space-y-2">
-                        <label className="text-xs font-bold uppercase tracking-wider text-zinc-500 ml-1">Phone Number</label>
+                        <label className="text-xs font-bold uppercase tracking-wider text-zinc-500 ml-1">Phone number</label>
                         <Input {...register("phone")} placeholder="+91 88888 88888" className="h-11 rounded-xl border-gray-200 bg-white" />
                         {errors.phone && <p className="text-[10px] text-red-400 ml-1">{errors.phone.message}</p>}
                     </div>
@@ -237,7 +347,7 @@ export function AddStaffModal({ isOpen, onClose }: AddStaffModalProps) {
 
                 <div className="grid grid-cols-2 gap-4">
                     <Select
-                        label="Member Role"
+                        label="Member role"
                         options={[
                             { label: "Teacher", value: UserRole.TEACHER },
                             { label: "Accountant", value: UserRole.ACCOUNTANT },
@@ -251,13 +361,14 @@ export function AddStaffModal({ isOpen, onClose }: AddStaffModalProps) {
                         {...register("role")}
                     />
                     <div className="space-y-2">
-                        <label className="text-xs font-bold uppercase tracking-wider text-zinc-500 ml-1">Base Salary (Monthly)</label>
+                        <label className="text-xs font-bold uppercase tracking-wider text-zinc-500 ml-1">
+                            Base salary (monthly)
+                        </label>
                         <Input
                             {...register("baseSalary")}
                             type="number"
                             placeholder="₹ 0.00"
                             disabled={selectedRole === UserRole.SCHOOL_ADMIN}
-                            value={selectedRole === UserRole.SCHOOL_ADMIN ? "0" : undefined}
                             className={`h-11 rounded-xl border-gray-200 bg-white ${selectedRole === UserRole.SCHOOL_ADMIN ? "opacity-50 cursor-not-allowed" : ""}`}
                         />
                         {selectedRole === UserRole.SCHOOL_ADMIN && (
@@ -284,15 +395,20 @@ export function AddStaffModal({ isOpen, onClose }: AddStaffModalProps) {
                 )}
 
                 <div className="space-y-2">
-                    <label className="text-xs font-bold uppercase tracking-wider text-zinc-500 ml-1">Joining Date</label>
+                    <label className="text-xs font-bold uppercase tracking-wider text-zinc-500 ml-1">Joining date</label>
                     <Input {...register("joiningDate")} type="date" className="h-11 rounded-xl border-gray-200 bg-white" />
                     {errors.joiningDate && <p className="text-[10px] text-red-400 ml-1">{errors.joiningDate.message}</p>}
                 </div>
 
                 {selectedRole === UserRole.TEACHER && (
                     <div className="space-y-2 animate-in fade-in slide-in-from-top-2 duration-300">
-                        <label className="text-xs font-bold uppercase tracking-wider text-zinc-500 ml-1">Primary Subject / Specialization</label>
+                        <label className="text-xs font-bold uppercase tracking-wider text-zinc-500 ml-1">
+                            Primary subject / specialization <span className="text-red-500">*</span>
+                        </label>
                         <Input {...register("subject")} placeholder="Mathematics, Physics, etc." className="h-11 rounded-xl border-gray-200 bg-white" />
+                        {errors.subject && (
+                            <p className="text-[10px] text-red-400 ml-1">{errors.subject.message}</p>
+                        )}
                     </div>
                 )}
 

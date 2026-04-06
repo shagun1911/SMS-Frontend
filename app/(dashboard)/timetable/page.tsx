@@ -212,7 +212,7 @@ export default function TimetablePage() {
                                 {rows.map((row: any, rowIdx: number) => (
                                     <tr key={`${row.className}-${row.section ?? rowIdx}`} className="hover:bg-gray-50/50">
                                         <td className="border border-gray-200 p-2 font-medium sticky left-0 bg-white z-10">
-                                            {row.className}{row.section ? ` – ${row.section}` : ""}
+                                            {row.className} – {row.section ?? "A"}
                                         </td>
                                         {periodColumns.map((p: any, colIdx) => {
                                             if (p.kind === "break") {

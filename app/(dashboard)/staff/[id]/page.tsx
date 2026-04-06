@@ -16,6 +16,7 @@ import SalaryStructureTab from "@/components/staff/salary-structure-tab";
 import SalaryPaymentsTab from "@/components/staff/salary-payments-tab";
 import OtherPaymentsTab from "@/components/staff/other-payments-tab";
 import { GeneratePayrollModal } from "@/components/staff/generate-payroll-modal";
+import { StaffAttendanceCalendarSection } from "@/components/staff/staff-attendance-calendar-section";
 
 export default function StaffDetailPage() {
   const router = useRouter();
@@ -139,6 +140,8 @@ export default function StaffDetailPage() {
           <OtherPaymentsTab staffId={staffId} />
         </TabsContent>
       </Tabs>
+
+      <StaffAttendanceCalendarSection staffId={staffId} role={staff.role} />
 
       {showGenerateModal && (
         <GeneratePayrollModal
