@@ -47,8 +47,8 @@ import { LockedFeatureGate } from "@/components/plan/locked-feature-gate";
 interface StaffMember {
     _id: string;
     name: string;
-    email: string;
-    phone: string;
+    email?: string;
+    phone?: string;
     role: string;
     staffRoleTitle?: string;
     baseSalary?: number;
@@ -181,8 +181,17 @@ function StaffCard({ member, onOpenProfile }: StaffCardProps) {
             });
             setConfirmOpen(false);
         },
-        onError: (err: any) => {
-            toast.error(err.response?.data?.message ?? "Failed to remove staff member");
+        onError: (err: unknown) => {
+            const ax = err as {
+                response?: { data?: { message?: string; error?: string } };
+                message?: string;
+            };
+            const msg =
+                ax.response?.data?.message ||
+                ax.response?.data?.error ||
+                ax.message ||
+                "Something went wrong while removing this staff member.";
+            toast.error("Could not remove staff", { description: msg });
         },
     });
 
@@ -233,11 +242,11 @@ function StaffCard({ member, onOpenProfile }: StaffCardProps) {
                     <div className="mt-6 space-y-2">
                         <div className="flex items-center gap-3 text-xs text-gray-500">
                             <Mail className="h-3.5 w-3.5" />
-                            {member.email}
+                            {member.email ?? "—"}
                         </div>
                         <div className="flex items-center gap-3 text-xs text-gray-500">
                             <Phone className="h-3.5 w-3.5" />
-                            {member.phone}
+                            {member.phone ?? "—"}
                         </div>
                     </div>
 
@@ -281,7 +290,7 @@ function SchoolAdminCard({ member }: { member: StaffMember }) {
     const queryClient = useQueryClient();
     const [showPassword, setShowPassword] = useState(false);
     const [editing, setEditing] = useState(false);
-    const [editEmail, setEditEmail] = useState(member.email);
+    const [editEmail, setEditEmail] = useState(member.email ?? "");
     const [editPassword, setEditPassword] = useState("");
     const [showEditPassword, setShowEditPassword] = useState(false);
     const [saving, setSaving] = useState(false);
@@ -289,7 +298,8 @@ function SchoolAdminCard({ member }: { member: StaffMember }) {
     const handleSave = async () => {
         setSaving(true);
         try {
-            const emailChanged = editEmail.trim() && editEmail.trim() !== member.email;
+            const emailChanged =
+                Boolean(editEmail.trim()) && editEmail.trim() !== (member.email ?? "").trim();
             const passwordChanged = editPassword.trim().length > 0;
 
             if (!emailChanged && !passwordChanged) {
@@ -325,7 +335,7 @@ function SchoolAdminCard({ member }: { member: StaffMember }) {
 
     const handleCancel = () => {
         setEditing(false);
-        setEditEmail(member.email);
+        setEditEmail(member.email ?? "");
         setEditPassword("");
         setShowEditPassword(false);
     };
@@ -372,7 +382,7 @@ function SchoolAdminCard({ member }: { member: StaffMember }) {
                                 className="h-9 text-sm rounded-lg"
                             />
                         ) : (
-                            <p className="text-sm font-medium text-gray-900 break-all">{member.email}</p>
+                            <p className="text-sm font-medium text-gray-900 break-all">{member.email ?? "—"}</p>
                         )}
                     </div>
 
@@ -417,7 +427,7 @@ function SchoolAdminCard({ member }: { member: StaffMember }) {
                     {/* Phone (always read-only) */}
                     <div className="flex items-center gap-3 text-xs text-gray-500 px-1">
                         <Phone className="h-3.5 w-3.5" />
-                        {member.phone}
+                        {member.phone ?? "—"}
                     </div>
 
                     {/* Edit action buttons */}
@@ -475,13 +485,21 @@ export default function StaffPage() {
     const staff = allStaff.filter((m) => m.role !== "schooladmin");
     const schoolAdmins = allStaff.filter((m) => m.role === "schooladmin");
 
-    const filteredStaff = staff.filter((member: any) => {
+    const q = searchTerm.trim().toLowerCase();
+    const filteredStaff = staff.filter((member: StaffMember) => {
         const matchesRole = selectedRole === "all" || member.role === selectedRole;
+        if (!q) return matchesRole;
+        const name = (member.name ?? "").toLowerCase();
+        const email = (member.email ?? "").toLowerCase();
+        const phone = (member.phone ?? "").toLowerCase();
+        const role = (member.role ?? "").toLowerCase();
+        const title = (member.staffRoleTitle ?? "").toLowerCase();
         const matchesSearch =
-            member.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            member.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            member.role.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            (member.staffRoleTitle || "").toLowerCase().includes(searchTerm.toLowerCase());
+            name.includes(q) ||
+            email.includes(q) ||
+            phone.includes(q) ||
+            role.includes(q) ||
+            title.includes(q);
         return matchesRole && matchesSearch;
     });
 

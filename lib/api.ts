@@ -12,6 +12,14 @@ const api = axios.create({
     withCredentials: true,
 });
 
+function clientLocalCalendarYmd(): string {
+    const n = new Date();
+    const y = n.getFullYear();
+    const m = String(n.getMonth() + 1).padStart(2, '0');
+    const d = String(n.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+}
+
 // Request Interceptor
 api.interceptors.request.use(
     (config) => {
@@ -19,6 +27,7 @@ api.interceptors.request.use(
         if (token) {
             config.headers.Authorization = `Bearer ${token}`;
         }
+        config.headers['X-Client-Date'] = clientLocalCalendarYmd();
         return config;
     },
     (error) => Promise.reject(error)
