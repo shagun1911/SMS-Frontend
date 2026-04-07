@@ -21,3 +21,43 @@ export function formatYmdLocal(d: Date): string {
     const day = String(d.getDate()).padStart(2, "0");
     return `${y}-${m}-${day}`;
 }
+
+/**
+ * UI state for one staff row: explicit `marks` wins, then server day data, then legacy implicit present
+ * (past dates only stored absences).
+ */
+export function effectiveStaffAttendanceMark(
+    staffId: string,
+    marks: Record<string, "PRESENT" | "ABSENT">,
+    dayData: { absentStaffIds: string[]; presentStaffIds?: string[] } | null | undefined,
+    dateYmd: string,
+    todayYmd: string
+): "PRESENT" | "ABSENT" | "PENDING" {
+    const m = marks[staffId];
+    if (m === "PRESENT") return "PRESENT";
+    if (m === "ABSENT") return "ABSENT";
+    if (dayData?.absentStaffIds?.includes(staffId)) return "ABSENT";
+    if (dayData?.presentStaffIds?.includes(staffId)) return "PRESENT";
+    if (dateYmd < todayYmd) return "PRESENT";
+    return "PENDING";
+}
+
+/**
+ * Persisted mark for POST /staff-attendance/day. Legacy past days only stored absences; implicit
+ * present is PENDING (clears both present/absent rows).
+ */
+export function staffAttendanceMarkForSave(
+    staffId: string,
+    marks: Record<string, "PRESENT" | "ABSENT">,
+    dayData: { absentStaffIds: string[]; presentStaffIds?: string[] } | null | undefined,
+    dateYmd: string,
+    todayYmd: string
+): "PRESENT" | "ABSENT" | "PENDING" {
+    const m = marks[staffId];
+    if (m === "PRESENT") return "PRESENT";
+    if (m === "ABSENT") return "ABSENT";
+    if (dayData?.absentStaffIds?.includes(staffId)) return "ABSENT";
+    if (dayData?.presentStaffIds?.includes(staffId)) return "PRESENT";
+    if (dateYmd < todayYmd) return "PENDING";
+    return "PENDING";
+}

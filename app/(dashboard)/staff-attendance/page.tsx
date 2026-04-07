@@ -2,13 +2,17 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Loader2, Save, Search } from "lucide-react";
+import { ClipboardCheck, Loader2, Save, Search } from "lucide-react";
 import api from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { formatStaffRoleLabel } from "@/lib/utils";
-import { formatYmdLocal } from "@/lib/staffAttendance";
+import {
+    effectiveStaffAttendanceMark,
+    formatYmdLocal,
+    staffAttendanceMarkForSave
+} from "@/lib/staffAttendance";
 import { toast } from "sonner";
 import { LockedFeatureGate } from "@/components/plan/locked-feature-gate";
 import { UserRole } from "@/types";
@@ -61,7 +65,7 @@ export default function StaffAttendancePage() {
         queryFn: async () => {
             const res = await api.get<{
                 success: boolean;
-                data: { absentStaffIds: string[] };
+                data: { absentStaffIds: string[]; presentStaffIds?: string[] };
             }>("/staff-attendance/day", { params: { date } });
             return res.data.data;
         },
@@ -73,18 +77,22 @@ export default function StaffAttendancePage() {
         () => (dayData?.absentStaffIds ? [...dayData.absentStaffIds].sort().join(",") : ""),
         [dayData]
     );
+    const presentKey = useMemo(
+        () => (dayData?.presentStaffIds ? [...dayData.presentStaffIds].sort().join(",") : ""),
+        [dayData]
+    );
 
     useEffect(() => {
         if (!eligible.length || dayData == null) return;
         const absent = new Set(dayData.absentStaffIds);
+        const present = new Set(dayData.presentStaffIds ?? []);
         const next: Record<string, Mark> = {};
         for (const s of eligible) {
-            if (absent.has(s._id)) {
-                next[s._id] = "ABSENT";
-            }
+            if (absent.has(s._id)) next[s._id] = "ABSENT";
+            else if (present.has(s._id)) next[s._id] = "PRESENT";
         }
         setMarks(next);
-    }, [date, absentKey, eligibleIdsKey]);
+    }, [date, absentKey, presentKey, eligibleIdsKey]);
 
     const countForRole = useCallback(
         (tabValue: (typeof ATTENDANCE_ROLE_TABS)[number]["value"]) => {
@@ -122,14 +130,15 @@ export default function StaffAttendancePage() {
 
     const saveMutation = useMutation({
         mutationFn: async () => {
-            const marksPayload: Record<string, Mark> = {};
+            const marksPayload: Record<string, "PRESENT" | "ABSENT" | "PENDING"> = {};
             for (const s of eligible) {
-                const m = marks[s._id];
-                if (m === "ABSENT" || m === "PRESENT") {
-                    marksPayload[s._id] = m;
-                } else {
-                    marksPayload[s._id] = "PRESENT";
-                }
+                marksPayload[s._id] = staffAttendanceMarkForSave(
+                    s._id,
+                    marks,
+                    dayData ?? undefined,
+                    date,
+                    todayYmd
+                );
             }
             await api.post("/staff-attendance/day", { date, marks: marksPayload });
         },
@@ -137,7 +146,7 @@ export default function StaffAttendancePage() {
             queryClient.invalidateQueries({ queryKey: ["staff-attendance-day", date] });
             queryClient.invalidateQueries({ queryKey: ["staff-attendance-eligible"] });
             toast.success("Attendance saved", {
-                description: `Saved for ${date}. Only absent days are stored.`,
+                description: `Progress saved for ${date}. Use Final submit to record absent for anyone not marked present.`,
             });
         },
         onError: (err: unknown) => {
@@ -149,8 +158,37 @@ export default function StaffAttendancePage() {
         }
     });
 
+    const finalizeMutation = useMutation({
+        mutationFn: async () => {
+            const res = await api.post<{
+                success: boolean;
+                data?: { presentCount?: number; absentCount?: number };
+            }>("/staff-attendance/day/finalize", { date });
+            return res.data;
+        },
+        onSuccess: (body) => {
+            const d = body?.data;
+            queryClient.invalidateQueries({ queryKey: ["staff-attendance-day", date] });
+            queryClient.invalidateQueries({ queryKey: ["staff-attendance-eligible"] });
+            toast.success("Attendance finalized", {
+                description:
+                    d != null
+                        ? `Present: ${d.presentCount ?? 0}, absent: ${d.absentCount ?? 0}.`
+                        : `Closed attendance for ${date}.`,
+            });
+        },
+        onError: (err: unknown) => {
+            const ax = err as {
+                response?: { data?: { message?: string } };
+            };
+            const msg = ax.response?.data?.message || "Could not finalize attendance.";
+            toast.error("Final submit failed", { description: msg });
+        }
+    });
+
     const maxDate = todayYmd;
     const disabledFuture = date > maxDate;
+    const isToday = date === todayYmd;
 
     return (
         <LockedFeatureGate featureKey="staff" featureLabel="Staff attendance">
@@ -158,9 +196,9 @@ export default function StaffAttendancePage() {
                 <div>
                     <h1 className="text-2xl font-bold tracking-tight">Staff attendance</h1>
                     <p className="text-sm text-muted-foreground mt-1">
-                        Mark present or absent for staff (excluding school admin, drivers, and conductors).
-                        Unselected rows are saved as present — only absent days are stored. Total absences is the
-                        count of absent days recorded since joining (or account creation).
+                        Staff who are in school mark themselves present (or you mark them here). Save attendance
+                        stores progress; Final submit (today only) records everyone not marked present as absent for
+                        the day. Total absences counts absent days since joining (or account creation).
                     </p>
                 </div>
 
@@ -271,23 +309,75 @@ export default function StaffAttendancePage() {
                                     </p>
                                 ) : null}
                             </div>
-                            <Button
-                                type="button"
-                                disabled={
-                                    saveMutation.isPending ||
-                                    loadingDay ||
-                                    disabledFuture
-                                }
-                                className="gap-2"
-                                onClick={() => saveMutation.mutate()}
-                            >
-                                {saveMutation.isPending ? (
-                                    <Loader2 className="h-4 w-4 animate-spin" />
-                                ) : (
-                                    <Save className="h-4 w-4" />
-                                )}
-                                Save attendance
-                            </Button>
+                            <div className="flex flex-wrap items-center gap-2">
+                                <Button
+                                    type="button"
+                                    disabled={
+                                        saveMutation.isPending ||
+                                        finalizeMutation.isPending ||
+                                        loadingDay ||
+                                        disabledFuture
+                                    }
+                                    className="gap-2"
+                                    onClick={() => saveMutation.mutate()}
+                                >
+                                    {saveMutation.isPending ? (
+                                        <Loader2 className="h-4 w-4 animate-spin" />
+                                    ) : (
+                                        <Save className="h-4 w-4" />
+                                    )}
+                                    Save attendance
+                                </Button>
+                                <Button
+                                    type="button"
+                                    variant="secondary"
+                                    disabled={
+                                        finalizeMutation.isPending ||
+                                        saveMutation.isPending ||
+                                        loadingDay ||
+                                        disabledFuture ||
+                                        !isToday
+                                    }
+                                    className="gap-2 border border-amber-200 bg-amber-50 text-amber-950 hover:bg-amber-100 dark:border-amber-900/50 dark:bg-amber-950/40 dark:text-amber-100 dark:hover:bg-amber-950/60"
+                                    title={
+                                        !isToday
+                                            ? "Switch to today’s date to close attendance for the day."
+                                            : undefined
+                                    }
+                                    onClick={() => {
+                                        if (!isToday) {
+                                            toast.message("Final submit is only available for today’s date.", {
+                                                description:
+                                                    "Choose today in the date picker, or save changes for other days without finalizing."
+                                            });
+                                            return;
+                                        }
+                                        const pending = eligible.filter(
+                                            (s) =>
+                                                effectiveStaffAttendanceMark(
+                                                    s._id,
+                                                    marks,
+                                                    dayData ?? undefined,
+                                                    date,
+                                                    todayYmd
+                                                ) === "PENDING"
+                                        ).length;
+                                        const msg =
+                                            pending > 0
+                                                ? `${pending} staff still not marked present will be recorded as absent. Continue?`
+                                                : "Everyone without a present mark will be recorded as absent. Continue?";
+                                        if (typeof window !== "undefined" && !window.confirm(msg)) return;
+                                        finalizeMutation.mutate();
+                                    }}
+                                >
+                                    {finalizeMutation.isPending ? (
+                                        <Loader2 className="h-4 w-4 animate-spin" />
+                                    ) : (
+                                        <ClipboardCheck className="h-4 w-4" />
+                                    )}
+                                    Final submit
+                                </Button>
+                            </div>
                         </CardHeader>
                         <CardContent className="overflow-x-auto">
                             {loadingDay ? (
@@ -308,13 +398,22 @@ export default function StaffAttendancePage() {
                                             <th className="py-3 pr-4 font-medium text-center whitespace-nowrap">
                                                 Total absences
                                             </th>
+                                            <th className="py-3 pr-4 font-medium text-center whitespace-nowrap">
+                                                Today
+                                            </th>
                                             <th className="py-3 font-medium text-center">Mark present</th>
                                             <th className="py-3 font-medium text-center">Mark absent</th>
                                         </tr>
                                     </thead>
                                     <tbody>
                                         {filteredEligible.map((s) => {
-                                            const m = marks[s._id];
+                                            const m = effectiveStaffAttendanceMark(
+                                                s._id,
+                                                marks,
+                                                dayData ?? undefined,
+                                                date,
+                                                todayYmd
+                                            );
                                             return (
                                                 <tr key={s._id} className="border-b last:border-0">
                                                     <td className="py-3 pr-4 font-medium">{s.name}</td>
@@ -326,6 +425,21 @@ export default function StaffAttendancePage() {
                                                     </td>
                                                     <td className="py-3 pr-4 text-center tabular-nums text-muted-foreground">
                                                         {s.totalAbsences ?? 0}
+                                                    </td>
+                                                    <td className="py-3 pr-4 text-center text-xs text-muted-foreground">
+                                                        {m === "PENDING" && date === todayYmd ? (
+                                                            <span className="rounded-full bg-amber-100 px-2 py-0.5 font-medium text-amber-900 dark:bg-amber-950/50 dark:text-amber-200">
+                                                                Not marked
+                                                            </span>
+                                                        ) : m === "PRESENT" ? (
+                                                            <span className="text-emerald-700 dark:text-emerald-400">
+                                                                Present
+                                                            </span>
+                                                        ) : (
+                                                            <span className="text-red-600 dark:text-red-400">
+                                                                Absent
+                                                            </span>
+                                                        )}
                                                     </td>
                                                     <td className="py-3 text-center">
                                                         <Button

@@ -138,6 +138,7 @@ export function AddStaffModal({ isOpen, onClose }: AddStaffModalProps) {
     const [photoPreview, setPhotoPreview] = useState<string | null>(null);
     const [photoUrl, setPhotoUrl] = useState<string | null>(null);
     const [photoUploading, setPhotoUploading] = useState(false);
+    const [includeOptionalEmail, setIncludeOptionalEmail] = useState(false);
 
     const {
         register,
@@ -165,11 +166,22 @@ export function AddStaffModal({ isOpen, onClose }: AddStaffModalProps) {
     useEffect(() => {
         if (selectedRole === UserRole.SCHOOL_ADMIN) {
             setValue("baseSalary", "0");
+            setIncludeOptionalEmail(true);
+        } else {
+            setIncludeOptionalEmail(false);
+            setValue("email", "");
         }
         if (selectedRole !== UserRole.STAFF_OTHER) {
             setValue("staffRoleTitle", "");
         }
     }, [selectedRole, setValue]);
+
+    useEffect(() => {
+        if (!isOpen) {
+            setIncludeOptionalEmail(false);
+            setValue("email", "");
+        }
+    }, [isOpen, setValue]);
 
     const handlePhotoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
@@ -223,7 +235,7 @@ export function AddStaffModal({ isOpen, onClose }: AddStaffModalProps) {
             };
             if (data.role === UserRole.SCHOOL_ADMIN) {
                 body.email = emailTrim.toLowerCase();
-            } else if (emailTrim) {
+            } else if (includeOptionalEmail && emailTrim) {
                 body.email = emailTrim.toLowerCase();
             }
             if (data.role === UserRole.TEACHER) {
@@ -240,6 +252,7 @@ export function AddStaffModal({ isOpen, onClose }: AddStaffModalProps) {
                 description: "New staff record with salary profile has been created."
             });
             reset();
+            setIncludeOptionalEmail(false);
             setPhotoPreview(null);
             setPhotoUrl(null);
             onClose();
@@ -329,13 +342,24 @@ export function AddStaffModal({ isOpen, onClose }: AddStaffModalProps) {
                                 <span className="font-normal normal-case text-zinc-400">(optional)</span>
                             )}
                         </label>
-                        <Input
-                            {...register("email")}
-                            type="email"
-                            autoComplete="email"
-                            placeholder="jane@school.edu"
-                            className="h-11 rounded-xl border-gray-200 bg-white"
-                        />
+                        {selectedRole !== UserRole.SCHOOL_ADMIN && !includeOptionalEmail ? (
+                            <button
+                                type="button"
+                                onClick={() => setIncludeOptionalEmail(true)}
+                                className="h-11 w-full rounded-xl border border-dashed border-gray-300 bg-gray-50 text-sm text-gray-600 hover:border-gray-400 hover:bg-gray-100"
+                            >
+                                Add optional email
+                            </button>
+                        ) : (
+                            <Input
+                                {...register("email")}
+                                type="email"
+                                autoComplete={selectedRole === UserRole.SCHOOL_ADMIN ? "email" : "off"}
+                                spellCheck={false}
+                                placeholder="jane@school.edu"
+                                className="h-11 rounded-xl border-gray-200 bg-white"
+                            />
+                        )}
                         {errors.email && <p className="text-[10px] text-red-400 ml-1">{errors.email.message}</p>}
                     </div>
                     <div className="space-y-2">
