@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useLayoutEffect, useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import Link from "next/link";
 import { useStudentAuthStore } from "@/store/studentAuthStore";
+import { rehydrateStudentAuthFromLocalStorageOnce } from "@/lib/student-auth-local";
 import {
   GraduationCap,
   LayoutDashboard,
@@ -29,15 +30,31 @@ const navItems = [
 export default function StudentLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
-  const { student, isAuthenticated, logout } = useStudentAuthStore();
+  const [bootstrapped, setBootstrapped] = useState(false);
+  const { student, isAuthenticated, token, logout } = useStudentAuthStore();
+  const authed = Boolean(isAuthenticated || token);
+
+  useLayoutEffect(() => {
+    rehydrateStudentAuthFromLocalStorageOnce();
+    setBootstrapped(true);
+  }, []);
 
   useEffect(() => {
-    if (!isAuthenticated) {
+    if (!bootstrapped) return;
+    if (!authed) {
       router.push("/student/login");
     }
-  }, [isAuthenticated, router]);
+  }, [bootstrapped, authed, router]);
 
-  if (!isAuthenticated || !student) return null;
+  if (!bootstrapped) {
+    return (
+      <div className="flex h-screen w-full items-center justify-center bg-slate-50">
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+      </div>
+    );
+  }
+
+  if (!authed || !student) return null;
 
   const handleLogout = () => {
     logout();

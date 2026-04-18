@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useLayoutEffect, useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import Link from "next/link";
 import { useAuthStore } from "@/store/authStore";
+import { rehydrateStaffAuthFromLocalStorageOnce } from "@/lib/staff-auth-local";
 import { UserRole } from "@/types";
 import {
   LayoutDashboard,
@@ -31,19 +32,35 @@ const baseNavItems = [
 export default function TeacherLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
-  const { user, isAuthenticated, logout } = useAuthStore();
+  const [bootstrapped, setBootstrapped] = useState(false);
+  const { user, isAuthenticated, token, logout } = useAuthStore();
+  const authed = Boolean(isAuthenticated || token);
+
+  useLayoutEffect(() => {
+    rehydrateStaffAuthFromLocalStorageOnce();
+    setBootstrapped(true);
+  }, []);
 
   useEffect(() => {
-    if (!isAuthenticated) {
+    if (!bootstrapped) return;
+    if (!authed) {
       router.push("/teacher/login");
       return;
     }
     if (user?.role !== UserRole.TEACHER) {
       router.push("/school/dashboard");
     }
-  }, [isAuthenticated, user, router]);
+  }, [bootstrapped, authed, user, router]);
 
-  if (!isAuthenticated || user?.role !== UserRole.TEACHER) return null;
+  if (!bootstrapped) {
+    return (
+      <div className="flex h-screen w-full items-center justify-center bg-slate-50">
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+      </div>
+    );
+  }
+
+  if (!authed || user?.role !== UserRole.TEACHER) return null;
 
   const navItems = [
     ...baseNavItems.filter((i) => i.href !== "/teacher/profile"),

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useAuthStore } from "@/store/authStore";
 import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
@@ -139,7 +139,13 @@ export default function SchoolDashboardPage() {
     const { user } = useAuthStore();
     const { hasFeature } = usePlanLimits();
     const [dismissedAnnouncementIds, setDismissedAnnouncementIds] = useState<string[]>([]);
+    const [statsWaitTimedOut, setStatsWaitTimedOut] = useState(false);
     const isTeacher = user?.role === UserRole.TEACHER;
+
+    useEffect(() => {
+        const id = window.setTimeout(() => setStatsWaitTimedOut(true), 10_000);
+        return () => window.clearTimeout(id);
+    }, []);
 
     const { data: activeAnnouncements } = useQuery({
         queryKey: ["announcements-active"],
@@ -157,13 +163,14 @@ export default function SchoolDashboardPage() {
         setDismissedAnnouncementIds((prev) => [...prev, id]);
     };
 
-    const { data: stats, isLoading } = useQuery({
+    const { data: stats, isLoading, isError } = useQuery({
         queryKey: ["school-stats"],
         queryFn: async () => {
             const res = await api.get("/schools/stats");
             return res.data.data;
         },
         enabled: !isTeacher,
+        retry: 1,
     });
 
     const { data: feeStats } = useQuery({
@@ -175,7 +182,7 @@ export default function SchoolDashboardPage() {
         enabled: !isTeacher,
     });
 
-    if (!isTeacher && isLoading) {
+    if (!isTeacher && isLoading && !isError && !statsWaitTimedOut) {
         return (
             <div className="flex h-[80vh] w-full items-center justify-center">
                 <Loader2 className="h-10 w-10 animate-spin text-primary" />
@@ -191,6 +198,19 @@ export default function SchoolDashboardPage() {
     return (
         <div className="flex flex-1 flex-col gap-8 lg:flex-row lg:gap-10">
             <div className="min-w-0 flex-1 space-y-8">
+                {(isError || (statsWaitTimedOut && isLoading)) && (
+                    <p
+                        className={`rounded-xl border px-4 py-3 text-sm ${
+                            isError
+                                ? "border-destructive/20 bg-destructive/5 text-destructive"
+                                : "border-amber-200 bg-amber-50 text-amber-900"
+                        }`}
+                    >
+                        {isError
+                            ? "Could not load school statistics. Check NEXT_PUBLIC_API_URL and that the backend is running."
+                            : "Still loading statistics… If this persists, verify the API URL and backend."}
+                    </p>
+                )}
                 {/* Mobile: AI first (only if plan includes AI) */}
                 {hasFeature("ai") && (
                     <div className="lg:hidden">

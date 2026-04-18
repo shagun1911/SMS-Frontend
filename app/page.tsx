@@ -22,6 +22,13 @@ import { AnimatedFeesMock } from "@/components/landing/animated-fees-mock";
 import { AnimatedStudentsMock } from "@/components/landing/animated-students-mock";
 import { DemoMedia } from "@/components/landing/demo-media";
 
+/**
+ * Demo recordings live under `public/demos/` and `public/hero-preview.gif`.
+ * Without files there, the browser would still request URLs and log 404s.
+ * Set `NEXT_PUBLIC_LANDING_DEMO_MEDIA=1` in `.env` after you add those assets.
+ */
+const LANDING_DEMO_MEDIA = process.env.NEXT_PUBLIC_LANDING_DEMO_MEDIA === "1";
+
 const features = [
   { title: "Student Management", description: "Enrollments, class & section, academic records, and promotions.", icon: GraduationCap },
   { title: "Staff & Payroll", description: "Personnel, salary structure, monthly payroll, and bonus tracking.", icon: Users },
@@ -43,24 +50,27 @@ const DEMOS = [
     id: "dashboard",
     title: "Dashboard at a glance",
     description: "Stats, fee trends, and recent activity in one view.",
-    videoSrc: "/demos/dashboard.mp4",
-    gifSrc: "/hero-preview.gif",
+    ...(LANDING_DEMO_MEDIA
+      ? { videoSrc: "/demos/dashboard.mp4" as const, gifSrc: "/hero-preview.gif" as const }
+      : {}),
     fallback: <AnimatedDashboardMock />,
   },
   {
     id: "fees",
     title: "Fee collection",
     description: "Collect fees, print receipts, and track defaulters.",
-    videoSrc: "/demos/fees.mp4",
-    gifSrc: "/demos/fees.gif",
+    ...(LANDING_DEMO_MEDIA
+      ? { videoSrc: "/demos/fees.mp4" as const, gifSrc: "/demos/fees.gif" as const }
+      : {}),
     fallback: <AnimatedFeesMock />,
   },
   {
     id: "students",
     title: "Student management",
     description: "Enroll students, manage classes, and track progress.",
-    videoSrc: "/demos/students.mp4",
-    gifSrc: "/demos/students.gif",
+    ...(LANDING_DEMO_MEDIA
+      ? { videoSrc: "/demos/students.mp4" as const, gifSrc: "/demos/students.gif" as const }
+      : {}),
     fallback: <AnimatedStudentsMock />,
   },
 ];
@@ -69,7 +79,7 @@ export default function LandingPage() {
   const [heroVideoLoaded, setHeroVideoLoaded] = useState(false);
   const [heroGifLoaded, setHeroGifLoaded] = useState(false);
   const [scrolled, setScrolled] = useState(false);
-  const showHeroMedia = heroVideoLoaded || heroGifLoaded;
+  const showHeroMedia = LANDING_DEMO_MEDIA && (heroVideoLoaded || heroGifLoaded);
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 32);
@@ -178,22 +188,26 @@ export default function LandingPage() {
                   <span className="text-xs font-medium text-[hsl(var(--muted-foreground))]">Dashboard</span>
                 </div>
                 <div className="relative aspect-[16/9] bg-[hsl(var(--muted))]/30">
-                  <video
-                    autoPlay
-                    muted
-                    loop
-                    playsInline
-                    className={`absolute inset-0 h-full w-full object-cover object-top transition-opacity duration-500 ${heroVideoLoaded ? "opacity-100" : "opacity-0"}`}
-                    onLoadedData={() => setHeroVideoLoaded(true)}
-                  >
-                    <source src="/demos/hero.mp4" type="video/mp4" />
-                  </video>
-                  <img
-                    src="/hero-preview.gif"
-                    alt=""
-                    className={`absolute inset-0 h-full w-full object-cover object-top transition-opacity duration-500 ${!heroVideoLoaded && heroGifLoaded ? "opacity-100" : "opacity-0"}`}
-                    onLoad={() => setHeroGifLoaded(true)}
-                  />
+                  {LANDING_DEMO_MEDIA && (
+                    <>
+                      <video
+                        autoPlay
+                        muted
+                        loop
+                        playsInline
+                        className={`absolute inset-0 h-full w-full object-cover object-top transition-opacity duration-500 ${heroVideoLoaded ? "opacity-100" : "opacity-0"}`}
+                        onLoadedData={() => setHeroVideoLoaded(true)}
+                      >
+                        <source src="/demos/hero.mp4" type="video/mp4" />
+                      </video>
+                      <img
+                        src="/hero-preview.gif"
+                        alt=""
+                        className={`absolute inset-0 h-full w-full object-cover object-top transition-opacity duration-500 ${!heroVideoLoaded && heroGifLoaded ? "opacity-100" : "opacity-0"}`}
+                        onLoad={() => setHeroGifLoaded(true)}
+                      />
+                    </>
+                  )}
                   <div className={`absolute inset-0 transition-opacity duration-500 ${showHeroMedia ? "opacity-0 pointer-events-none" : "opacity-100"}`} aria-hidden={showHeroMedia}>
                     <AnimatedDashboardMock />
                   </div>

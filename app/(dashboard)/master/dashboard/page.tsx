@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import api from "@/lib/api";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -8,15 +9,22 @@ import { Building2, Banknote, TrendingUp, Loader2, Calendar, AlertCircle } from 
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
 
 export default function MasterDashboardPage() {
-    const { data, isLoading } = useQuery({
+    const [waitTimedOut, setWaitTimedOut] = useState(false);
+    useEffect(() => {
+        const id = window.setTimeout(() => setWaitTimedOut(true), 10_000);
+        return () => window.clearTimeout(id);
+    }, []);
+
+    const { data, isLoading, isError } = useQuery({
         queryKey: ["master-dashboard"],
         queryFn: async () => {
             const res = await api.get("/master/dashboard");
             return res.data?.data ?? {};
         },
+        retry: 1,
     });
 
-    if (isLoading) {
+    if (isLoading && !isError && !waitTimedOut) {
         return (
             <div className="flex h-[80vh] w-full items-center justify-center">
                 <Loader2 className="h-10 w-10 animate-spin text-indigo-500" />

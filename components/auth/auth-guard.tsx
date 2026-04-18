@@ -2,26 +2,28 @@
 
 import { useAuthStore } from "@/store/authStore";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useLayoutEffect, useState } from "react";
+import { rehydrateStaffAuthFromLocalStorageOnce } from "@/lib/staff-auth-local";
 
 export default function AuthGuard({ children }: { children: React.ReactNode }) {
-    const { isAuthenticated, user, token } = useAuthStore();
     const router = useRouter();
-    const [loading, setLoading] = useState(true);
+    const [bootstrapped, setBootstrapped] = useState(false);
+    const { isAuthenticated, token } = useAuthStore();
+    const authed = Boolean(isAuthenticated || token);
+
+    useLayoutEffect(() => {
+        rehydrateStaffAuthFromLocalStorageOnce();
+        setBootstrapped(true);
+    }, []);
 
     useEffect(() => {
-        // Check local storage persistence first
-        const timer = setTimeout(() => {
-            if (!isAuthenticated && !token) {
-                router.push("/login");
-            }
-            setLoading(false);
-        }, 100); // Small delay to allow hydration
+        if (!bootstrapped) return;
+        if (!authed) {
+            router.replace("/login");
+        }
+    }, [bootstrapped, authed, router]);
 
-        return () => clearTimeout(timer);
-    }, [isAuthenticated, token, router]);
-
-    if (loading) {
+    if (!bootstrapped) {
         return (
             <div className="flex h-screen w-full items-center justify-center bg-background">
                 <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
@@ -29,7 +31,7 @@ export default function AuthGuard({ children }: { children: React.ReactNode }) {
         );
     }
 
-    if (!isAuthenticated) return null;
+    if (!authed) return null;
 
     return <>{children}</>;
 }

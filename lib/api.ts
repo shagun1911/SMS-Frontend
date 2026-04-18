@@ -1,5 +1,6 @@
 import axios from 'axios';
 import { useAuthStore } from '../store/authStore';
+import { isJwtExpired } from './jwt';
 
 const rawUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
 const baseURL = rawUrl.replace(/\/api\/v1\/?$/, '') + '/api/v1';
@@ -10,6 +11,7 @@ const api = axios.create({
         'Content-Type': 'application/json',
     },
     withCredentials: true,
+    timeout: 60_000,
 });
 
 function clientLocalCalendarYmd(): string {
@@ -45,7 +47,19 @@ api.interceptors.response.use(
 
             try {
                 const { refreshToken } = useAuthStore.getState();
-                if (!refreshToken) throw new Error('No refresh token');
+                const rehydrated =
+                    !useAuthStore.persist ||
+                    useAuthStore.persist.hasHydrated() ||
+                    useAuthStore.getState().hasHydrated;
+                if (!rehydrated) {
+                    return Promise.reject(error);
+                }
+                if (!refreshToken) {
+                    // No way to recover; this is a confirmed invalid session.
+                    useAuthStore.getState().logout();
+                    if (typeof window !== 'undefined') window.location.href = '/login';
+                    return Promise.reject(error);
+                }
 
                 // Refresh token call
                 const { data } = await axios.post(
@@ -58,16 +72,27 @@ api.interceptors.response.use(
 
                 // Update store
                 useAuthStore.getState().setTokens(newToken, newRefreshToken);
+                useAuthStore.getState().setIsAuthenticated(true);
 
                 // Retry original request
                 originalRequest.headers.Authorization = `Bearer ${newToken}`;
                 return api(originalRequest);
-            } catch (refreshError) {
-                // Force logout
-                useAuthStore.getState().logout();
-                window.location.href = '/login';
+            } catch (refreshError: any) {
+                const refreshStatus = refreshError?.response?.status;
+                // Logout only on confirmed auth failure from refresh endpoint.
+                if (refreshStatus === 401 || refreshStatus === 403) {
+                    useAuthStore.getState().logout();
+                    window.location.href = '/login';
+                }
                 return Promise.reject(refreshError);
             }
+        }
+
+        // If we have a known-expired token but this error is not a confirmed auth failure,
+        // do not force logout here; let the 401 path handle it when it happens.
+        const { token } = useAuthStore.getState();
+        if (token && isJwtExpired(token) && !error.response) {
+            return Promise.reject(error);
         }
 
         return Promise.reject(error);
