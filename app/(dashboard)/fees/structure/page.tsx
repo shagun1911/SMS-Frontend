@@ -59,6 +59,9 @@ export default function FeeStructurePage() {
     const [modalOpen, setModalOpen] = useState(false);
     const [editingId, setEditingId] = useState<string | null>(null);
     const [pdfAction, setPdfAction] = useState<{ id: string; action: "preview" | "download" | "print" } | null>(null);
+    const [pdfPickerOpen, setPdfPickerOpen] = useState(false);
+    const [pendingPdfAction, setPendingPdfAction] = useState<{ id: string; action: "preview" | "download" | "print" } | null>(null);
+    const [selectedDestinationId, setSelectedDestinationId] = useState<string>("none");
 
     const { data: structures = [], isLoading } = useQuery({
         queryKey: ["fee-structures"],
@@ -96,6 +99,14 @@ export default function FeeStructurePage() {
         queryFn: async () => {
             const res = await api.get("/classes");
             return res.data.data ?? res.data ?? [];
+        },
+    });
+
+    const { data: transportDestinations = [] } = useQuery({
+        queryKey: ["transport-destinations"],
+        queryFn: async () => {
+            const res = await api.get("/transport/destinations");
+            return res.data.data ?? [];
         },
     });
 
@@ -179,10 +190,18 @@ export default function FeeStructurePage() {
         else createMutation.mutate(data);
     };
 
-    const handleStructurePdf = async (id: string, action: "preview" | "download" | "print") => {
+    const executeStructurePdf = async (
+        id: string,
+        action: "preview" | "download" | "print",
+        transportDestinationId?: string
+    ) => {
         setPdfAction({ id, action });
         try {
-            const res = await api.get(`/fees/structure/print/${id}${action === "preview" ? "?preview=1" : ""}`, {
+            const params = new URLSearchParams();
+            if (action === "preview") params.set("preview", "1");
+            if (transportDestinationId) params.set("transportDestinationId", transportDestinationId);
+            const qs = params.toString();
+            const res = await api.get(`/fees/structure/print/${id}${qs ? `?${qs}` : ""}`, {
                 responseType: "blob",
             });
             const blob = res.data as Blob;
@@ -206,6 +225,27 @@ export default function FeeStructurePage() {
         } finally {
             setPdfAction(null);
         }
+    };
+
+    const handleStructurePdf = (id: string, action: "preview" | "download" | "print") => {
+        setPendingPdfAction({ id, action });
+        setSelectedDestinationId("none");
+        setPdfPickerOpen(true);
+    };
+
+    const confirmStructurePdf = async () => {
+        if (!pendingPdfAction) return;
+        const destinationParam =
+            selectedDestinationId && selectedDestinationId !== "none"
+                ? selectedDestinationId
+                : undefined;
+        setPdfPickerOpen(false);
+        await executeStructurePdf(
+            pendingPdfAction.id,
+            pendingPdfAction.action,
+            destinationParam
+        );
+        setPendingPdfAction(null);
     };
 
     const classOptions = Array.isArray(classes) ? classes : [];
@@ -301,6 +341,49 @@ export default function FeeStructurePage() {
                     )}
                 </CardContent>
             </Card>
+
+            <Dialog open={pdfPickerOpen} onOpenChange={setPdfPickerOpen}>
+                <DialogContent className="max-w-md">
+                    <DialogHeader>
+                        <DialogTitle>Select Transport Destination</DialogTitle>
+                    </DialogHeader>
+                    <div className="space-y-4">
+                        <p className="text-sm text-gray-600">
+                            Choose a destination to include transport fee in this fee structure PDF.
+                        </p>
+                        <div>
+                            <Label>Destination</Label>
+                            <select
+                                value={selectedDestinationId}
+                                onChange={(e) => setSelectedDestinationId(e.target.value)}
+                                className="mt-1 w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm"
+                            >
+                                <option value="none">No transport</option>
+                                {Array.isArray(transportDestinations) &&
+                                    transportDestinations.map((d: any) => (
+                                        <option key={d._id} value={d._id}>
+                                            {d.destinationName} (₹{Number(d.monthlyFee || 0).toLocaleString("en-IN")}/month)
+                                        </option>
+                                    ))}
+                            </select>
+                        </div>
+                        <div className="flex justify-end gap-3">
+                            <Button
+                                variant="outline"
+                                onClick={() => {
+                                    setPdfPickerOpen(false);
+                                    setPendingPdfAction(null);
+                                }}
+                            >
+                                Cancel
+                            </Button>
+                            <Button onClick={confirmStructurePdf} className="bg-indigo-600 hover:bg-indigo-500">
+                                Continue
+                            </Button>
+                        </div>
+                    </div>
+                </DialogContent>
+            </Dialog>
 
             <Dialog open={modalOpen} onOpenChange={setModalOpen}>
                 <DialogContent className="max-w-lg">

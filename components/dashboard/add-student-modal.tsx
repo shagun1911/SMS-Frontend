@@ -69,6 +69,7 @@ export function AddStudentModal({ isOpen, onClose }: AddStudentModalProps) {
     const queryClient = useQueryClient();
     const [photoPreview, setPhotoPreview] = useState<string | null>(null);
     const [isUploading, setIsUploading] = useState(false);
+    const [depositManuallyEdited, setDepositManuallyEdited] = useState(false);
     const {
         register,
         handleSubmit,
@@ -91,7 +92,12 @@ export function AddStudentModal({ isOpen, onClose }: AddStudentModalProps) {
     });
 
     const selectedClass = watch("class");
-    const depositAmount = watch("initialDepositAmount") || 0;
+    const depositAmountRaw = watch("initialDepositAmount");
+    const hasExplicitDepositAmount =
+        depositAmountRaw !== undefined &&
+        depositAmountRaw !== null &&
+        String(depositAmountRaw).trim() !== "";
+    const depositAmount = Number(depositAmountRaw ?? 0);
     const concessionAmount = watch("concessionAmount") || 0;
     const concessionPercentRaw = watch("concessionPercent");
     const concessionPercent = Math.min(100, Math.max(0, Number(concessionPercentRaw) || 0));
@@ -109,6 +115,7 @@ export function AddStudentModal({ isOpen, onClose }: AddStudentModalProps) {
             setStatus("IDLE");
             setQrData(null);
             setMerchantTransactionId(null);
+            setDepositManuallyEdited(false);
             if (pollingInterval.current) clearInterval(pollingInterval.current);
         }
     }, [isOpen]);
@@ -289,12 +296,19 @@ export function AddStudentModal({ isOpen, onClose }: AddStudentModalProps) {
         };
     }, [feeStructure, concessionAmount, concessionPercent]);
 
-    // Auto-fill initial deposit with suggested amount when available and empty
+    // Auto-fill initial deposit with suggested amount only when untouched/empty.
+    // If user explicitly sets 0, preserve 0 instead of re-filling suggestion.
     useEffect(() => {
-        if (isOpen && selectedClass && suggestedInitialDeposit > 0 && !depositAmount) {
+        if (
+            isOpen &&
+            selectedClass &&
+            suggestedInitialDeposit > 0 &&
+            !hasExplicitDepositAmount &&
+            !depositManuallyEdited
+        ) {
             setValue("initialDepositAmount", suggestedInitialDeposit, { shouldValidate: true });
         }
-    }, [isOpen, selectedClass, suggestedInitialDeposit, depositAmount, setValue]);
+    }, [isOpen, selectedClass, suggestedInitialDeposit, hasExplicitDepositAmount, depositManuallyEdited, setValue]);
 
     const availableSections = useMemo(() => {
         if (!Array.isArray(classes) || !selectedClass) return [];
@@ -554,7 +568,7 @@ export function AddStudentModal({ isOpen, onClose }: AddStudentModalProps) {
                         <div className="space-y-2">
                             <label className="text-[10px] font-bold uppercase tracking-widest text-zinc-500 ml-1">Transport Destination</label>
                             <select
-                                className="h-10 w-full rounded-xl border-gray-200 bg-white px-3 text-sm focus:ring-2 focus:ring-purple-500 outline-none transition-all"
+                                className="h-10 w-full rounded-xl border border-gray-200 bg-white px-3 text-sm focus:ring-2 focus:ring-purple-500 outline-none transition-all"
                                 {...register("transportDestinationId")}
                             >
                                 <option value="">Select destination</option>
@@ -577,7 +591,23 @@ export function AddStudentModal({ isOpen, onClose }: AddStudentModalProps) {
                     <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-2">
                             <label className="text-[10px] font-bold uppercase tracking-widest text-zinc-500 ml-1">Initial Deposit Amount</label>
-                            <Input {...register("initialDepositAmount")} type="number" placeholder="0" min="0" className="h-10 rounded-xl border-gray-200 bg-white" />
+                            <Input
+                                {...register("initialDepositAmount", {
+                                    onChange: (e) => {
+                                        setDepositManuallyEdited(true);
+                                        if (e?.target?.value === "") {
+                                            setValue("initialDepositAmount", 0, {
+                                                shouldValidate: true,
+                                                shouldDirty: true,
+                                            });
+                                        }
+                                    },
+                                })}
+                                type="number"
+                                placeholder="0"
+                                min="0"
+                                className="h-10 rounded-xl border-gray-200 bg-white"
+                            />
                             {suggestedInitialDeposit > 0 && (
                                 <p className="text-[10px] text-zinc-500 ml-1">
                                     Suggested one-time total: ₹{suggestedInitialDeposit.toLocaleString("en-IN")}{" "}
@@ -588,7 +618,7 @@ export function AddStudentModal({ isOpen, onClose }: AddStudentModalProps) {
                         <div className="space-y-2">
                             <label className="text-[10px] font-bold uppercase tracking-widest text-zinc-500 ml-1">Payment Mode</label>
                             <select
-                                className="h-10 w-full rounded-xl border-gray-200 bg-white px-3 text-sm focus:ring-2 focus:ring-purple-500 outline-none transition-all"
+                                className="h-10 w-full rounded-xl border border-gray-200 bg-white px-3 text-sm focus:ring-2 focus:ring-purple-500 outline-none transition-all"
                                 {...register("depositPaymentMode")}
                             >
                                 <option value="">Select mode</option>

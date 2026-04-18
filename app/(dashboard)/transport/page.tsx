@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
     Bus,
@@ -8,7 +9,6 @@ import {
     Search,
     Filter,
     MapPin,
-    Navigation,
     Users,
     Loader2
 } from "lucide-react";
@@ -32,6 +32,7 @@ import { TransportStaffSelect } from "@/components/transport/transport-staff-sel
 import { matchStaffMemberId } from "@/lib/transportStaff";
 
 export default function TransportPage() {
+    const router = useRouter();
     const [isAddVehicleOpen, setIsAddVehicleOpen] = useState(false);
     const [detailsOpen, setDetailsOpen] = useState(false);
     const [selectedBusId, setSelectedBusId] = useState<string | null>(null);
@@ -183,8 +184,12 @@ export default function TransportPage() {
                     </p>
                 </div>
                 <div className="flex gap-3 w-full sm:w-auto">
-                    <Button variant="outline" className="w-full sm:w-auto gap-2 h-10 rounded-xl border-gray-200 hover:bg-gray-50">
-                        <Navigation className="h-4 w-4" /> Live Tracking
+                    <Button
+                        variant="outline"
+                        className="w-full sm:w-auto gap-2 h-10 rounded-xl border-gray-200 hover:bg-gray-50"
+                        onClick={() => router.push("/transport/destinations")}
+                    >
+                        <Bus className="h-4 w-4" /> Transport
                     </Button>
                     <Button 
                         className="w-full sm:w-auto bg-indigo-600 hover:bg-indigo-500 gap-2 h-10 rounded-xl"
