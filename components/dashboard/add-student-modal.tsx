@@ -11,6 +11,7 @@ import { Modal } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
 import {
     Loader2,
     UserPlus,
@@ -26,6 +27,7 @@ import { QRCodeSVG } from "qrcode.react";
 import { useEffect, useRef } from "react";
 
 const studentSchema = z.object({
+    admissionNumber: z.string().optional(),
     firstName: z.string().min(2, "First name required"),
     lastName: z.string().max(200),
     fatherName: z.string().min(2, "Father name required"),
@@ -39,6 +41,8 @@ const studentSchema = z.object({
     photo: z.string().optional(),
     tcSubmitted: z.boolean().default(false),
     migrationSubmitted: z.boolean().default(false),
+    usesTransport: z.boolean().default(false),
+    transportDestinationId: z.string().optional(),
     initialDepositAmount: z.coerce.number().min(0).optional(),
     // Concession should stay exact (no rounding drift). Force integer rupees only.
     concessionAmount: z.coerce.number().int().min(0).optional(),
@@ -81,7 +85,7 @@ export function AddStudentModal({ isOpen, onClose }: AddStudentModalProps) {
             migrationSubmitted: false,
             address: {
                 state: "Rajasthan",
-                city: "Jaipur"
+                city: "Bikaner"
             }
         }
     });
@@ -197,6 +201,15 @@ export function AddStudentModal({ isOpen, onClose }: AddStudentModalProps) {
             return res.data.data ?? res.data;
         },
         enabled: !!selectedClass && isOpen,
+    });
+
+    const { data: transportDestinations } = useQuery({
+        queryKey: ["transport-destinations"],
+        queryFn: async () => {
+            const res = await api.get("/transport/destinations");
+            return res.data.data ?? [];
+        },
+        enabled: isOpen,
     });
 
     const suggestedInitialDeposit = useMemo(() => {
@@ -424,6 +437,11 @@ export function AddStudentModal({ isOpen, onClose }: AddStudentModalProps) {
                         <div className="h-1 w-6 bg-purple-500 rounded-full" />
                         <h3 className="text-xs font-bold uppercase tracking-[0.2em] text-zinc-500">Identity Details</h3>
                     </div>
+                    <div className="space-y-2">
+                        <label className="text-[10px] font-bold uppercase tracking-widest text-zinc-500 ml-1">Admission Number <span className="text-zinc-400 normal-case">(optional - leave blank to auto-generate)</span></label>
+                        <Input {...register("admissionNumber")} placeholder="Auto-generated if empty" className="h-10 rounded-xl border-gray-200 bg-white" />
+                        {errors.admissionNumber && <p className="text-[10px] text-red-400 ml-1">{errors.admissionNumber.message}</p>}
+                    </div>
                     <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-2">
                             <label className="text-[10px] font-bold uppercase tracking-widest text-zinc-500 ml-1">First Name</label>
@@ -514,6 +532,40 @@ export function AddStudentModal({ isOpen, onClose }: AddStudentModalProps) {
                             error={errors.section?.message}
                         />
                     </div>
+                </div>
+
+                {/* Section: Transport */}
+                <div className="space-y-4">
+                    <div className="flex items-center gap-2 mb-2">
+                        <div className="h-1 w-6 bg-orange-500 rounded-full" />
+                        <h3 className="text-xs font-bold uppercase tracking-[0.2em] text-zinc-500">Transport</h3>
+                    </div>
+                    <div className="flex items-center justify-between p-4 bg-white rounded-xl border border-gray-200">
+                        <div>
+                            <label className="text-[10px] font-bold uppercase tracking-widest text-zinc-500 ml-1">Uses Transport</label>
+                            <p className="text-[10px] text-zinc-400 ml-1 mt-1">Enable to select transport destination</p>
+                        </div>
+                        <Switch
+                            checked={watch("usesTransport")}
+                            onCheckedChange={(checked) => setValue("usesTransport", checked)}
+                        />
+                    </div>
+                    {watch("usesTransport") && (
+                        <div className="space-y-2">
+                            <label className="text-[10px] font-bold uppercase tracking-widest text-zinc-500 ml-1">Transport Destination</label>
+                            <select
+                                className="h-10 w-full rounded-xl border-gray-200 bg-white px-3 text-sm focus:ring-2 focus:ring-purple-500 outline-none transition-all"
+                                {...register("transportDestinationId")}
+                            >
+                                <option value="">Select destination</option>
+                                {transportDestinations?.map((dest: any) => (
+                                    <option key={dest._id} value={dest._id}>
+                                        {dest.destinationName} (₹{dest.monthlyFee}/month)
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
+                    )}
                 </div>
 
                 {/* Section: Fee at Admission */}
