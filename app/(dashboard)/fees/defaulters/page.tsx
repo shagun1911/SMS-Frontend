@@ -33,6 +33,7 @@ export default function DefaultersPage() {
             const res = await api.get("/fees/defaulters");
             return res.data.data ?? [];
         },
+        staleTime: 60_000,
     });
 
     const { data: currentPending = [], isLoading: currentPendingLoading } = useQuery({
@@ -41,6 +42,7 @@ export default function DefaultersPage() {
             const res = await api.get("/fees/pending-current");
             return res.data.data ?? [];
         },
+        staleTime: 60_000,
     });
 
     const allStudents = useMemo(() => [...overdue, ...currentPending], [overdue, currentPending]);
