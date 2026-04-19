@@ -132,8 +132,40 @@ export function CollectFeeModal({ open, onOpenChange }: CollectFeeModalProps) {
                 ? Math.min(Math.max(upToMonth, 1), 12) - 1
                 : null;
 
-        // If no specific month is selected yet, show zeros.
-        if (selectedMonthIndex === null || totalYearly <= 0) {
+        if (typeof upToMonth !== "number") {
+            return {
+                effectiveMonthIndex: null,
+                targetTotalUntilMonth: 0,
+                targetPaidUntilMonth: 0,
+                targetDueUntilMonth: 0,
+            };
+        }
+
+        const ledger = feeSummary?.sessionMonthlyFees;
+        if (Array.isArray(ledger) && ledger.length > 0 && sessionMonthOptions.length > 0) {
+            const idx = sessionMonthOptions.findIndex((m) => m.value === upToMonth);
+            if (idx >= 0) {
+                const labels = new Set(sessionMonthOptions.slice(0, idx + 1).map((m) => m.label));
+                const rows = ledger.filter((r: { month: string }) => labels.has(r.month));
+                const targetTotalUntilMonth = rows.reduce(
+                    (s: number, r: { totalAmount?: number }) => s + (Number(r.totalAmount) || 0),
+                    0
+                );
+                const targetDueUntilMonth = rows.reduce(
+                    (s: number, r: { remainingAmount?: number }) => s + (Number(r.remainingAmount) || 0),
+                    0
+                );
+                const targetPaidUntilMonth = Math.max(0, targetTotalUntilMonth - targetDueUntilMonth);
+                return {
+                    effectiveMonthIndex: selectedMonthIndex,
+                    targetTotalUntilMonth,
+                    targetPaidUntilMonth,
+                    targetDueUntilMonth,
+                };
+            }
+        }
+
+        if (totalYearly <= 0) {
             return {
                 effectiveMonthIndex: selectedMonthIndex,
                 targetTotalUntilMonth: 0,
@@ -190,7 +222,15 @@ export function CollectFeeModal({ open, onOpenChange }: CollectFeeModalProps) {
             targetPaidUntilMonth: collected,
             targetDueUntilMonth: pending,
         };
-    }, [upToMonth, totalYearly, paidAmount, monthlyFeeFromBackend, oneTimeFeeFromBackend, sessionMonthOptions]);
+    }, [
+        upToMonth,
+        totalYearly,
+        paidAmount,
+        monthlyFeeFromBackend,
+        oneTimeFeeFromBackend,
+        sessionMonthOptions,
+        feeSummary?.sessionMonthlyFees,
+    ]);
 
     const maxCollectable = useMemo(() => {
         if (effectiveMonthIndex !== null && targetDueUntilMonth > 0) {

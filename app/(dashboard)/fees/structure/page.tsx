@@ -46,6 +46,7 @@ const componentSchema = z.object({
 const formSchema = z.object({
     class: z.string().min(1, "Select class"),
     components: z.array(componentSchema).min(1, "Add at least one component"),
+    feeExemptMonths: z.array(z.string()).optional(),
 });
 
 type FormValues = z.infer<typeof formSchema>;
@@ -94,6 +95,32 @@ export default function FeeStructurePage() {
         return months > 0 ? months : 12;
     }, [sessions]);
 
+    const sessionMonthNames = useMemo(() => {
+        const active = Array.isArray(sessions)
+            ? sessions.find((s: any) => s.isActive)
+            : null;
+        const MONTHS = [
+            "January", "February", "March", "April", "May", "June",
+            "July", "August", "September", "October", "November", "December",
+        ];
+        if (!active?.startDate || !active?.endDate) return MONTHS;
+        const start = new Date(active.startDate);
+        const end = new Date(active.endDate);
+        if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return MONTHS;
+        const names: string[] = [];
+        let y = start.getFullYear();
+        let m = start.getMonth() + 1;
+        while (y < end.getFullYear() || (y === end.getFullYear() && m <= end.getMonth() + 1)) {
+            names.push(MONTHS[m - 1]);
+            m++;
+            if (m > 12) {
+                m = 1;
+                y++;
+            }
+        }
+        return names.length ? names : MONTHS;
+    }, [sessions]);
+
     const { data: classes = [] } = useQuery({
         queryKey: ["classes"],
         queryFn: async () => {
@@ -112,22 +139,38 @@ export default function FeeStructurePage() {
 
     const form = useForm<FormValues>({
         resolver: zodResolver(formSchema),
-        defaultValues: { class: "", components: [{ name: "Tuition Fee", amount: 0, type: "monthly" }] },
+        defaultValues: {
+            class: "",
+            components: [{ name: "Tuition Fee", amount: 0, type: "monthly" }],
+            feeExemptMonths: [],
+        },
     });
 
     const { fields, append, remove } = useFieldArray({ control: form.control, name: "components" });
 
-    // Annual total: monthly × 12, one-time as-is
-    const totalAmount = form.watch("components")?.reduce((s, c) => {
-        const amt = c?.amount ?? 0;
-        return s + (c?.type === "one-time" ? amt : amt * 12);
-    }, 0) ?? 0;
+    const feeExemptMonthsSelected = form.watch("feeExemptMonths") ?? [];
+    const chargeableMonthCount = Math.max(
+        1,
+        sessionMonthNames.length -
+            feeExemptMonthsSelected.filter((m) => sessionMonthNames.includes(m)).length
+    );
+    const recurringMult =
+        feeExemptMonthsSelected.filter((m) => sessionMonthNames.includes(m)).length > 0
+            ? chargeableMonthCount
+            : 12;
+
+    const totalAmount =
+        form.watch("components")?.reduce((s, c) => {
+            const amt = c?.amount ?? 0;
+            return s + (c?.type === "one-time" ? amt : amt * recurringMult);
+        }, 0) ?? 0;
 
     const createMutation = useMutation({
         mutationFn: async (data: FormValues) => {
             const res = await api.post("/fees/structure", {
                 class: data.class,
                 components: data.components,
+                feeExemptMonths: data.feeExemptMonths?.length ? data.feeExemptMonths : undefined,
             });
             return res.data;
         },
@@ -135,7 +178,11 @@ export default function FeeStructurePage() {
             queryClient.invalidateQueries({ queryKey: ["fee-structures"] });
             toast.success("Fee structure created");
             setModalOpen(false);
-            form.reset();
+            form.reset({
+                class: "",
+                components: [{ name: "Tuition Fee", amount: 0, type: "monthly" }],
+                feeExemptMonths: [],
+            });
         },
         onError: (e: any) => toast.error(e.response?.data?.message ?? "Failed to create"),
     });
@@ -145,6 +192,7 @@ export default function FeeStructurePage() {
             const res = await api.put(`/fees/structure/${id}`, {
                 class: data.class,
                 components: data.components,
+                feeExemptMonths: data.feeExemptMonths ?? [],
             });
             return res.data;
         },
@@ -153,7 +201,11 @@ export default function FeeStructurePage() {
             toast.success("Fee structure updated");
             setModalOpen(false);
             setEditingId(null);
-            form.reset();
+            form.reset({
+                class: "",
+                components: [{ name: "Tuition Fee", amount: 0, type: "monthly" }],
+                feeExemptMonths: [],
+            });
         },
         onError: (e: any) => toast.error(e.response?.data?.message ?? "Failed to update"),
     });
@@ -171,7 +223,11 @@ export default function FeeStructurePage() {
 
     const openCreate = () => {
         setEditingId(null);
-        form.reset({ class: "", components: [{ name: "Tuition Fee", amount: 0, type: "monthly" }] });
+        form.reset({
+            class: "",
+            components: [{ name: "Tuition Fee", amount: 0, type: "monthly" }],
+            feeExemptMonths: [],
+        });
         setModalOpen(true);
     };
 
@@ -181,7 +237,11 @@ export default function FeeStructurePage() {
             ? s.components.map((c: any) => ({ name: c.name, amount: c.amount || 0, type: c.type || "monthly" }))
             : (s.fees || []).map((f: any) => ({ name: f.title || f.name, amount: f.amount || 0, type: f.type === "one-time" ? "one-time" : "monthly" }));
         if (!comps.length) comps.push({ name: "Tuition Fee", amount: 0, type: "monthly" });
-        form.reset({ class: s.class, components: comps });
+        form.reset({
+            class: s.class,
+            components: comps,
+            feeExemptMonths: Array.isArray(s.feeExemptMonths) ? s.feeExemptMonths : [],
+        });
         setModalOpen(true);
     };
 
@@ -299,8 +359,16 @@ export default function FeeStructurePage() {
                                         0
                                     );
                                     const recurringAnnual = Math.max(0, total - oneTimeTotal);
+                                    const exemptList = Array.isArray(s.feeExemptMonths) ? s.feeExemptMonths : [];
+                                    const exemptInSession = exemptList.filter((m: string) =>
+                                        sessionMonthNames.includes(m)
+                                    );
+                                    const chargeableDisplay = Math.max(
+                                        1,
+                                        sessionMonthNames.length - exemptInSession.length
+                                    );
                                     const perMonth =
-                                        sessionMonths > 0 ? recurringAnnual / sessionMonths : 0;
+                                        recurringAnnual > 0 ? recurringAnnual / chargeableDisplay : 0;
                                     return (
                                         <TableRow key={s._id} className="border-gray-100">
                                             <TableCell className="font-medium">{s.class}</TableCell>
@@ -439,7 +507,50 @@ export default function FeeStructurePage() {
                                     </div>
                                 ))}
                             </div>
-                            <p className="mt-2 text-sm font-medium text-gray-700">Total (annual): {formatCurrency(totalAmount)} <span className="text-gray-500 font-normal">— monthly × 12, one-time as-is</span></p>
+                            <div className="mt-4 space-y-2 rounded-lg border border-gray-100 bg-gray-50/80 p-3">
+                                <Label className="text-gray-800">Fee exempt months</Label>
+                                <p className="text-xs text-gray-500">
+                                    No monthly fee (including transport in ledger) for selected session months.
+                                </p>
+                                <div className="flex flex-wrap gap-2">
+                                    {sessionMonthNames.map((name) => {
+                                        const checked = (feeExemptMonthsSelected || []).includes(name);
+                                        return (
+                                            <label
+                                                key={name}
+                                                className="flex cursor-pointer items-center gap-1.5 rounded-md border border-gray-200 bg-white px-2 py-1 text-xs"
+                                            >
+                                                <input
+                                                    type="checkbox"
+                                                    checked={checked}
+                                                    onChange={() => {
+                                                        const cur = form.getValues("feeExemptMonths") || [];
+                                                        if (checked) {
+                                                            form.setValue(
+                                                                "feeExemptMonths",
+                                                                cur.filter((m) => m !== name),
+                                                                { shouldDirty: true }
+                                                            );
+                                                        } else {
+                                                            form.setValue("feeExemptMonths", [...cur, name], {
+                                                                shouldDirty: true,
+                                                            });
+                                                        }
+                                                    }}
+                                                />
+                                                {name}
+                                            </label>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                            <p className="mt-2 text-sm font-medium text-gray-700">
+                                Total (annual): {formatCurrency(totalAmount)}{" "}
+                                <span className="font-normal text-gray-500">
+                                    — monthly × {recurringMult}
+                                    {recurringMult !== 12 ? " (session chargeable months)" : ""}, one-time as-is
+                                </span>
+                            </p>
                         </div>
                         <div className="flex justify-end gap-2">
                             <Button type="button" variant="outline" onClick={() => setModalOpen(false)}>Cancel</Button>
