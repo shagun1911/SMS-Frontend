@@ -45,7 +45,8 @@ function formatDate(d: string | Date) {
 }
 
 export default function FeesPage() {
-    const today = new Date();
+    // Stabilize 'today' to prevent recalculating useMemo dependencies on every render
+    const [today] = useState(() => new Date());
     const [searchTerm, setSearchTerm] = useState("");
     const [isCollectFeeOpen, setIsCollectFeeOpen] = useState(false);
     const [selectedYear, setSelectedYear] = useState(today.getFullYear());

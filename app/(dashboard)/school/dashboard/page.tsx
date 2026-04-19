@@ -1,17 +1,19 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, lazy, Suspense } from "react";
 import { useAuthStore } from "@/store/authStore";
 import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import api from "@/lib/api";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { StatCard } from "@/components/dashboard/stat-card";
-import { OverviewChart } from "@/components/dashboard/overview-chart";
-import { GenderRatioChart } from "@/components/dashboard/gender-ratio-chart";
 import { RecentActivity } from "@/components/dashboard/recent-activity";
-import { AiChatPanel } from "@/components/ai/ai-chat-panel";
 import { usePlanLimits } from "@/context/plan-limits";
+
+// Lazy load heavy chart components that use Recharts
+const OverviewChart = lazy(() => import("@/components/dashboard/overview-chart").then(m => ({ default: m.OverviewChart })));
+const GenderRatioChart = lazy(() => import("@/components/dashboard/gender-ratio-chart").then(m => ({ default: m.GenderRatioChart })));
+const AiChatPanel = lazy(() => import("@/components/ai/ai-chat-panel").then(m => ({ default: m.AiChatPanel })));
 import {
     School,
     Users,
@@ -171,6 +173,7 @@ export default function SchoolDashboardPage() {
         },
         enabled: !isTeacher,
         retry: 1,
+        staleTime: 5 * 60 * 1000, // 5 minutes stale time for dashboard stats
     });
 
     const { data: feeStats } = useQuery({
@@ -180,6 +183,7 @@ export default function SchoolDashboardPage() {
             return res.data.data;
         },
         enabled: !isTeacher,
+        staleTime: 5 * 60 * 1000,
     });
 
     if (!isTeacher && isLoading && !isError && !statsWaitTimedOut) {
@@ -214,7 +218,9 @@ export default function SchoolDashboardPage() {
                 {/* Mobile: AI first (only if plan includes AI) */}
                 {hasFeature("ai") && (
                     <div className="lg:hidden">
-                        <AiChatPanel />
+                        <Suspense fallback={<div className="h-[400px] w-full animate-pulse rounded-lg bg-muted" />}>
+                            <AiChatPanel />
+                        </Suspense>
                     </div>
                 )}
 
@@ -357,13 +363,15 @@ export default function SchoolDashboardPage() {
                             <CardTitle className="text-sm font-semibold text-[hsl(var(--foreground))]">Fee collection overview</CardTitle>
                         </CardHeader>
                         <CardContent className="pl-0">
-                            <OverviewChart
-                                data={
-                                    feeStats?.monthlyCollection?.length
-                                        ? feeStats.monthlyCollection.map((m: { month: string; amount: number }) => ({ name: m.month, total: m.amount }))
-                                        : stats?.monthlyTrends
-                                }
-                            />
+                            <Suspense fallback={<div className="h-[300px] w-full animate-pulse rounded-lg bg-muted" />}>
+                                <OverviewChart
+                                    data={
+                                        feeStats?.monthlyCollection?.length
+                                            ? feeStats.monthlyCollection.map((m: { month: string; amount: number }) => ({ name: m.month, total: m.amount }))
+                                            : stats?.monthlyTrends
+                                    }
+                                />
+                            </Suspense>
                         </CardContent>
                     </Card>
                     <Card className="animate-fade-in-up animation-delay-300 col-span-1 lg:col-span-3 rounded-2xl border border-[hsl(var(--border))] bg-[hsl(var(--card))] shadow-card" style={{ animationFillMode: "both" }}>
@@ -371,7 +379,9 @@ export default function SchoolDashboardPage() {
                             <CardTitle className="text-sm font-semibold text-[hsl(var(--foreground))]">Student gender ratio</CardTitle>
                         </CardHeader>
                         <CardContent>
-                            <GenderRatioChart data={stats?.genderRatio} />
+                            <Suspense fallback={<div className="h-[250px] w-full animate-pulse rounded-lg bg-muted" />}>
+                                <GenderRatioChart data={stats?.genderRatio} />
+                            </Suspense>
                         </CardContent>
                     </Card>
                 </div>
@@ -447,7 +457,9 @@ export default function SchoolDashboardPage() {
             {hasFeature("ai") && (
                 <aside className="hidden w-[360px] shrink-0 lg:block">
                     <div className="sticky top-4">
-                        <AiChatPanel />
+                        <Suspense fallback={<div className="h-[600px] w-full animate-pulse rounded-lg bg-muted" />}>
+                            <AiChatPanel />
+                        </Suspense>
                     </div>
                 </aside>
             )}
