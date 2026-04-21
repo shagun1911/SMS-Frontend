@@ -22,6 +22,7 @@ export default function MasterDashboardPage() {
             return res.data?.data ?? {};
         },
         retry: 1,
+        staleTime: 60_000,
     });
 
     if (isLoading && !isError && !waitTimedOut) {

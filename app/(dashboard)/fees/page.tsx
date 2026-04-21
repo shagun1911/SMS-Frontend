@@ -58,6 +58,7 @@ export default function FeesPage() {
             const res = await api.get("/sessions");
             return res.data.data ?? [];
         },
+        staleTime: 5 * 60 * 1000,
     });
 
     const activeSess = useMemo(
@@ -175,6 +176,7 @@ export default function FeesPage() {
             const res = await api.get(`/fees/monthly?year=${selectedYear}&month=${selectedMonth}`);
             return res.data.data;
         },
+        staleTime: 60_000,
     });
 
     const stats = monthlyData?.stats;
