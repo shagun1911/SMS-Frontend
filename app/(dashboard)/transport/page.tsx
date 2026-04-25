@@ -586,6 +586,34 @@ export default function TransportPage() {
                                 </Card>
                             </div>
 
+                            {!editMode && busDetails?.location?.latitude && busDetails?.location?.longitude && (
+                                <Card className="rounded-2xl border border-indigo-200 bg-indigo-50/50 shadow-sm">
+                                    <CardHeader className="pb-2">
+                                        <CardTitle className="text-sm text-indigo-900">Live Location</CardTitle>
+                                    </CardHeader>
+                                    <CardContent className="flex items-center justify-between">
+                                        <div>
+                                            <div className="text-sm font-medium text-gray-900">
+                                                {busDetails.location.latitude.toFixed(6)}, {busDetails.location.longitude.toFixed(6)}
+                                            </div>
+                                            <div className={`text-xs mt-1 font-medium ${busDetails.location.isOnline ? "text-emerald-600" : "text-gray-500"}`}>
+                                                {busDetails.location.isOnline ? "Live tracking active" : "Last known location"}
+                                            </div>
+                                        </div>
+                                        <a 
+                                            href={`https://www.google.com/maps?q=${busDetails.location.latitude},${busDetails.location.longitude}`} 
+                                            target="_blank" 
+                                            rel="noopener noreferrer"
+                                        >
+                                            <Button className="bg-indigo-600 hover:bg-indigo-500 h-9 px-4 text-xs shadow-sm">
+                                                <MapPin className="mr-2 h-3.5 w-3.5" />
+                                                Open in Maps
+                                            </Button>
+                                        </a>
+                                    </CardContent>
+                                </Card>
+                            )}
+
                             <Card className="rounded-2xl border border-gray-200 shadow-sm">
                                 <CardHeader className="pb-2">
                                     <CardTitle className="text-sm">
