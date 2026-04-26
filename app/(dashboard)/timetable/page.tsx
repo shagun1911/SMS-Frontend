@@ -235,9 +235,14 @@ export default function TimetablePage() {
 
     // ── Legacy grid PDF ────────────────────────────────────────────────────
     const { data: gridData } = useQuery({
-        queryKey: ["timetable-grid"],
+        queryKey: ["timetable-grid", selectedClass?.className, selectedClass?.section],
         queryFn: async () => {
-            const res = await api.get("/timetable/grid");
+            const params: any = {};
+            if (selectedClass) {
+                params.className = selectedClass.className;
+                params.section = selectedClass.section;
+            }
+            const res = await api.get("/timetable/grid", { params });
             return res.data.data ?? res.data;
         },
         enabled: showLegacyGrid,
@@ -246,10 +251,17 @@ export default function TimetablePage() {
     const handlePdf = async (action: "preview" | "download" | "print") => {
         setPdfAction(action);
         try {
-            const res = await api.get(
-                `/timetable/print${action === "preview" ? "?preview=1" : ""}`,
-                { responseType: "blob" }
-            );
+            const params: any = {};
+            if (action === "preview") params.preview = "1";
+            if (selectedClass) {
+                params.className = selectedClass.className;
+                params.section = selectedClass.section;
+            }
+
+            const res = await api.get("/timetable/print", {
+                params,
+                responseType: "blob",
+            });
             const blob = res.data as Blob;
             const url = URL.createObjectURL(blob);
             if (action === "preview") {
