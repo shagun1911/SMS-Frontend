@@ -8,7 +8,7 @@ export type TimetableBreakInput = {
 
 export type TimetableColumn =
     | { kind: "period"; periodIndex: number; label: string; startTime: string; endTime: string }
-    | { kind: "break"; afterPeriod: number; label: string; durationMinutes: number };
+    | { kind: "break"; afterPeriod: number; label: string; durationMinutes: number; startTime: string; endTime: string };
 
 function parseTimeToMins(s: string): number {
     const [h, m] = (s || "08:00").split(":").map(Number);
@@ -68,13 +68,17 @@ export function buildTimetableColumns(
     const pushBreaksFor = (afterPeriod: number) => {
         const list = byAfter.get(afterPeriod) || [];
         for (const b of list) {
+            const start = formatMins(mins);
+            mins += b.durationMinutes;
+            const end = formatMins(mins);
             cols.push({
                 kind: "break",
                 afterPeriod,
                 label: b.label,
                 durationMinutes: b.durationMinutes,
+                startTime: start,
+                endTime: end,
             });
-            mins += b.durationMinutes;
         }
     };
 
@@ -99,7 +103,7 @@ export function buildTimetableColumns(
 
 export type ScheduleColumnDto =
     | { kind: "period"; label: string; time: string; startTime: string; endTime: string }
-    | { kind: "break"; label: string; shortLabel: string; time: string; durationMinutes: number };
+    | { kind: "break"; label: string; shortLabel: string; time: string; durationMinutes: number; startTime: string; endTime: string };
 
 export function buildScheduleColumnDtos(settings: {
     periodCount?: number;
@@ -120,8 +124,10 @@ export function buildScheduleColumnDtos(settings: {
                   kind: "break" as const,
                   label: c.label,
                   shortLabel: c.label.trim().toUpperCase(),
-                  time: `${c.durationMinutes} min`,
+                  time: `${c.startTime} – ${c.endTime}`,
                   durationMinutes: c.durationMinutes,
+                  startTime: c.startTime,
+                  endTime: c.endTime,
               }
             : {
                   kind: "period" as const,

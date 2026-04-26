@@ -191,8 +191,8 @@ export default function TimetablePage() {
                     if (col.kind === "break") {
                         const isLunch = /lunch/i.test(col.label);
                         return {
-                            startTime: col.time?.split("–")[0]?.trim() || "",
-                            endTime: col.time?.split("–")[1]?.trim() || "",
+                            startTime: col.startTime || "",
+                            endTime: col.endTime || "",
                             type: isLunch ? "lunch" : "break",
                             title: col.label,
                             subject: col.label,
