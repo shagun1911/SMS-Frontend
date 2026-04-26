@@ -63,6 +63,75 @@ function breaksFromSettings(settings: any): FormValues["breaks"] {
     }));
 }
 
+function ClassSettingBreaks({ control, nestIndex, register, errors }: any) {
+    const { fields, remove, append } = useFieldArray({
+        control,
+        name: `classSettings.${nestIndex}.breaks`,
+    });
+
+    return (
+        <div className="space-y-3 mt-4 border-t border-gray-100 pt-3">
+            <div className="flex items-center justify-between">
+                <Label className="text-xs font-semibold text-gray-700">Class Breaks</Label>
+                <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-7 text-xs px-2"
+                    onClick={() => append({ afterPeriod: 4, label: "Break", durationMinutes: 15 })}
+                >
+                    <Plus className="mr-1 h-3 w-3" /> Add break
+                </Button>
+            </div>
+            {errors?.root && <p className="text-xs text-red-600">{String(errors.root.message)}</p>}
+            <div className="space-y-2">
+                {fields.map((item, k) => (
+                    <div key={item.id} className="grid gap-2 grid-cols-[1fr_1.2fr_1fr_auto] items-end bg-gray-50/50 p-2 rounded-md border border-gray-100">
+                        <div className="space-y-1">
+                            <Label className="text-[10px] text-gray-500">After period</Label>
+                            <input
+                                type="number"
+                                min={0}
+                                max={12}
+                                className="flex h-8 w-full rounded-md border border-gray-200 px-2 text-xs"
+                                {...register(`classSettings.${nestIndex}.breaks.${k}.afterPeriod`, { valueAsNumber: true })}
+                            />
+                        </div>
+                        <div className="space-y-1">
+                            <Label className="text-[10px] text-gray-500">Label</Label>
+                            <Input
+                                className="h-8 text-xs"
+                                {...register(`classSettings.${nestIndex}.breaks.${k}.label`)}
+                                placeholder="e.g. Lunch"
+                            />
+                        </div>
+                        <div className="space-y-1">
+                            <Label className="text-[10px] text-gray-500">Minutes</Label>
+                            <input
+                                type="number"
+                                min={5}
+                                max={120}
+                                className="flex h-8 w-full rounded-md border border-gray-200 px-2 text-xs"
+                                {...register(`classSettings.${nestIndex}.breaks.${k}.durationMinutes`, { valueAsNumber: true })}
+                            />
+                        </div>
+                        <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-red-500 hover:bg-red-50"
+                            onClick={() => remove(k)}
+                            disabled={fields.length <= 1}
+                        >
+                            <Trash2 className="h-4 w-4" />
+                        </Button>
+                    </div>
+                ))}
+            </div>
+        </div>
+    );
+}
+
 export default function TimetableSettingsPage() {
     const queryClient = useQueryClient();
     const [workingDays, setWorkingDays] = useState<string[]>(DEFAULT_WORKING_DAYS);
@@ -439,6 +508,12 @@ export default function TimetableSettingsPage() {
                                             />
                                         </div>
                                     </div>
+                                    <ClassSettingBreaks
+                                        control={form.control}
+                                        nestIndex={idx}
+                                        register={form.register}
+                                        errors={form.formState.errors.classSettings?.[idx]?.breaks}
+                                    />
                                 </div>
                             ))}
                             <Button
