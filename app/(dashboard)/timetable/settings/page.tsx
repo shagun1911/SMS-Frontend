@@ -4,20 +4,32 @@ import { useForm, useFieldArray } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Loader2, Save, Plus, Trash2 } from "lucide-react";
+import { Loader2, Save, Plus, Trash2, Settings2, CalendarCheck2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import api from "@/lib/api";
 import { toast } from "sonner";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { normalizeTimetableBreaks } from "@/lib/timetableSchedule";
+
+const ALL_DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+const DEFAULT_WORKING_DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
 const breakRowSchema = z.object({
     afterPeriod: z.number().min(0).max(12),
     label: z.string().min(1).max(40),
     durationMinutes: z.number().min(5).max(120),
+});
+
+const classSettingRowSchema = z.object({
+    className: z.string().min(1),
+    section: z.string().min(1),
+    periodCount: z.number().min(1).max(12),
+    periodDurationMinutes: z.number().min(10).max(120),
+    firstPeriodStart: z.string().min(1),
+    breaks: z.array(breakRowSchema),
 });
 
 const schema = z.object({
@@ -26,6 +38,7 @@ const schema = z.object({
     periodDurationMinutes: z.number().min(30).max(60),
     subjects: z.string().optional(),
     breaks: z.array(breakRowSchema).min(1, "Add at least one break"),
+    classSettings: z.array(classSettingRowSchema).optional(),
 });
 
 type FormValues = z.infer<typeof schema>;
@@ -52,6 +65,9 @@ function breaksFromSettings(settings: any): FormValues["breaks"] {
 
 export default function TimetableSettingsPage() {
     const queryClient = useQueryClient();
+    const [workingDays, setWorkingDays] = useState<string[]>(DEFAULT_WORKING_DAYS);
+    const [workingDaysInitialized, setWorkingDaysInitialized] = useState(false);
+    const [showClassSettings, setShowClassSettings] = useState(false);
 
     const { data: settings, isLoading } = useQuery({
         queryKey: ["timetable-settings"],
@@ -61,7 +77,34 @@ export default function TimetableSettingsPage() {
         },
     });
 
+    // Initialize workingDays from server once
+    useMemo(() => {
+        if (settings && !workingDaysInitialized) {
+            if (Array.isArray(settings.workingDays) && settings.workingDays.length > 0) {
+                setWorkingDays(settings.workingDays);
+            }
+            setWorkingDaysInitialized(true);
+        }
+    }, [settings, workingDaysInitialized]);
+
     const defaultBreaks = useMemo(() => breaksFromSettings(settings), [settings]);
+    const defaultClassSettings: FormValues["classSettings"] = useMemo(
+        () =>
+            Array.isArray(settings?.classSettings)
+                ? settings.classSettings.map((cs: any) => ({
+                      className: cs.className || "",
+                      section: cs.section || "A",
+                      periodCount: cs.periodCount ?? 7,
+                      periodDurationMinutes: cs.periodDurationMinutes ?? 40,
+                      firstPeriodStart: cs.firstPeriodStart || "08:00",
+                      breaks:
+                          cs.breaks?.length > 0
+                              ? cs.breaks
+                              : [{ afterPeriod: 4, label: "Lunch Break", durationMinutes: 40 }],
+                  }))
+                : [],
+        [settings]
+    );
 
     const form = useForm<FormValues>({
         resolver: zodResolver(schema),
@@ -71,6 +114,7 @@ export default function TimetableSettingsPage() {
             periodDurationMinutes: 40,
             subjects: "",
             breaks: [{ afterPeriod: 4, label: "Lunch Break", durationMinutes: 40 }],
+            classSettings: [],
         },
         values: settings
             ? {
@@ -79,11 +123,28 @@ export default function TimetableSettingsPage() {
                   periodDurationMinutes: settings.periodDurationMinutes ?? 40,
                   subjects: Array.isArray(settings.subjects) ? settings.subjects.join(", ") : "",
                   breaks: defaultBreaks,
+                  classSettings: defaultClassSettings,
               }
             : undefined,
     });
 
     const { fields, append, remove } = useFieldArray({ control: form.control, name: "breaks" });
+    const {
+        fields: csFields,
+        append: csAppend,
+        remove: csRemove,
+    } = useFieldArray({ control: form.control, name: "classSettings" });
+
+    const toggleDay = (day: string) => {
+        setWorkingDays((prev) => {
+            if (prev.includes(day)) {
+                if (prev.length <= 1) return prev; // keep at least one day
+                return prev.filter((d) => d !== day);
+            }
+            // maintain order
+            return ALL_DAYS.filter((d) => [...prev, day].includes(d));
+        });
+    };
 
     const saveMutation = useMutation({
         mutationFn: async (data: FormValues) => {
@@ -103,6 +164,8 @@ export default function TimetableSettingsPage() {
                 lunchBreakDuration: first?.durationMinutes ?? 40,
                 breakLabel: first?.label ?? "Break",
                 subjects,
+                workingDays,
+                classSettings: data.classSettings ?? [],
             });
         },
         onSuccess: () => {
@@ -126,16 +189,18 @@ export default function TimetableSettingsPage() {
             <div>
                 <h2 className="text-2xl font-bold tracking-tight text-gray-900">Timetable Settings</h2>
                 <p className="mt-1 text-sm text-gray-500">
-                    Set period times and add as many breaks as you need (after which period, label, duration).
+                    Configure working days, period times, breaks, and optional per-class overrides.
                 </p>
             </div>
-            <Card className="max-w-3xl border border-gray-200 bg-white shadow-sm">
-                <CardHeader>
-                    <CardTitle>General</CardTitle>
-                    <CardDescription>These settings apply to the school-wide grid, per-class timetables, and PDFs.</CardDescription>
-                </CardHeader>
-                <CardContent>
-                    <form onSubmit={form.handleSubmit((data) => saveMutation.mutate(data))} className="space-y-6">
+
+            <form onSubmit={form.handleSubmit((data) => saveMutation.mutate(data))} className="space-y-6">
+                {/* ── General Settings ── */}
+                <Card className="max-w-3xl border border-gray-200 bg-white shadow-sm">
+                    <CardHeader>
+                        <CardTitle>General</CardTitle>
+                        <CardDescription>These settings apply school-wide unless overridden per class.</CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-6">
                         <div className="grid gap-4 sm:grid-cols-2">
                             <div className="space-y-2">
                                 <Label>Period count</Label>
@@ -166,12 +231,13 @@ export default function TimetableSettingsPage() {
                             </div>
                         </div>
 
+                        {/* Breaks */}
                         <div className="space-y-3 rounded-lg border border-amber-100 bg-amber-50/40 p-4">
                             <div className="flex flex-wrap items-center justify-between gap-2">
                                 <div>
                                     <Label className="text-base font-semibold text-gray-900">Breaks during the day</Label>
                                     <p className="text-xs text-gray-600 mt-0.5">
-                                        <strong>After period</strong>: 0 = before P1; 3 = after P3 (before P4). Add multiple rows for
+                                        <strong>After period</strong>: 0 = before P1; 3 = after P3. Add multiple rows for
                                         water break, lunch, etc.
                                     </p>
                                 </div>
@@ -236,6 +302,7 @@ export default function TimetableSettingsPage() {
                             </div>
                         </div>
 
+                        {/* Subjects */}
                         <div className="space-y-2">
                             <Label>Subjects (comma-separated, for autocomplete)</Label>
                             <textarea
@@ -244,13 +311,162 @@ export default function TimetableSettingsPage() {
                                 {...form.register("subjects")}
                             />
                         </div>
-                        <Button type="submit" className="bg-indigo-600 hover:bg-indigo-500" disabled={saveMutation.isPending}>
-                            {saveMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                            <Save className="mr-2 h-4 w-4" /> Save Settings
-                        </Button>
-                    </form>
-                </CardContent>
-            </Card>
+                    </CardContent>
+                </Card>
+
+                {/* ── Working Days ── */}
+                <Card className="max-w-3xl border border-indigo-100 bg-white shadow-sm">
+                    <CardHeader className="pb-3">
+                        <div className="flex items-center gap-2">
+                            <CalendarCheck2 className="h-5 w-5 text-indigo-600" />
+                            <CardTitle>Working Days</CardTitle>
+                        </div>
+                        <CardDescription>
+                            Only selected days will appear as tabs in the timetable editor. Non-working days are hidden.
+                        </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                        <div className="flex flex-wrap gap-3">
+                            {ALL_DAYS.map((day) => {
+                                const active = workingDays.includes(day);
+                                return (
+                                    <button
+                                        key={day}
+                                        type="button"
+                                        onClick={() => toggleDay(day)}
+                                        className={`min-w-14 rounded-lg border px-4 py-2 text-sm font-semibold transition-all ${
+                                            active
+                                                ? "border-indigo-600 bg-indigo-600 text-white shadow-sm"
+                                                : "border-gray-200 bg-white text-gray-500 hover:border-gray-300"
+                                        } ${workingDays.length <= 1 && active ? "cursor-not-allowed opacity-60" : ""}`}
+                                    >
+                                        {day}
+                                    </button>
+                                );
+                            })}
+                        </div>
+                        <p className="mt-3 text-xs text-gray-500">
+                            Selected: <span className="font-medium text-indigo-700">{workingDays.join(", ")}</span>
+                            {" · "}At least one day must remain selected.
+                        </p>
+                    </CardContent>
+                </Card>
+
+                {/* ── Per-Class Settings (collapsible) ── */}
+                <Card className="max-w-3xl border border-gray-200 bg-white shadow-sm">
+                    <CardHeader className="pb-3">
+                        <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                                <Settings2 className="h-5 w-5 text-gray-600" />
+                                <CardTitle>Per-Class Overrides</CardTitle>
+                            </div>
+                            <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                onClick={() => setShowClassSettings((v) => !v)}
+                            >
+                                {showClassSettings ? "Hide" : "Show"}
+                            </Button>
+                        </div>
+                        <CardDescription>
+                            Optional. If a class has a different period count, duration, or start time, add an override
+                            here. Classes without an override use the global settings above.
+                        </CardDescription>
+                    </CardHeader>
+                    {showClassSettings && (
+                        <CardContent className="space-y-4">
+                            {csFields.length === 0 && (
+                                <p className="text-sm text-gray-400">No overrides yet. Click "Add override" to add one.</p>
+                            )}
+                            {csFields.map((field, idx) => (
+                                <div
+                                    key={field.id}
+                                    className="rounded-lg border border-gray-200 p-4 space-y-3"
+                                >
+                                    <div className="flex items-center justify-between">
+                                        <span className="text-sm font-semibold text-gray-700">Override #{idx + 1}</span>
+                                        <Button
+                                            type="button"
+                                            variant="ghost"
+                                            size="icon"
+                                            className="text-red-500 hover:bg-red-50"
+                                            onClick={() => csRemove(idx)}
+                                        >
+                                            <Trash2 className="h-4 w-4" />
+                                        </Button>
+                                    </div>
+                                    <div className="grid gap-3 sm:grid-cols-2">
+                                        <div className="space-y-1">
+                                            <Label className="text-xs text-gray-500">Class name (e.g. 1, 5A, 10B)</Label>
+                                            <Input
+                                                {...form.register(`classSettings.${idx}.className`)}
+                                                placeholder="1"
+                                            />
+                                        </div>
+                                        <div className="space-y-1">
+                                            <Label className="text-xs text-gray-500">Section</Label>
+                                            <Input
+                                                {...form.register(`classSettings.${idx}.section`)}
+                                                placeholder="A"
+                                            />
+                                        </div>
+                                        <div className="space-y-1">
+                                            <Label className="text-xs text-gray-500">Period count</Label>
+                                            <input
+                                                type="number"
+                                                min={1}
+                                                max={12}
+                                                className="flex h-9 w-full rounded-md border border-gray-200 px-2 text-sm"
+                                                {...form.register(`classSettings.${idx}.periodCount`, { valueAsNumber: true })}
+                                            />
+                                        </div>
+                                        <div className="space-y-1">
+                                            <Label className="text-xs text-gray-500">Period duration (min)</Label>
+                                            <input
+                                                type="number"
+                                                min={10}
+                                                max={120}
+                                                className="flex h-9 w-full rounded-md border border-gray-200 px-2 text-sm"
+                                                {...form.register(`classSettings.${idx}.periodDurationMinutes`, { valueAsNumber: true })}
+                                            />
+                                        </div>
+                                        <div className="space-y-1">
+                                            <Label className="text-xs text-gray-500">First period start</Label>
+                                            <Input
+                                                {...form.register(`classSettings.${idx}.firstPeriodStart`)}
+                                                placeholder="08:00"
+                                            />
+                                        </div>
+                                    </div>
+                                </div>
+                            ))}
+                            <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                onClick={() =>
+                                    csAppend({
+                                        className: "",
+                                        section: "A",
+                                        periodCount: 7,
+                                        periodDurationMinutes: 40,
+                                        firstPeriodStart: "08:00",
+                                        breaks: [{ afterPeriod: 4, label: "Lunch Break", durationMinutes: 40 }],
+                                    })
+                                }
+                            >
+                                <Plus className="mr-1 h-4 w-4" /> Add override
+                            </Button>
+                        </CardContent>
+                    )}
+                </Card>
+
+                <Button type="submit" className="bg-indigo-600 hover:bg-indigo-500" disabled={saveMutation.isPending}>
+                    {saveMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    <Save className="mr-2 h-4 w-4" /> Save Settings
+                </Button>
+            </form>
         </div>
     );
 }
