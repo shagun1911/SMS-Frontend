@@ -11,6 +11,7 @@ import {
   FileDown,
   IdCard,
   TrendingUp,
+  ExternalLink,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -282,9 +283,23 @@ export function StudentProfileView({
     enabled: !isTeacher,
   });
 
+  const { data: feeSummary, isLoading: feeSummaryLoading } = useQuery({
+    queryKey: ["student-fee-summary", student._id],
+    queryFn: async () => {
+      const res = await api.get(`/fees/student/${student._id}`);
+      return res.data.data;
+    },
+    enabled: !isTeacher,
+  });
+
   const fmt = (n: number) => `₹${(n || 0).toLocaleString("en-IN")}`;
   const results = examResults ?? [];
   const payments = isTeacher ? [] : (feePayments ?? []);
+  const totalFeeBeforeConcession = feeSummary?.totalFeeBeforeConcession ?? feeSummary?.student?.totalYearlyFee ?? student.totalYearlyFee;
+  const concessionAmount = feeSummary?.concessionAmount ?? 0;
+  const totalFeeAfterConcession = feeSummary?.totalFeeAfterConcession ?? feeSummary?.student?.totalYearlyFee ?? student.totalYearlyFee;
+  const paidAmount = feeSummary?.paidAmount ?? feeSummary?.student?.paidAmount ?? student.paidAmount;
+  const dueAmount = feeSummary?.dueAmount ?? feeSummary?.student?.dueAmount ?? student.dueAmount;
 
   const overallPercentage =
     results.length > 0
@@ -499,25 +514,35 @@ export function StudentProfileView({
 
       <div
         className={`grid gap-3 ${
-          isTeacher ? "grid-cols-1 sm:grid-cols-2" : "grid-cols-2 sm:grid-cols-4"
+          isTeacher ? "grid-cols-1 sm:grid-cols-2" : "grid-cols-2 sm:grid-cols-6"
         }`}
       >
         {!isTeacher && (
           <>
             <StatCard
               label="Total Fee"
-              value={fmt(student.totalYearlyFee)}
+              value={fmt(totalFeeBeforeConcession)}
+              color="blue"
+            />
+            <StatCard
+              label="Concession"
+              value={fmt(concessionAmount)}
+              color="purple"
+            />
+            <StatCard
+              label="After Concession"
+              value={fmt(totalFeeAfterConcession)}
               color="blue"
             />
             <StatCard
               label="Paid"
-              value={fmt(student.paidAmount)}
+              value={fmt(paidAmount)}
               color="emerald"
             />
             <StatCard
               label="Due"
-              value={fmt(student.dueAmount)}
-              color={student.dueAmount > 0 ? "rose" : "emerald"}
+              value={fmt(dueAmount)}
+              color={dueAmount > 0 ? "rose" : "emerald"}
             />
           </>
         )}
@@ -527,6 +552,47 @@ export function StudentProfileView({
           color="purple"
         />
       </div>
+
+      {/* Detailed Fee Breakdown */}
+      {!isTeacher && feeSummary && (
+        <Card className="p-5">
+          <h3 className="font-semibold text-gray-900 mb-4">Fee Breakdown</h3>
+          {feeSummaryLoading ? (
+            <div className="flex h-20 items-center justify-center">
+              <div className="h-5 w-5 animate-spin rounded-full border-2 border-gray-400 border-t-transparent" />
+            </div>
+          ) : (
+            <div className="space-y-3">
+              <div className="grid grid-cols-2 gap-4 text-sm">
+                <div className="bg-blue-50 p-3 rounded-lg">
+                  <p className="text-blue-600 text-xs uppercase tracking-wide mb-1">Monthly Fee</p>
+                  <p className="font-semibold text-gray-900">{fmt(feeSummary.monthlyFee || 0)}/month</p>
+                </div>
+                <div className="bg-purple-50 p-3 rounded-lg">
+                  <p className="text-purple-600 text-xs uppercase tracking-wide mb-1">One-Time Fee</p>
+                  <p className="font-semibold text-gray-900">{fmt(feeSummary.oneTimeFee || 0)}</p>
+                </div>
+              </div>
+              {feeSummary.sessionMonthlyFees && feeSummary.sessionMonthlyFees.length > 0 && (
+                <div>
+                  <p className="text-xs text-gray-500 uppercase tracking-wide mb-2">Monthly Fee Status</p>
+                  <div className="space-y-1 max-h-48 overflow-y-auto">
+                    {feeSummary.sessionMonthlyFees.map((fee: any, idx: number) => (
+                      <div key={idx} className="flex items-center justify-between py-2 px-3 bg-gray-50 rounded-lg text-sm">
+                        <span className="text-gray-700">{fee.month}</span>
+                        <div className="text-right">
+                          <p className="font-medium text-gray-900">{fmt(fee.totalAmount)}</p>
+                          <p className="text-xs text-gray-500">Paid: {fmt(fee.paidAmount)}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </Card>
+      )}
 
       <Card className="p-4">
         <div className="flex flex-wrap gap-4 text-sm">
@@ -758,6 +824,7 @@ export function StudentProfileView({
                       <th className="px-4 py-2.5 text-left">Payment Detail</th>
                       <th className="px-4 py-2.5 text-left">Mode</th>
                       <th className="px-4 py-2.5 text-left">Receipt</th>
+                      <th className="px-4 py-2.5 text-left">View</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -789,6 +856,17 @@ export function StudentProfileView({
                         </td>
                         <td className="px-4 py-2.5 text-xs text-gray-400">
                           {p.receiptNumber || "—"}
+                        </td>
+                        <td className="px-4 py-2.5">
+                          {p._id && (
+                            <button
+                              onClick={() => window.open(`/api/fees/receipts/${p._id}?preview=1`, '_blank')}
+                              className="text-indigo-600 hover:text-indigo-800 text-xs flex items-center gap-1"
+                            >
+                              <ExternalLink className="h-3 w-3" />
+                              View
+                            </button>
+                          )}
                         </td>
                       </tr>
                     ))}
