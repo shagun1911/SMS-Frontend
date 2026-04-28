@@ -14,6 +14,8 @@ const api = axios.create({
     timeout: 60_000,
 });
 
+let refreshRequest: Promise<{ token: string; refreshToken: string }> | null = null;
+
 function clientLocalCalendarYmd(): string {
     const n = new Date();
     const y = n.getFullYear();
@@ -46,7 +48,6 @@ api.interceptors.response.use(
             originalRequest._retry = true;
 
             try {
-                const { refreshToken } = useAuthStore.getState();
                 const rehydrated =
                     !useAuthStore.persist ||
                     useAuthStore.persist.hasHydrated() ||
@@ -54,21 +55,24 @@ api.interceptors.response.use(
                 if (!rehydrated) {
                     return Promise.reject(error);
                 }
-                if (!refreshToken) {
-                    // No way to recover; this is a confirmed invalid session.
-                    useAuthStore.getState().logout();
-                    if (typeof window !== 'undefined') window.location.href = '/login';
-                    return Promise.reject(error);
+
+                if (!refreshRequest) {
+                    refreshRequest = (async () => {
+                        const { refreshToken } = useAuthStore.getState();
+                        if (!refreshToken) {
+                            throw new Error('No refresh token');
+                        }
+                        const { data } = await axios.post(`${baseURL}/auth/refresh-token`, { refreshToken });
+                        return {
+                            token: data.token,
+                            refreshToken: data.refreshToken ?? refreshToken,
+                        };
+                    })().finally(() => {
+                        refreshRequest = null;
+                    });
                 }
 
-                // Refresh token call
-                const { data } = await axios.post(
-                    `${baseURL}/auth/refresh-token`,
-                    { refreshToken }
-                );
-
-                const newToken = data.token;
-                const newRefreshToken = data.refreshToken; // If rotated
+                const { token: newToken, refreshToken: newRefreshToken } = await refreshRequest;
 
                 // Update store
                 useAuthStore.getState().setTokens(newToken, newRefreshToken);
@@ -82,7 +86,7 @@ api.interceptors.response.use(
                 // Logout only on confirmed auth failure from refresh endpoint.
                 if (refreshStatus === 401 || refreshStatus === 403) {
                     useAuthStore.getState().logout();
-                    window.location.href = '/login';
+                    if (typeof window !== 'undefined') window.location.href = '/login';
                 }
                 return Promise.reject(refreshError);
             }
