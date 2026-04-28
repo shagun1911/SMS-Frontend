@@ -10,7 +10,7 @@ The Expo mobile app has been moved out of this repository so Vercel only builds/
 
 - **Mobile repo**: `git@github.com:shagun1911/SMS-MOBILE.git`
 
-## Getting started
+## Getting started..
 
 Install dependencies and run the dev server:
 
