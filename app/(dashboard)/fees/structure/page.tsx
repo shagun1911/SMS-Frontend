@@ -295,10 +295,11 @@ export default function FeeStructurePage() {
 
     const confirmStructurePdf = async () => {
         if (!pendingPdfAction) return;
+        // Send explicit "none" so backend never infers a default destination.
         const destinationParam =
             selectedDestinationId && selectedDestinationId !== "none"
                 ? selectedDestinationId
-                : undefined;
+                : "none";
         setPdfPickerOpen(false);
         await executeStructurePdf(
             pendingPdfAction.id,
