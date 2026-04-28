@@ -25,6 +25,7 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { QRCodeSVG } from "qrcode.react";
 import { useEffect, useRef } from "react";
+import { StudentRegistrationSuccess } from "@/components/dashboard/student-registration-success";
 
 const studentSchema = z.object({
     admissionNumber: z.string().optional(),
@@ -70,6 +71,7 @@ export function AddStudentModal({ isOpen, onClose }: AddStudentModalProps) {
     const [photoPreview, setPhotoPreview] = useState<string | null>(null);
     const [isUploading, setIsUploading] = useState(false);
     const [depositManuallyEdited, setDepositManuallyEdited] = useState(false);
+    const [registeredStudent, setRegisteredStudent] = useState<any>(null);
     const {
         register,
         handleSubmit,
@@ -264,8 +266,6 @@ export function AddStudentModal({ isOpen, onClose }: AddStudentModalProps) {
             else if (t === "monthly") monthlyTotal += c.amount;
         });
 
-        if (monthlyTotal <= 0) return null;
-
         // Get transport fee if selected
         let transportMonthly = 0;
         let transportDestinationName = "";
@@ -277,26 +277,28 @@ export function AddStudentModal({ isOpen, onClose }: AddStudentModalProps) {
             }
         }
 
-        const structureTotal = s.totalAmount ?? s.totalAnnualFee ?? 0;
-        const sessionMonths =
-            structureTotal > 0 && monthlyTotal > 0
-                ? Math.round((structureTotal - oneTimeTotal) / monthlyTotal)
-                : 12;
+        const fullYearMonths = 12;
+        const exemptMonths = Array.isArray(s.feeExemptMonths) ? s.feeExemptMonths : [];
+        const exemptCount = new Set(
+            exemptMonths.map((m: string) => String(m || "").trim()).filter(Boolean)
+        ).size;
+        const busChargeableMonths =
+            typeof s.monthlyMultiplier === "number"
+                ? Math.max(0, Math.min(fullYearMonths, Number(s.monthlyMultiplier) || 0))
+                : Math.max(0, fullYearMonths - exemptCount);
 
         // Concession applies ONLY to base monthly fees (excluding transport)
-        const annualMonthly = monthlyTotal * sessionMonths;
+        const annualMonthly = monthlyTotal * fullYearMonths;
         const fromPercent =
             concessionPercent > 0 ? Math.round((annualMonthly * concessionPercent) / 100) : 0;
         const flat = Math.max(0, Math.round(Number(concessionAmount) || 0));
         const totalConcession = Math.min(annualMonthly, flat + fromPercent);
 
-        if (totalConcession <= 0 && transportMonthly === 0) return null;
-
         const adjustedAnnualMonthly = Math.max(0, annualMonthly - totalConcession);
-        const adjustedPerMonth = Math.round(adjustedAnnualMonthly / sessionMonths);
+        const adjustedPerMonth = Math.round(adjustedAnnualMonthly / fullYearMonths);
         
         // Transport annual fee (not discounted)
-        const annualTransport = transportMonthly * sessionMonths;
+        const annualTransport = transportMonthly * busChargeableMonths;
         
         // Total monthly after concession (base + transport)
         const totalMonthlyAfterConcession = adjustedPerMonth + transportMonthly;
@@ -305,7 +307,8 @@ export function AddStudentModal({ isOpen, onClose }: AddStudentModalProps) {
         const newTotalYearly = adjustedAnnualMonthly + oneTimeTotal + annualTransport;
 
         return {
-            sessionMonths,
+            sessionMonths: fullYearMonths,
+            busChargeableMonths,
             baseMonthlyTotal: monthlyTotal,
             transportMonthly,
             transportDestinationName,
@@ -315,6 +318,7 @@ export function AddStudentModal({ isOpen, onClose }: AddStudentModalProps) {
             adjustedPerMonth,
             totalMonthlyAfterConcession,
             oneTimeTotal,
+            totalBeforeConcession: annualMonthly + oneTimeTotal + annualTransport,
             newTotalYearly,
             flat,
             fromPercent,
@@ -362,14 +366,14 @@ export function AddStudentModal({ isOpen, onClose }: AddStudentModalProps) {
 
     const mutation = useMutation({
         mutationFn: (data: StudentValues) => api.post("/students", data),
-        onSuccess: () => {
+        onSuccess: (response) => {
             queryClient.invalidateQueries({ queryKey: ["students"] });
             toast.success("Student Enrolled", {
                 description: "The student record has been saved to the database."
             });
+            setRegisteredStudent(response.data.data);
             reset();
             setPhotoPreview(null);
-            onClose();
         },
         onError: (error: any) => {
             const msg = error.response?.data?.message || error.response?.data?.error || error.message;
@@ -408,6 +412,11 @@ export function AddStudentModal({ isOpen, onClose }: AddStudentModalProps) {
         }
     };
 
+    const handleSuccessClose = () => {
+        setRegisteredStudent(null);
+        onClose();
+    };
+
     const onSubmit: SubmitHandler<StudentValues> = (data) => {
         const isOnline = ["upi", "online"].includes(data.depositPaymentMode || "");
         if (isOnline && (data.initialDepositAmount || 0) > 0 && status !== "COMPLETED") {
@@ -425,14 +434,15 @@ export function AddStudentModal({ isOpen, onClose }: AddStudentModalProps) {
     };
 
     return (
-        <Modal
-            isOpen={isOpen}
-            onClose={onClose}
-            title="Student Enrollment"
-            description="Complete the registration by providing personal and document details."
-            className="max-w-3xl"
-        >
-            <form onSubmit={handleSubmit(onSubmit)} className="space-y-8 max-h-[75vh] overflow-y-auto px-1 pr-4 scrollbar-hide">
+        <>
+            <Modal
+                isOpen={isOpen}
+                onClose={onClose}
+                title="Student Enrollment"
+                description="Complete the registration by providing personal and document details."
+                className="max-w-3xl"
+            >
+                <form onSubmit={handleSubmit(onSubmit)} className="space-y-8 max-h-[75vh] overflow-y-auto px-1 pr-4 scrollbar-hide">
 
                 {/* Section: Profile Image */}
                 <div className="flex flex-col items-center gap-4 py-4 bg-white/2 border border-white/5 rounded-3xl">
@@ -698,70 +708,45 @@ export function AddStudentModal({ isOpen, onClose }: AddStudentModalProps) {
                             <div className="mt-1 rounded-xl border border-amber-100 bg-amber-50/60 px-4 py-3 text-[11px] text-amber-800 space-y-1">
                                 <p className="font-semibold text-amber-900">Fee breakdown after concession</p>
                                 <div className="grid grid-cols-2 gap-x-4 gap-y-0.5 mt-1">
-                                    <span className="text-zinc-500">Base monthly fee</span>
-                                    <span className="font-medium">₹{concessionBreakdown.baseMonthlyTotal.toLocaleString("en-IN")}/month</span>
-                                    {concessionBreakdown.transportMonthly > 0 ? (
-                                        <>
-                                            <span className="text-zinc-500">Transport fee ({concessionBreakdown.transportDestinationName})</span>
-                                            <span className="font-medium">₹{concessionBreakdown.transportMonthly.toLocaleString("en-IN")}/month</span>
-                                        </>
-                                    ) : null}
-                                    <span className="text-zinc-500 border-t border-amber-100 pt-1">Total monthly before concession</span>
-                                    <span className="font-medium border-t border-amber-100 pt-1">₹{(concessionBreakdown.baseMonthlyTotal + concessionBreakdown.transportMonthly).toLocaleString("en-IN")}/month</span>
-                                    <span className="text-zinc-500">Annual base total ({concessionBreakdown.sessionMonths} mo.)</span>
-                                    <span className="font-medium">₹{concessionBreakdown.annualMonthly.toLocaleString("en-IN")}</span>
+                                    <span className="text-zinc-500 font-medium">Total fee</span>
+                                    <span className="font-medium">
+                                        ₹{concessionBreakdown.totalBeforeConcession.toLocaleString("en-IN")}
+                                    </span>
                                     {concessionBreakdown.annualTransport > 0 ? (
                                         <>
-                                            <span className="text-zinc-500">Annual transport ({concessionBreakdown.sessionMonths} mo.)</span>
-                                            <span className="font-medium">₹{concessionBreakdown.annualTransport.toLocaleString("en-IN")}</span>
-                                        </>
-                                    ) : null}
-                                    {concessionBreakdown.flat > 0 ? (
-                                        <>
-                                            <span className="text-zinc-500">Flat concession</span>
-                                            <span className="font-semibold text-red-600">
-                                                − ₹{concessionBreakdown.flat.toLocaleString("en-IN")}
-                                            </span>
-                                        </>
-                                    ) : null}
-                                    {concessionBreakdown.fromPercent > 0 ? (
-                                        <>
                                             <span className="text-zinc-500">
-                                                From {concessionBreakdown.concessionPercent}% (of base annual)
+                                                Bus fee
+                                                {concessionBreakdown.transportDestinationName
+                                                    ? ` (${concessionBreakdown.transportDestinationName})`
+                                                    : ""}
+                                                {` (${concessionBreakdown.busChargeableMonths} mo.)`}
                                             </span>
-                                            <span className="font-semibold text-red-600">
-                                                − ₹{concessionBreakdown.fromPercent.toLocaleString("en-IN")}
+                                            <span className="font-medium">
+                                                ₹{concessionBreakdown.annualTransport.toLocaleString("en-IN")}
                                             </span>
                                         </>
                                     ) : null}
-                                    <span className="text-zinc-500 font-medium">Total concession (capped at base)</span>
-                                    <span className="font-semibold text-red-700">
-                                        − ₹{concessionBreakdown.totalConcession.toLocaleString("en-IN")}
-                                    </span>
-                                    <span className="text-zinc-500 border-t border-amber-100 pt-1">Adjusted base monthly</span>
-                                    <span className="font-semibold text-teal-700 border-t border-amber-100 pt-1">
-                                        ₹{concessionBreakdown.adjustedPerMonth.toLocaleString("en-IN")}/month
-                                    </span>
-                                    {concessionBreakdown.transportMonthly > 0 ? (
+                                    {concessionBreakdown.totalConcession > 0 ? (
                                         <>
-                                            <span className="text-zinc-500">Total monthly after concession</span>
-                                            <span className="font-semibold text-teal-700">
-                                                ₹{concessionBreakdown.totalMonthlyAfterConcession.toLocaleString("en-IN")}/month
+                                            <span className="text-zinc-500">Concession</span>
+                                            <span className="font-semibold text-red-700">
+                                                − ₹{concessionBreakdown.totalConcession.toLocaleString("en-IN")}
                                             </span>
                                         </>
                                     ) : null}
-                                    {concessionBreakdown.oneTimeTotal > 0 ? (
-                                        <>
-                                            <span className="text-zinc-500">One-time fees (not discounted)</span>
-                                            <span className="font-medium">₹{concessionBreakdown.oneTimeTotal.toLocaleString("en-IN")}</span>
-                                        </>
-                                    ) : null}
-                                    <span className="text-zinc-500 border-t border-amber-200 pt-1 font-medium">Complete yearly fee</span>
+                                    <span className="text-zinc-500 border-t border-amber-200 pt-1 font-medium">
+                                        After concession total fee
+                                    </span>
                                     <span className="font-bold text-indigo-700 border-t border-amber-200 pt-1">
                                         ₹{concessionBreakdown.newTotalYearly.toLocaleString("en-IN")}
                                     </span>
-                                    <span className="text-zinc-500 col-span-2 text-[10px] normal-case pt-1">
-                                        Concession applies only to base monthly fees. Transport and one-time fees are not discounted.
+                                    <span className="text-zinc-500">Fee paid during admission</span>
+                                    <span className="font-medium text-teal-700">
+                                        ₹{Math.max(0, Math.min(concessionBreakdown.newTotalYearly, depositAmount || 0)).toLocaleString("en-IN")}
+                                    </span>
+                                    <span className="text-zinc-500 border-t border-amber-200 pt-1 font-medium">Left fee now</span>
+                                    <span className="font-bold text-orange-700 border-t border-amber-200 pt-1">
+                                        ₹{Math.max(0, concessionBreakdown.newTotalYearly - Math.max(0, Math.min(concessionBreakdown.newTotalYearly, depositAmount || 0))).toLocaleString("en-IN")}
                                     </span>
                                 </div>
                             </div>
@@ -909,6 +894,15 @@ export function AddStudentModal({ isOpen, onClose }: AddStudentModalProps) {
                     </Button>
                 </div>
             </form>
-        </Modal>
+            </Modal>
+
+            {/* Success Modal */}
+            {registeredStudent && (
+                <StudentRegistrationSuccess
+                    student={registeredStudent}
+                    onClose={handleSuccessClose}
+                />
+            )}
+        </>
     );
 }

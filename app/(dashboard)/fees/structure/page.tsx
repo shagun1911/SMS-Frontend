@@ -149,15 +149,9 @@ export default function FeeStructurePage() {
     const { fields, append, remove } = useFieldArray({ control: form.control, name: "components" });
 
     const feeExemptMonthsSelected = form.watch("feeExemptMonths") ?? [];
-    const chargeableMonthCount = Math.max(
-        1,
-        sessionMonthNames.length -
-            feeExemptMonthsSelected.filter((m) => sessionMonthNames.includes(m)).length
-    );
-    const recurringMult =
-        feeExemptMonthsSelected.filter((m) => sessionMonthNames.includes(m)).length > 0
-            ? chargeableMonthCount
-            : 12;
+    // Business rule: fee-exempt months apply to transport only.
+    // Regular monthly components are always charged for full session months.
+    const recurringMult = Math.max(1, sessionMonths);
 
     const totalAmount =
         form.watch("components")?.reduce((s, c) => {
@@ -352,24 +346,20 @@ export default function FeeStructurePage() {
                             </TableHeader>
                             <TableBody>
                                 {structures.map((s: any) => {
-                                    const comps = s.components?.length ? s.components : s.fees || [];
-                                    const total = s.totalAmount ?? s.totalAnnualFee ?? 0;
+                                    const comps = Array.isArray(s.components) ? s.components : [];
                                     const oneTimeTotal = comps.reduce(
                                         (sum: number, c: any) =>
                                             (c?.type === "one-time" ? sum + (c?.amount || 0) : sum),
                                         0
                                     );
-                                    const recurringAnnual = Math.max(0, total - oneTimeTotal);
-                                    const exemptList = Array.isArray(s.feeExemptMonths) ? s.feeExemptMonths : [];
-                                    const exemptInSession = exemptList.filter((m: string) =>
-                                        sessionMonthNames.includes(m)
+                                    const monthlyTotal = comps.reduce(
+                                        (sum: number, c: any) =>
+                                            (c?.type !== "one-time" ? sum + (c?.amount || 0) : sum),
+                                        0
                                     );
-                                    const chargeableDisplay = Math.max(
-                                        1,
-                                        sessionMonthNames.length - exemptInSession.length
-                                    );
-                                    const perMonth =
-                                        recurringAnnual > 0 ? recurringAnnual / chargeableDisplay : 0;
+                                    const recurringAnnual = monthlyTotal * Math.max(1, sessionMonths);
+                                    const total = recurringAnnual + oneTimeTotal;
+                                    const perMonth = monthlyTotal;
                                     return (
                                         <TableRow key={s._id} className="border-gray-100">
                                             <TableCell className="font-medium">{s.class}</TableCell>
@@ -511,7 +501,8 @@ export default function FeeStructurePage() {
                             <div className="mt-4 space-y-2 rounded-lg border border-gray-100 bg-gray-50/80 p-3">
                                 <Label className="text-gray-800">Fee exempt months</Label>
                                 <p className="text-xs text-gray-500">
-                                    No monthly fee (including transport in ledger) for selected session months.
+                                    Exempts transport monthly fee only for selected session months.
+                                    Regular monthly fee components remain chargeable.
                                 </p>
                                 <div className="flex flex-wrap gap-2">
                                     {sessionMonthNames.map((name) => {
@@ -549,7 +540,7 @@ export default function FeeStructurePage() {
                                 Total (annual): {formatCurrency(totalAmount)}{" "}
                                 <span className="font-normal text-gray-500">
                                     — monthly × {recurringMult}
-                                    {recurringMult !== 12 ? " (session chargeable months)" : ""}, one-time as-is
+                                    {recurringMult !== 12 ? " (session months)" : ""}, one-time as-is
                                 </span>
                             </p>
                         </div>
