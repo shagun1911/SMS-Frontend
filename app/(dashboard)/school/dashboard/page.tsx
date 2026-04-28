@@ -8,6 +8,9 @@ import api from "@/lib/api";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { StatCard } from "@/components/dashboard/stat-card";
 import { RecentActivity } from "@/components/dashboard/recent-activity";
+import { AdmissionEnquiryCard } from "@/components/dashboard/admission-enquiry-card";
+import { TodaysCollectionCard } from "@/components/dashboard/todays-collection-card";
+import { StudentsClasswiseCard } from "@/components/dashboard/students-classwise-card";
 import { usePlanLimits } from "@/context/plan-limits";
 
 // Lazy load heavy chart components that use Recharts
@@ -421,18 +424,16 @@ export default function SchoolDashboardPage() {
                     </Card>
                 </div>
 
-                {/* Recent activity full width */}
-                <Card className="animate-fade-in-up animation-delay-500 rounded-2xl border border-[hsl(var(--border))] bg-[hsl(var(--card))] shadow-card" style={{ animationFillMode: "both" }}>
-                    <CardHeader>
-                        <CardTitle className="flex items-center gap-2 text-sm font-semibold text-[hsl(var(--foreground))]">
-                            <School className="h-4 w-4 text-primary" />
-                            Recent activity
-                        </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        <RecentActivity activities={stats?.recentActivities} />
-                    </CardContent>
-                </Card>
+                {/* Admission Enquiry Card */}
+                <div className="animate-fade-in-up animation-delay-500" style={{ animationFillMode: "both" }}>
+                    <AdmissionEnquiryCard />
+                </div>
+
+                {/* Today's Collection and Students Classwise Cards */}
+                <div className="grid gap-6 lg:grid-cols-2 animate-fade-in-up animation-delay-600" style={{ animationFillMode: "both" }}>
+                    <TodaysCollectionCard />
+                    <StudentsClasswiseCard />
+                </div>
 
                 {/* Defaulters CTA */}
                 {((feeStats?.defaulterCount ?? stats?.pendingFeesCount) ?? 0) > 0 && (

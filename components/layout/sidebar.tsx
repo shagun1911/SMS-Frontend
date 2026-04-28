@@ -34,6 +34,7 @@ import {
     Megaphone,
     Headphones,
     Activity,
+    Phone,
 } from "lucide-react";
 import { usePlanLimits } from "@/context/plan-limits";
 
@@ -136,6 +137,7 @@ export function Sidebar({ className }: SidebarProps) {
         { label: "Timetable", icon: CalendarDays, href: "/timetable", roles: [UserRole.SCHOOL_ADMIN, UserRole.TEACHER], featureKey: "timetable" },
         { label: "Promotion", icon: ArrowUpRight, href: "/promotion", roles: [UserRole.SCHOOL_ADMIN], featureKey: "students" },
         { label: "Notifications", icon: Bell, href: "/notifications", roles: [UserRole.SCHOOL_ADMIN], featureKey: "students" },
+        { label: "Admission Enquiry", icon: Phone, href: "/admission-enquiry", roles: [UserRole.SCHOOL_ADMIN, UserRole.ACCOUNTANT] },
         { label: "Sessions", icon: CalendarDays, href: "/sessions", roles: [UserRole.SCHOOL_ADMIN], featureKey: "sessions" },
         { label: "Plan & Billing", icon: Sparkles, href: "/plan", roles: [UserRole.SCHOOL_ADMIN], featureKey: "plan_billing" },
         { label: "Support", icon: Headphones, href: "/support", roles: [UserRole.SCHOOL_ADMIN] },
