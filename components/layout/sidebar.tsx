@@ -135,6 +135,7 @@ export function Sidebar({ className }: SidebarProps) {
         { label: "Fee Demand Slip", icon: FileTextIcon, href: "/fee-demand-slip", roles: [UserRole.SCHOOL_ADMIN, UserRole.ACCOUNTANT], featureKey: "fees" },
         { label: "Transport", icon: Bus, href: "/transport", roles: [UserRole.SCHOOL_ADMIN, UserRole.TRANSPORT_MANAGER], featureKey: "transport" },
         { label: "Exams", icon: FileText, href: "/exams", roles: [UserRole.SCHOOL_ADMIN, UserRole.TEACHER], featureKey: "exams" },
+        { label: "Create Test Paper", icon: FileText, href: "/test-paper", roles: [UserRole.SCHOOL_ADMIN, UserRole.TEACHER], featureKey: "exams" },
         { label: "Admit Cards", icon: IdCard, href: "/admit-cards", roles: [UserRole.SCHOOL_ADMIN, UserRole.TEACHER], featureKey: "admit_cards" },
         { label: "Timetable", icon: CalendarDays, href: "/timetable", roles: [UserRole.SCHOOL_ADMIN, UserRole.TEACHER], featureKey: "timetable" },
         { label: "Promotion", icon: ArrowUpRight, href: "/promotion", roles: [UserRole.SCHOOL_ADMIN], featureKey: "students" },
